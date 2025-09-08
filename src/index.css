@@ -8,35 +8,48 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    /* Cosmic Golden Theme for Cavaleiros dos Elementos */
+    --background: 230 25% 6%;
+    --foreground: 45 100% 85%;
 
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card: 230 20% 8%;
+    --card-foreground: 45 90% 82%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover: 230 18% 10%;
+    --popover-foreground: 45 85% 80%;
 
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
+    --primary: 45 100% 50%; /* Golden */
+    --primary-foreground: 230 25% 10%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 280 40% 25%; /* Deep Purple */
+    --secondary-foreground: 45 85% 75%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --muted: 230 15% 15%;
+    --muted-foreground: 45 30% 60%;
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --accent: 320 60% 40%; /* Cosmic Purple */
+    --accent-foreground: 45 100% 90%;
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 84% 50%;
+    --destructive-foreground: 45 100% 95%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --border: 230 20% 18%;
+    --input: 230 15% 12%;
+    --ring: 45 100% 60%;
 
-    --radius: 0.5rem;
+    /* Cosmic Elements */
+    --cosmic-gold: 45 100% 50%;
+    --cosmic-gold-light: 45 100% 70%;
+    --cosmic-purple: 280 60% 30%;
+    --cosmic-blue: 220 70% 40%;
+    --space-dark: 230 25% 4%;
+    --nebula: 280 40% 15%;
+    
+    --gradient-cosmic: linear-gradient(135deg, hsl(45, 100%, 50%), hsl(280, 60%, 40%));
+    --gradient-nebula: linear-gradient(180deg, hsl(230, 25%, 6%), hsl(280, 40%, 15%));
+    --shadow-cosmic: 0 0 30px hsl(45, 100%, 50%, 0.3);
+    
+    --radius: 0.75rem;
 
     --sidebar-background: 0 0% 98%;
 
@@ -56,33 +69,34 @@ All colors MUST be HSL.
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
+    /* Enhanced Dark Cosmic Theme */
+    --background: 230 30% 3%;
+    --foreground: 45 100% 90%;
 
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
+    --card: 230 25% 5%;
+    --card-foreground: 45 90% 85%;
 
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
+    --popover: 230 20% 7%;
+    --popover-foreground: 45 85% 80%;
 
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
+    --primary: 45 100% 60%; /* Brighter gold in dark */
+    --primary-foreground: 230 30% 8%;
 
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
+    --secondary: 280 50% 20%;
+    --secondary-foreground: 45 90% 80%;
 
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
+    --muted: 230 20% 10%;
+    --muted-foreground: 45 40% 65%;
 
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
+    --accent: 320 70% 45%;
+    --accent-foreground: 45 100% 95%;
 
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 80% 45%;
+    --destructive-foreground: 45 100% 95%;
 
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
+    --border: 230 25% 12%;
+    --input: 230 20% 8%;
+    --ring: 45 100% 70%;
     --sidebar-background: 240 5.9% 10%;
     --sidebar-foreground: 240 4.8% 95.9%;
     --sidebar-primary: 224.3 76.3% 48%;
