@@ -226,6 +226,63 @@ export type Database = {
         }
         Relationships: []
       }
+      element_cards: {
+        Row: {
+          atomic_mass: number
+          atomic_number: number
+          created_at: string | null
+          description: string | null
+          electronegativity: number | null
+          element_type: string
+          group_number: number | null
+          id: string
+          image_url: string | null
+          knight_name: string
+          name: string
+          period_number: number | null
+          rarity: string
+          special_ability: string | null
+          symbol: string
+          updated_at: string | null
+        }
+        Insert: {
+          atomic_mass: number
+          atomic_number: number
+          created_at?: string | null
+          description?: string | null
+          electronegativity?: number | null
+          element_type: string
+          group_number?: number | null
+          id?: string
+          image_url?: string | null
+          knight_name: string
+          name: string
+          period_number?: number | null
+          rarity?: string
+          special_ability?: string | null
+          symbol: string
+          updated_at?: string | null
+        }
+        Update: {
+          atomic_mass?: number
+          atomic_number?: number
+          created_at?: string | null
+          description?: string | null
+          electronegativity?: number | null
+          element_type?: string
+          group_number?: number | null
+          id?: string
+          image_url?: string | null
+          knight_name?: string
+          name?: string
+          period_number?: number | null
+          rarity?: string
+          special_ability?: string | null
+          symbol?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       game_attempts: {
         Row: {
           attempt_number: number
@@ -866,6 +923,45 @@ export type Database = {
           user_id?: string | null
         }
         Relationships: []
+      }
+      user_cards: {
+        Row: {
+          card_id: string
+          id: string
+          obtained_at: string | null
+          quantity: number | null
+          user_id: string
+        }
+        Insert: {
+          card_id: string
+          id?: string
+          obtained_at?: string | null
+          quantity?: number | null
+          user_id: string
+        }
+        Update: {
+          card_id?: string
+          id?: string
+          obtained_at?: string | null
+          quantity?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_cards_card_id_fkey"
+            columns: ["card_id"]
+            isOneToOne: false
+            referencedRelation: "element_cards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_cards_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_challenge_progress: {
         Row: {

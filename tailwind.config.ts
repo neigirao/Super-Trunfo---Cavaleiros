@@ -57,6 +57,15 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
+        /* Cosmic Theme Colors */
+        cosmic: {
+          gold: "hsl(var(--cosmic-gold))",
+          "gold-light": "hsl(var(--cosmic-gold-light))", 
+          purple: "hsl(var(--cosmic-purple))",
+          blue: "hsl(var(--cosmic-blue))",
+          dark: "hsl(var(--space-dark))",
+          nebula: "hsl(var(--nebula))",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",
@@ -80,10 +89,35 @@ export default {
             height: "0",
           },
         },
+        "cosmic-float": {
+          "0%, 100%": {
+            transform: "translateY(0px) rotate(0deg)",
+          },
+          "50%": {
+            transform: "translateY(-20px) rotate(180deg)",
+          },
+        },
+        "stellar-pulse": {
+          "0%, 100%": {
+            opacity: "0.4",
+            transform: "scale(1)",
+          },
+          "50%": {
+            opacity: "1",
+            transform: "scale(1.1)",
+          },
+        },
+        "nebula-drift": {
+          "0%": { transform: "translateX(-100%) rotate(0deg)" },
+          "100%": { transform: "translateX(100vw) rotate(360deg)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+        "cosmic-float": "cosmic-float 6s ease-in-out infinite",
+        "stellar-pulse": "stellar-pulse 2s ease-in-out infinite",
+        "nebula-drift": "nebula-drift 20s linear infinite",
       },
     },
   },
