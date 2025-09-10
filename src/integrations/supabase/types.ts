@@ -1117,6 +1117,33 @@ export type Database = {
           },
         ]
       }
+      user_pack_openings: {
+        Row: {
+          cards_obtained: Json
+          created_at: string
+          id: string
+          opened_at: string
+          pack_type: string
+          user_id: string
+        }
+        Insert: {
+          cards_obtained?: Json
+          created_at?: string
+          id?: string
+          opened_at?: string
+          pack_type: string
+          user_id: string
+        }
+        Update: {
+          cards_obtained?: Json
+          created_at?: string
+          id?: string
+          opened_at?: string
+          pack_type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       users: {
         Row: {
           avatar_url: string | null
@@ -1146,12 +1173,20 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      can_user_open_pack: {
+        Args: { user_uuid: string }
+        Returns: boolean
+      }
       cleanup_expired_notifications: {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }
       get_current_user_role: {
         Args: Record<PropertyKey, never>
+        Returns: string
+      }
+      get_next_pack_opening_date: {
+        Args: { user_uuid: string }
         Returns: string
       }
       is_admin: {

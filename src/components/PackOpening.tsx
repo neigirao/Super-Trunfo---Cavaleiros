@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Package, Star, Sword, Shield, Zap, Sparkles } from 'lucide-react';
+import { Package, Star, Sword, Shield, Zap, Sparkles, Clock, Calendar } from 'lucide-react';
 
 interface ElementCard {
   id: string;
@@ -24,8 +24,6 @@ interface PackType {
   id: string;
   name: string;
   description: string;
-  price: number;
-  cards_per_pack: number;
   icon: typeof Package;
   color: string;
   rarity_chances: {
@@ -38,48 +36,16 @@ interface PackType {
 
 const packTypes: PackType[] = [
   {
-    id: 'starter',
-    name: 'Pacote Iniciante',
-    description: 'Perfeito para começar sua jornada',
-    price: 100,
-    cards_per_pack: 3,
-    icon: Package,
-    color: 'cosmic-green',
-    rarity_chances: {
-      common: 70,
-      rare: 25,
-      epic: 4,
-      legendary: 1
-    }
-  },
-  {
-    id: 'premium',
-    name: 'Pacote Premium',
-    description: 'Cartas mais raras garantidas',
-    price: 250,
-    cards_per_pack: 5,
-    icon: Star,
-    color: 'cosmic-blue',
-    rarity_chances: {
-      common: 50,
-      rare: 35,
-      epic: 12,
-      legendary: 3
-    }
-  },
-  {
-    id: 'legendary',
-    name: 'Pacote Lendário',
-    description: 'Uma carta lendária garantida!',
-    price: 500,
-    cards_per_pack: 7,
-    icon: Sparkles,
+    id: 'weekly',
+    name: 'Pacote Semanal',
+    description: 'Sua carta semanal gratuita - 1 por semana',
+    icon: Calendar,
     color: 'cosmic-gold',
     rarity_chances: {
-      common: 30,
-      rare: 40,
-      epic: 25,
-      legendary: 5
+      common: 60,
+      rare: 30,
+      epic: 8,
+      legendary: 2
     }
   }
 ];
@@ -91,6 +57,72 @@ const PackOpening = () => {
   const [openedCards, setOpenedCards] = useState<ElementCard[]>([]);
   const [showResults, setShowResults] = useState(false);
   const [selectedPack, setSelectedPack] = useState<PackType | null>(null);
+  const [canOpenPack, setCanOpenPack] = useState(false);
+  const [nextOpeningDate, setNextOpeningDate] = useState<Date | null>(null);
+  const [timeUntilNext, setTimeUntilNext] = useState<string>('');
+
+  useEffect(() => {
+    if (user) {
+      checkPackAvailability();
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (nextOpeningDate) {
+      const interval = setInterval(() => {
+        updateCountdown();
+      }, 1000);
+      
+      return () => clearInterval(interval);
+    }
+  }, [nextOpeningDate]);
+
+  const checkPackAvailability = async () => {
+    if (!user) return;
+
+    try {
+      // Verificar se pode abrir pacote
+      const { data: canOpen, error: canOpenError } = await supabase
+        .rpc('can_user_open_pack', { user_uuid: user.id });
+
+      if (canOpenError) throw canOpenError;
+
+      setCanOpenPack(canOpen);
+
+      // Se não pode abrir, buscar próxima data
+      if (!canOpen) {
+        const { data: nextDate, error: nextDateError } = await supabase
+          .rpc('get_next_pack_opening_date', { user_uuid: user.id });
+
+        if (nextDateError) throw nextDateError;
+
+        setNextOpeningDate(new Date(nextDate));
+      }
+    } catch (error: any) {
+      console.error('Erro ao verificar disponibilidade:', error);
+    }
+  };
+
+  const updateCountdown = () => {
+    if (!nextOpeningDate) return;
+
+    const now = new Date();
+    const diff = nextOpeningDate.getTime() - now.getTime();
+
+    if (diff <= 0) {
+      setCanOpenPack(true);
+      setNextOpeningDate(null);
+      setTimeUntilNext('');
+      return;
+    }
+
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+    setTimeUntilNext(`${days}d ${hours}h ${minutes}m ${seconds}s`);
+  };
 
   const getRarityColor = (rarity: string) => {
     switch (rarity) {
@@ -124,7 +156,7 @@ const PackOpening = () => {
   };
 
   const openPack = async (packType: PackType) => {
-    if (!user) return;
+    if (!user || !canOpenPack) return;
 
     setIsOpening(true);
     setSelectedPack(packType);
@@ -144,55 +176,76 @@ const PackOpening = () => {
         throw new Error('Nenhuma carta encontrada');
       }
 
-      // Gerar cartas baseado na raridade
-      const newCards: ElementCard[] = [];
-      for (let i = 0; i < packType.cards_per_pack; i++) {
-        const targetRarity = generateRandomRarity(packType.rarity_chances);
-        const cardsOfRarity = allCards.filter(card => card.rarity === targetRarity);
-        
-        // Se não houver cartas dessa raridade, usar cartas comuns
-        const availableCards = cardsOfRarity.length > 0 ? cardsOfRarity : allCards.filter(card => card.rarity === 'common');
-        const randomCard = availableCards[Math.floor(Math.random() * availableCards.length)];
-        
-        if (randomCard) {
-          newCards.push(randomCard);
+      // Gerar apenas 1 carta baseado na raridade equilibrada
+      const targetRarity = generateRandomRarity(packType.rarity_chances);
+      let cardsOfRarity = allCards.filter(card => card.rarity === targetRarity);
+      
+      // Se não houver cartas dessa raridade, usar lógica de fallback
+      if (cardsOfRarity.length === 0) {
+        // Tentar raridades em ordem decrescente
+        const fallbackOrder = ['epic', 'rare', 'common'];
+        for (const fallbackRarity of fallbackOrder) {
+          cardsOfRarity = allCards.filter(card => card.rarity === fallbackRarity);
+          if (cardsOfRarity.length > 0) break;
         }
       }
 
-      // Adicionar cartas à coleção do usuário
-      for (const card of newCards) {
-        // Verificar se o usuário já tem essa carta
-        const { data: existingCard } = await supabase
-          .from('user_cards')
-          .select('*')
-          .eq('user_id', user.id)
-          .eq('card_id', card.id)
-          .single();
+      const randomCard = cardsOfRarity[Math.floor(Math.random() * cardsOfRarity.length)];
+      
+      if (!randomCard) {
+        throw new Error('Nenhuma carta disponível');
+      }
 
-        if (existingCard) {
-          // Incrementar quantidade
-          await supabase
-            .from('user_cards')
-            .update({ quantity: existingCard.quantity + 1 })
-            .eq('id', existingCard.id);
-        } else {
-          // Adicionar nova carta
-          await supabase
-            .from('user_cards')
-            .insert({
-              user_id: user.id,
-              card_id: card.id,
-              quantity: 1
-            });
-        }
+      const newCards = [randomCard];
+
+      // Registrar abertura do pacote
+      const { error: packOpeningError } = await supabase
+        .from('user_pack_openings')
+        .insert({
+          user_id: user.id,
+          pack_type: packType.id,
+          cards_obtained: newCards.map(card => ({ id: card.id, rarity: card.rarity }))
+        });
+
+      if (packOpeningError) throw packOpeningError;
+
+      // Adicionar carta à coleção do usuário
+      const { data: existingCard } = await supabase
+        .from('user_cards')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('card_id', randomCard.id)
+        .single();
+
+      if (existingCard) {
+        // Incrementar quantidade
+        await supabase
+          .from('user_cards')
+          .update({ quantity: existingCard.quantity + 1 })
+          .eq('id', existingCard.id);
+      } else {
+        // Adicionar nova carta
+        await supabase
+          .from('user_cards')
+          .insert({
+            user_id: user.id,
+            card_id: randomCard.id,
+            quantity: 1
+          });
       }
 
       setOpenedCards(newCards);
       setShowResults(true);
+      setCanOpenPack(false);
+
+      // Calcular próxima data disponível (7 dias a partir de agora)
+      const nextDate = new Date();
+      nextDate.setDate(nextDate.getDate() + 7);
+      setNextOpeningDate(nextDate);
 
       toast({
         title: "Pacote Aberto!",
-        description: `Você obteve ${newCards.length} ${newCards.length === 1 ? 'cavaleiro' : 'cavaleiros'}!`,
+        description: `Você obteve o cavaleiro ${randomCard.knight_name}!`,
       });
 
     } catch (error: any) {
@@ -224,19 +277,19 @@ const PackOpening = () => {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
+      <div className="max-w-md mx-auto">
         {packTypes.map((pack) => {
           const IconComponent = pack.icon;
           return (
             <Card key={pack.id} className="bg-card/80 backdrop-blur-lg border-primary/20 shadow-lg hover:shadow-cosmic transition-all group">
               <CardHeader className="text-center">
                 <div className="flex justify-center mb-4">
-                  <div className={`w-16 h-16 bg-gradient-to-br from-${pack.color} to-${pack.color} rounded-full flex items-center justify-center shadow-cosmic group-hover:scale-110 transition-transform`}>
-                    <IconComponent className="w-8 h-8 text-cosmic-dark" />
+                  <div className={`w-20 h-20 bg-gradient-to-br from-${pack.color} to-${pack.color} rounded-full flex items-center justify-center shadow-cosmic group-hover:scale-110 transition-transform`}>
+                    <IconComponent className="w-10 h-10 text-cosmic-dark" />
                   </div>
                 </div>
                 
-                <CardTitle className="text-xl font-bold text-cosmic-gold">
+                <CardTitle className="text-2xl font-bold text-cosmic-gold">
                   {pack.name}
                 </CardTitle>
                 
@@ -244,45 +297,67 @@ const PackOpening = () => {
                   {pack.description}
                 </CardDescription>
                 
-                <div className="flex justify-center items-center space-x-2 mt-2">
-                  <Badge variant="outline" className="border-cosmic-gold/30 text-xs">
-                    {pack.cards_per_pack} cartas
+                <div className="flex justify-center items-center space-x-2 mt-4">
+                  <Badge variant="outline" className="border-cosmic-gold/30">
+                    1 carta única
                   </Badge>
-                  <Badge variant="outline" className="border-cosmic-blue/30 text-xs">
-                    {pack.price} pontos
+                  <Badge variant="outline" className="border-cosmic-blue/30">
+                    Gratuito
                   </Badge>
                 </div>
               </CardHeader>
 
-              <CardContent>
-                <Button 
-                  className={`w-full bg-gradient-to-r from-${pack.color} to-${pack.color} hover:opacity-90 text-cosmic-dark font-semibold`}
-                  onClick={() => openPack(pack)}
-                  disabled={isOpening}
-                >
-                  {isOpening && selectedPack?.id === pack.id ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-cosmic-dark border-t-transparent mr-2" />
-                      Abrindo...
-                    </>
-                  ) : (
-                    <>
-                      <Package className="w-4 h-4 mr-2" />
-                      Abrir Pacote
-                    </>
-                  )}
-                </Button>
+              <CardContent className="space-y-4">
+                {canOpenPack ? (
+                  <Button 
+                    className={`w-full h-12 bg-gradient-to-r from-${pack.color} to-${pack.color} hover:opacity-90 text-cosmic-dark font-semibold`}
+                    onClick={() => openPack(pack)}
+                    disabled={isOpening}
+                  >
+                    {isOpening && selectedPack?.id === pack.id ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-2 border-cosmic-dark border-t-transparent mr-2" />
+                        Abrindo...
+                      </>
+                    ) : (
+                      <>
+                        <Package className="w-4 h-4 mr-2" />
+                        Abrir Pacote Semanal
+                      </>
+                    )}
+                  </Button>
+                ) : (
+                  <div className="text-center space-y-2">
+                    <Button 
+                      className="w-full h-12"
+                      disabled
+                      variant="outline"
+                    >
+                      <Clock className="w-4 h-4 mr-2" />
+                      Próximo em: {timeUntilNext}
+                    </Button>
+                    <p className="text-xs text-muted-foreground">
+                      Você já abriu seu pacote semanal. Volte em 7 dias!
+                    </p>
+                  </div>
+                )}
 
                 {/* Rarity Chances */}
-                <div className="mt-4 space-y-1 text-xs">
-                  <div className="text-center text-muted-foreground font-medium">Chances:</div>
-                  <div className="flex justify-between">
-                    <span className="text-cosmic-green">Comum: {pack.rarity_chances.common}%</span>
-                    <span className="text-cosmic-blue">Raro: {pack.rarity_chances.rare}%</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-cosmic-purple">Épico: {pack.rarity_chances.epic}%</span>
-                    <span className="text-cosmic-gold">Lendário: {pack.rarity_chances.legendary}%</span>
+                <div className="mt-4 space-y-2 text-xs">
+                  <div className="text-center text-muted-foreground font-medium">Probabilidades Equilibradas:</div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="text-center">
+                      <span className="text-cosmic-green font-medium">Comum: {pack.rarity_chances.common}%</span>
+                    </div>
+                    <div className="text-center">
+                      <span className="text-cosmic-blue font-medium">Raro: {pack.rarity_chances.rare}%</span>
+                    </div>
+                    <div className="text-center">
+                      <span className="text-cosmic-purple font-medium">Épico: {pack.rarity_chances.epic}%</span>
+                    </div>
+                    <div className="text-center">
+                      <span className="text-cosmic-gold font-medium">Lendário: {pack.rarity_chances.legendary}%</span>
+                    </div>
                   </div>
                 </div>
               </CardContent>
@@ -298,37 +373,44 @@ const PackOpening = () => {
             <DialogTitle className="text-2xl font-bold bg-gradient-to-r from-cosmic-gold to-cosmic-gold-light bg-clip-text text-transparent text-center">
               Cavaleiros Obtidos!
             </DialogTitle>
-            <DialogDescription className="text-center">
-              {selectedPack?.name} - {openedCards.length} {openedCards.length === 1 ? 'cavaleiro' : 'cavaleiros'}
-            </DialogDescription>
+          <DialogDescription className="text-center">
+            {selectedPack?.name} - Novo cavaleiro obtido!
+          </DialogDescription>
           </DialogHeader>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-6">
+          <div className="flex justify-center mt-6">
             {openedCards.map((card, index) => (
-              <Card key={`${card.id}-${index}`} className="bg-card/80 backdrop-blur-lg border-primary/20 shadow-lg animate-fade-in">
+              <Card key={`${card.id}-${index}`} className="bg-card/80 backdrop-blur-lg border-primary/20 shadow-2xl animate-fade-in max-w-sm">
                 <CardHeader className="text-center pb-4">
-                  <div className="flex justify-center mb-4">
-                    <div className={`w-16 h-16 bg-gradient-to-br from-${getRarityColor(card.rarity)} to-${getRarityColor(card.rarity)}-light rounded-full flex items-center justify-center shadow-cosmic animate-stellar-pulse`}>
-                      <span className="text-2xl font-bold text-cosmic-dark">
+                  <div className="flex justify-center mb-6">
+                    <div className={`w-24 h-24 bg-gradient-to-br from-${getRarityColor(card.rarity)} to-${getRarityColor(card.rarity)}-light rounded-full flex items-center justify-center shadow-cosmic animate-stellar-pulse`}>
+                      <span className="text-4xl font-bold text-cosmic-dark">
                         {card.symbol}
                       </span>
                     </div>
                   </div>
                   
-                  <CardTitle className="text-lg font-bold text-cosmic-gold">
+                  <CardTitle className="text-2xl font-bold text-cosmic-gold mb-2">
                     {card.knight_name}
                   </CardTitle>
                   
-                  <CardDescription>
+                  <CardDescription className="text-lg mb-4">
                     {card.name} (#{card.atomic_number})
                   </CardDescription>
+
+                  {card.special_ability && (
+                    <div className="p-3 bg-cosmic-nebula/20 rounded-lg border border-cosmic-gold/20 mb-4">
+                      <div className="text-sm text-cosmic-gold font-semibold mb-1">Habilidade Especial</div>
+                      <div className="text-xs">{card.special_ability}</div>
+                    </div>
+                  )}
                   
-                  <div className="flex justify-center items-center space-x-2 mt-2">
-                    <Badge variant="outline" className="border-cosmic-gold/30 text-xs">
+                  <div className="flex justify-center items-center space-x-2">
+                    <Badge variant="outline" className="border-cosmic-gold/30">
                       {getElementTypeIcon(card.element_type)}
                       <span className="ml-1 capitalize">{card.element_type.replace('_', ' ')}</span>
                     </Badge>
-                    <Badge variant="outline" className={`border-${getRarityColor(card.rarity)}/30 text-xs`}>
+                    <Badge variant="outline" className={`border-${getRarityColor(card.rarity)}/30`}>
                       <span className="capitalize">{card.rarity}</span>
                     </Badge>
                   </div>
