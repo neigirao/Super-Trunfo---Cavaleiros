@@ -9,6 +9,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Sword, Shield, Zap, Star } from 'lucide-react';
 import Navbar from '@/components/Navbar';
+import PackOpening from '@/components/PackOpening';
 
 interface ElementCard {
   id: string;
@@ -209,26 +210,7 @@ const Game = () => {
           )}
           
           {gameMode === 'collection' && (
-            <div className="text-center">
-              <Card className="max-w-md mx-auto bg-card/80 backdrop-blur-lg border-primary/20">
-                <CardHeader>
-                  <CardTitle className="text-2xl font-bold bg-gradient-to-r from-cosmic-gold to-cosmic-gold-light bg-clip-text text-transparent">
-                    Modo Coleção
-                  </CardTitle>
-                  <CardDescription>
-                    Em breve: abra pacotes e construa sua coleção de cavaleiros
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-center py-8">
-                    <Star className="w-16 h-16 mx-auto text-cosmic-gold mb-4" />
-                    <p className="text-muted-foreground">
-                      Sistema de pacotes e coleção em desenvolvimento
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
+            <PackOpening />
           )}
         </div>
       </div>

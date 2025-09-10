@@ -41,7 +41,11 @@ All colors MUST be HSL.
     --cosmic-gold: 45 100% 50%;
     --cosmic-gold-light: 45 100% 70%;
     --cosmic-purple: 280 60% 30%;
+    --cosmic-purple-light: 280 60% 50%;
     --cosmic-blue: 220 70% 40%;
+    --cosmic-blue-light: 220 70% 60%;
+    --cosmic-green: 120 60% 40%;
+    --cosmic-green-light: 120 60% 60%;
     --space-dark: 230 25% 4%;
     --nebula: 280 40% 15%;
     

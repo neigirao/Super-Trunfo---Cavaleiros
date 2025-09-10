@@ -62,9 +62,13 @@ export default {
           gold: "hsl(var(--cosmic-gold))",
           "gold-light": "hsl(var(--cosmic-gold-light))", 
           purple: "hsl(var(--cosmic-purple))",
+          "purple-light": "hsl(280, 60%, 50%)",
           blue: "hsl(var(--cosmic-blue))",
+          "blue-light": "hsl(220, 70%, 60%)",
           dark: "hsl(var(--space-dark))",
           nebula: "hsl(var(--nebula))",
+          green: "hsl(120, 60%, 40%)",
+          "green-light": "hsl(120, 60%, 60%)",
         },
       },
       borderRadius: {
@@ -111,6 +115,16 @@ export default {
           "0%": { transform: "translateX(-100%) rotate(0deg)" },
           "100%": { transform: "translateX(100vw) rotate(360deg)" },
         },
+        "fade-in": {
+          "0%": {
+            opacity: "0",
+            transform: "translateY(10px)"
+          },
+          "100%": {
+            opacity: "1",
+            transform: "translateY(0)"
+          }
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -118,6 +132,7 @@ export default {
         "cosmic-float": "cosmic-float 6s ease-in-out infinite",
         "stellar-pulse": "stellar-pulse 2s ease-in-out infinite",
         "nebula-drift": "nebula-drift 20s linear infinite",
+        "fade-in": "fade-in 0.3s ease-out",
       },
     },
   },
