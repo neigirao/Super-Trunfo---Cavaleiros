@@ -10,16 +10,24 @@ import { useToast } from '@/hooks/use-toast';
 import { Sword, Shield, Zap, Star } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import PackOpening from '@/components/PackOpening';
+import Battle from '@/components/Battle';
 
 interface ElementCard {
   id: string;
   name: string;
   symbol: string;
   atomic_number: number;
+  atomic_mass: number;
+  density: number;
+  melting_point: number;
+  reactivity: number;
+  radioactivity: number;
   knight_name: string;
   special_ability: string;
   rarity: string;
   element_type: string;
+  is_super_trump: boolean;
+  trump_weakness?: string;
   image_url?: string;
 }
 
@@ -145,68 +153,8 @@ const Game = () => {
             </div>
           </div>
 
-          {gameMode === 'battle' && currentCard && (
-            <div className="max-w-md mx-auto">
-              <Card className="bg-card/80 backdrop-blur-lg border-primary/20 shadow-2xl">
-                <CardHeader className="text-center">
-                  <div className="flex justify-center mb-4">
-                    <div className={`w-20 h-20 bg-gradient-to-br from-${getRarityColor(currentCard.rarity)} to-${getRarityColor(currentCard.rarity)}-light rounded-full flex items-center justify-center shadow-cosmic`}>
-                      <span className="text-3xl font-bold text-cosmic-dark">
-                        {currentCard.symbol}
-                      </span>
-                    </div>
-                  </div>
-                  
-                  <CardTitle className="text-2xl font-bold bg-gradient-to-r from-cosmic-gold to-cosmic-gold-light bg-clip-text text-transparent">
-                    {currentCard.knight_name}
-                  </CardTitle>
-                  
-                  <CardDescription className="text-lg">
-                    Cavaleiro do {currentCard.name}
-                  </CardDescription>
-                  
-                  <div className="flex justify-center items-center space-x-2 mt-2">
-                    <Badge variant="outline" className="border-cosmic-gold/30">
-                      {getElementTypeIcon(currentCard.element_type)}
-                      <span className="ml-1 capitalize">{currentCard.element_type.replace('_', ' ')}</span>
-                    </Badge>
-                    <Badge variant="outline" className={`border-${getRarityColor(currentCard.rarity)}/30`}>
-                      <span className="capitalize">{currentCard.rarity}</span>
-                    </Badge>
-                  </div>
-                </CardHeader>
-
-                <CardContent className="space-y-6">
-                  <div className="text-center">
-                    <div className="text-sm text-muted-foreground mb-2"># Atômico</div>
-                    <div className="text-3xl font-bold text-cosmic-gold">{currentCard.atomic_number}</div>
-                  </div>
-
-                  {currentCard.special_ability && (
-                    <div className="text-center p-4 bg-cosmic-nebula/20 rounded-lg border border-cosmic-gold/20">
-                      <div className="text-sm text-cosmic-gold font-semibold mb-1">Habilidade Especial</div>
-                      <div className="text-sm">{currentCard.special_ability}</div>
-                    </div>
-                  )}
-
-                  <div className="space-y-4">
-                    <Button 
-                      className="w-full h-12 bg-gradient-to-r from-cosmic-gold to-cosmic-gold-light hover:from-cosmic-gold-light hover:to-cosmic-gold text-cosmic-dark font-semibold"
-                    >
-                      Iniciar Batalha
-                    </Button>
-                    
-                    <Button 
-                      variant="outline" 
-                      className="w-full"
-                      onClick={loadCards}
-                    >
-                      Próximo Cavaleiro
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
+          {gameMode === 'battle' && (
+            <Battle />
           )}
           
           {gameMode === 'collection' && (

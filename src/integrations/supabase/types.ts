@@ -231,54 +231,72 @@ export type Database = {
           atomic_mass: number
           atomic_number: number
           created_at: string | null
+          density: number | null
           description: string | null
           electronegativity: number | null
           element_type: string
           group_number: number | null
           id: string
           image_url: string | null
+          is_super_trump: boolean | null
           knight_name: string
+          melting_point: number | null
           name: string
           period_number: number | null
+          radioactivity: number | null
           rarity: string
+          reactivity: number | null
           special_ability: string | null
           symbol: string
+          trump_weakness: string | null
           updated_at: string | null
         }
         Insert: {
           atomic_mass: number
           atomic_number: number
           created_at?: string | null
+          density?: number | null
           description?: string | null
           electronegativity?: number | null
           element_type: string
           group_number?: number | null
           id?: string
           image_url?: string | null
+          is_super_trump?: boolean | null
           knight_name: string
+          melting_point?: number | null
           name: string
           period_number?: number | null
+          radioactivity?: number | null
           rarity?: string
+          reactivity?: number | null
           special_ability?: string | null
           symbol: string
+          trump_weakness?: string | null
           updated_at?: string | null
         }
         Update: {
           atomic_mass?: number
           atomic_number?: number
           created_at?: string | null
+          density?: number | null
           description?: string | null
           electronegativity?: number | null
           element_type?: string
           group_number?: number | null
           id?: string
           image_url?: string | null
+          is_super_trump?: boolean | null
           knight_name?: string
+          melting_point?: number | null
           name?: string
           period_number?: number | null
+          radioactivity?: number | null
           rarity?: string
+          reactivity?: number | null
           special_ability?: string | null
           symbol?: string
+          trump_weakness?: string | null
           updated_at?: string | null
         }
         Relationships: []
