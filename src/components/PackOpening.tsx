@@ -34,8 +34,28 @@ interface PackType {
   };
 }
 
-const packTypes: PackType[] = [
-  {
+const getPackTypes = (isFirstTime: boolean): PackType[] => {
+  const packs: PackType[] = [];
+  
+  // Pacote inicial para novos usuários
+  if (isFirstTime) {
+    packs.push({
+      id: 'starter',
+      name: 'Pacote Inicial',
+      description: 'Suas primeiras 5 cartas para começar a jogar - apenas uma vez',
+      icon: Sparkles,
+      color: 'cosmic-purple',
+      rarity_chances: {
+        common: 70,
+        rare: 20,
+        epic: 8,
+        legendary: 2
+      }
+    });
+  }
+  
+  // Pacote semanal regular
+  packs.push({
     id: 'weekly',
     name: 'Pacote Semanal',
     description: 'Sua carta semanal gratuita - 1 por semana',
@@ -47,8 +67,10 @@ const packTypes: PackType[] = [
       epic: 8,
       legendary: 2
     }
-  }
-];
+  });
+  
+  return packs;
+};
 
 const PackOpening = () => {
   const { user } = useAuth();
@@ -60,6 +82,7 @@ const PackOpening = () => {
   const [canOpenPack, setCanOpenPack] = useState(false);
   const [nextOpeningDate, setNextOpeningDate] = useState<Date | null>(null);
   const [timeUntilNext, setTimeUntilNext] = useState<string>('');
+  const [isFirstTime, setIsFirstTime] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -81,7 +104,25 @@ const PackOpening = () => {
     if (!user) return;
 
     try {
-      // Verificar se pode abrir pacote
+      // Verificar se é a primeira vez (nunca abriu pacotes)
+      const { data: packHistory, error: historyError } = await supabase
+        .from('user_pack_openings')
+        .select('*')
+        .eq('user_id', user.id)
+        .limit(1);
+
+      if (historyError) throw historyError;
+
+      const isFirstTimeUser = !packHistory || packHistory.length === 0;
+      setIsFirstTime(isFirstTimeUser);
+
+      if (isFirstTimeUser) {
+        // Usuário novo pode sempre abrir o pacote inicial
+        setCanOpenPack(true);
+        return;
+      }
+
+      // Verificar se pode abrir pacote semanal
       const { data: canOpen, error: canOpenError } = await supabase
         .rpc('can_user_open_pack', { user_uuid: user.id });
 
@@ -176,27 +217,40 @@ const PackOpening = () => {
         throw new Error('Nenhuma carta encontrada');
       }
 
-      // Gerar apenas 1 carta baseado na raridade equilibrada
-      const targetRarity = generateRandomRarity(packType.rarity_chances);
-      let cardsOfRarity = allCards.filter(card => card.rarity === targetRarity);
-      
-      // Se não houver cartas dessa raridade, usar lógica de fallback
-      if (cardsOfRarity.length === 0) {
-        // Tentar raridades em ordem decrescente
-        const fallbackOrder = ['epic', 'rare', 'common'];
-        for (const fallbackRarity of fallbackOrder) {
-          cardsOfRarity = allCards.filter(card => card.rarity === fallbackRarity);
-          if (cardsOfRarity.length > 0) break;
+      // Gerar cartas baseado no tipo de pacote
+      let cardsToGenerate = packType.id === 'starter' ? 5 : 1; // Pacote inicial dá 5 cartas
+      const newCards: ElementCard[] = [];
+
+      for (let i = 0; i < cardsToGenerate; i++) {
+        const targetRarity = generateRandomRarity(packType.rarity_chances);
+        let cardsOfRarity = allCards.filter(card => card.rarity === targetRarity);
+        
+        // Se não houver cartas dessa raridade, usar lógica de fallback
+        if (cardsOfRarity.length === 0) {
+          const fallbackOrder = ['epic', 'rare', 'common'];
+          for (const fallbackRarity of fallbackOrder) {
+            cardsOfRarity = allCards.filter(card => card.rarity === fallbackRarity);
+            if (cardsOfRarity.length > 0) break;
+          }
+        }
+
+        // Evitar cartas duplicadas no mesmo pacote (para pacote inicial)
+        if (packType.id === 'starter') {
+          cardsOfRarity = cardsOfRarity.filter(card => 
+            !newCards.some(newCard => newCard.id === card.id)
+          );
+        }
+
+        const randomCard = cardsOfRarity[Math.floor(Math.random() * cardsOfRarity.length)];
+        
+        if (randomCard) {
+          newCards.push(randomCard);
         }
       }
 
-      const randomCard = cardsOfRarity[Math.floor(Math.random() * cardsOfRarity.length)];
-      
-      if (!randomCard) {
+      if (newCards.length === 0) {
         throw new Error('Nenhuma carta disponível');
       }
-
-      const newCards = [randomCard];
 
       // Registrar abertura do pacote
       const { error: packOpeningError } = await supabase
@@ -209,43 +263,53 @@ const PackOpening = () => {
 
       if (packOpeningError) throw packOpeningError;
 
-      // Adicionar carta à coleção do usuário
-      const { data: existingCard } = await supabase
-        .from('user_cards')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('card_id', randomCard.id)
-        .single();
+      // Adicionar cartas à coleção do usuário
+      for (const card of newCards) {
+        const { data: existingCard } = await supabase
+          .from('user_cards')
+          .select('*')
+          .eq('user_id', user.id)
+          .eq('card_id', card.id)
+          .single();
 
-      if (existingCard) {
-        // Incrementar quantidade
-        await supabase
-          .from('user_cards')
-          .update({ quantity: existingCard.quantity + 1 })
-          .eq('id', existingCard.id);
-      } else {
-        // Adicionar nova carta
-        await supabase
-          .from('user_cards')
-          .insert({
-            user_id: user.id,
-            card_id: randomCard.id,
-            quantity: 1
-          });
+        if (existingCard) {
+          // Incrementar quantidade
+          await supabase
+            .from('user_cards')
+            .update({ quantity: existingCard.quantity + 1 })
+            .eq('id', existingCard.id);
+        } else {
+          // Adicionar nova carta
+          await supabase
+            .from('user_cards')
+            .insert({
+              user_id: user.id,
+              card_id: card.id,
+              quantity: 1
+            });
+        }
       }
 
       setOpenedCards(newCards);
       setShowResults(true);
       setCanOpenPack(false);
 
-      // Calcular próxima data disponível (7 dias a partir de agora)
-      const nextDate = new Date();
-      nextDate.setDate(nextDate.getDate() + 7);
-      setNextOpeningDate(nextDate);
+      // Se foi o pacote inicial, não definir próxima data (só pode abrir uma vez)
+      if (packType.id !== 'starter') {
+        // Calcular próxima data disponível (7 dias a partir de agora)
+        const nextDate = new Date();
+        nextDate.setDate(nextDate.getDate() + 7);
+        setNextOpeningDate(nextDate);
+      } else {
+        // Usuário não é mais primeira vez
+        setIsFirstTime(false);
+      }
 
       toast({
         title: "Pacote Aberto!",
-        description: `Você obteve o cavaleiro ${randomCard.knight_name}!`,
+        description: packType.id === 'starter' 
+          ? `Você obteve ${newCards.length} cavaleiros iniciais!`
+          : `Você obteve o cavaleiro ${newCards[0]?.knight_name}!`,
       });
 
     } catch (error: any) {
@@ -278,7 +342,7 @@ const PackOpening = () => {
       </div>
 
       <div className="max-w-md mx-auto">
-        {packTypes.map((pack) => {
+        {getPackTypes(isFirstTime).map((pack) => {
           const IconComponent = pack.icon;
           return (
             <Card key={pack.id} className="bg-card/80 backdrop-blur-lg border-primary/20 shadow-lg hover:shadow-cosmic transition-all group">
@@ -299,7 +363,7 @@ const PackOpening = () => {
                 
                 <div className="flex justify-center items-center space-x-2 mt-4">
                   <Badge variant="outline" className="border-cosmic-gold/30">
-                    1 carta única
+                    {pack.id === 'starter' ? '5 cartas iniciais' : '1 carta única'}
                   </Badge>
                   <Badge variant="outline" className="border-cosmic-blue/30">
                     Gratuito
@@ -308,7 +372,7 @@ const PackOpening = () => {
               </CardHeader>
 
               <CardContent className="space-y-4">
-                {canOpenPack ? (
+                {(canOpenPack && pack.id === 'weekly') || (isFirstTime && pack.id === 'starter') ? (
                   <Button 
                     className={`w-full h-12 bg-gradient-to-r from-${pack.color} to-${pack.color} hover:opacity-90 text-cosmic-dark font-semibold`}
                     onClick={() => openPack(pack)}
@@ -322,7 +386,7 @@ const PackOpening = () => {
                     ) : (
                       <>
                         <Package className="w-4 h-4 mr-2" />
-                        Abrir Pacote Semanal
+                        {pack.id === 'starter' ? 'Abrir Pacote Inicial' : 'Abrir Pacote Semanal'}
                       </>
                     )}
                   </Button>
