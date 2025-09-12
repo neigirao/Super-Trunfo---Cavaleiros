@@ -701,24 +701,33 @@ export type Database = {
           avatar_url: string | null
           created_at: string
           email: string | null
+          experience: number | null
           full_name: string | null
           id: string
+          level: number | null
+          points: number | null
           role: string | null
         }
         Insert: {
           avatar_url?: string | null
           created_at?: string
           email?: string | null
+          experience?: number | null
           full_name?: string | null
           id: string
+          level?: number | null
+          points?: number | null
           role?: string | null
         }
         Update: {
           avatar_url?: string | null
           created_at?: string
           email?: string | null
+          experience?: number | null
           full_name?: string | null
           id?: string
+          level?: number | null
+          points?: number | null
           role?: string | null
         }
         Relationships: []
@@ -842,6 +851,45 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      tutorials: {
+        Row: {
+          content: Json
+          created_at: string
+          description: string | null
+          difficulty: string
+          duration_minutes: number | null
+          id: string
+          is_required: boolean | null
+          order_index: number
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          content?: Json
+          created_at?: string
+          description?: string | null
+          difficulty?: string
+          duration_minutes?: number | null
+          id?: string
+          is_required?: boolean | null
+          order_index?: number
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          content?: Json
+          created_at?: string
+          description?: string | null
+          difficulty?: string
+          duration_minutes?: number | null
+          id?: string
+          is_required?: boolean | null
+          order_index?: number
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       user_achievements: {
         Row: {
@@ -1022,6 +1070,36 @@ export type Database = {
           },
         ]
       }
+      user_customization: {
+        Row: {
+          avatar_style: string | null
+          created_at: string
+          id: string
+          notification_preferences: Json | null
+          theme_preference: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          avatar_style?: string | null
+          created_at?: string
+          id?: string
+          notification_preferences?: Json | null
+          theme_preference?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          avatar_style?: string | null
+          created_at?: string
+          id?: string
+          notification_preferences?: Json | null
+          theme_preference?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_feedback: {
         Row: {
           category: string
@@ -1161,6 +1239,47 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      user_tutorial_progress: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          current_step: number | null
+          id: string
+          is_completed: boolean | null
+          tutorial_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          current_step?: number | null
+          id?: string
+          is_completed?: boolean | null
+          tutorial_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          current_step?: number | null
+          id?: string
+          is_completed?: boolean | null
+          tutorial_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_tutorial_progress_tutorial_id_fkey"
+            columns: ["tutorial_id"]
+            isOneToOne: false
+            referencedRelation: "tutorials"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       users: {
         Row: {

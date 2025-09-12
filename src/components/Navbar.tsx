@@ -53,6 +53,9 @@ const Navbar = () => {
             <Link to="/ranking" className="text-foreground hover:text-primary transition-colors">
               Ranking
             </Link>
+            <Link to="/settings" className="text-foreground hover:text-primary transition-colors">
+              Configurações
+            </Link>
             {isAdmin && (
               <Link to="/admin" className="text-foreground hover:text-primary transition-colors flex items-center space-x-1">
                 <span>Admin</span>
