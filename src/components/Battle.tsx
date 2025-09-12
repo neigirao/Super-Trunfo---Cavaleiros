@@ -7,6 +7,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Sword, Shield, Zap, Star, Crown, Flame } from 'lucide-react';
 import BattleCard from './BattleCard';
+import DeckBuilder from './DeckBuilder';
 
 interface ElementCard {
   id: string;
@@ -30,12 +31,16 @@ interface ElementCard {
 type BattleAttribute = 'atomic_number' | 'atomic_mass' | 'density' | 'melting_point' | 'reactivity' | 'radioactivity';
 
 interface BattleState {
+  playerDeck: ElementCard[];
+  opponentDeck: ElementCard[];
   playerCard: ElementCard | null;
   opponentCard: ElementCard | null;
   selectedAttribute: BattleAttribute | null;
   battleResult: 'win' | 'lose' | 'draw' | null;
   playerScore: number;
+  opponentScore: number;
   round: number;
+  discardPile: ElementCard[];
 }
 
 const Battle = () => {
@@ -44,14 +49,18 @@ const Battle = () => {
   const [userCards, setUserCards] = useState<ElementCard[]>([]);
   const [allCards, setAllCards] = useState<ElementCard[]>([]);
   const [battle, setBattle] = useState<BattleState>({
+    playerDeck: [],
+    opponentDeck: [],
     playerCard: null,
     opponentCard: null,
     selectedAttribute: null,
     battleResult: null,
     playerScore: 0,
-    round: 1
+    opponentScore: 0,
+    round: 1,
+    discardPile: []
   });
-  const [gamePhase, setGamePhase] = useState<'select' | 'battle' | 'result'>('select');
+  const [gamePhase, setGamePhase] = useState<'deckBuilder' | 'battle' | 'result' | 'gameOver'>('deckBuilder');
 
   useEffect(() => {
     loadUserCards();
@@ -100,17 +109,66 @@ const Battle = () => {
     setAllCards(data || []);
   };
 
-  const startBattle = (playerCard: ElementCard) => {
-    // Seleciona carta aleatória do oponente
-    const opponentCard = allCards[Math.floor(Math.random() * allCards.length)];
+  const startBattle = (selectedCards: ElementCard[]) => {
+    if (selectedCards.length < 6) {
+      toast({
+        title: "Erro",
+        description: "Você precisa selecionar pelo menos 6 cartas para formar um baralho",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Embaralhar as cartas do jogador
+    const shuffledPlayerDeck = [...selectedCards].sort(() => Math.random() - 0.5);
+    
+    // Criar baralho do oponente com cartas aleatórias
+    const opponentDeck = [];
+    const availableCards = [...allCards];
+    for (let i = 0; i < selectedCards.length; i++) {
+      const randomIndex = Math.floor(Math.random() * availableCards.length);
+      opponentDeck.push(availableCards[randomIndex]);
+    }
     
     setBattle(prev => ({
       ...prev,
-      playerCard,
-      opponentCard,
+      playerDeck: shuffledPlayerDeck,
+      opponentDeck: opponentDeck,
+      playerCard: shuffledPlayerDeck[0],
+      opponentCard: opponentDeck[0],
       selectedAttribute: null,
       battleResult: null
     }));
+    
+    setGamePhase('battle');
+  };
+
+  const playNextCards = () => {
+    setBattle(prev => {
+      const newPlayerDeck = [...prev.playerDeck];
+      const newOpponentDeck = [...prev.opponentDeck];
+      
+      // Remove cartas jogadas
+      newPlayerDeck.shift();
+      newOpponentDeck.shift();
+      
+      // Verifica se algum jogador ficou sem cartas
+      if (newPlayerDeck.length === 0 || newOpponentDeck.length === 0) {
+        setGamePhase('gameOver');
+        return prev;
+      }
+      
+      return {
+        ...prev,
+        playerDeck: newPlayerDeck,
+        opponentDeck: newOpponentDeck,
+        playerCard: newPlayerDeck[0],
+        opponentCard: newOpponentDeck[0],
+        selectedAttribute: null,
+        battleResult: null,
+        round: prev.round + 1
+      };
+    });
     
     setGamePhase('battle');
   };
@@ -159,26 +217,67 @@ const Battle = () => {
       }
     }
 
-    setBattle(prev => ({
-      ...prev,
-      battleResult: result,
-      playerScore: result === 'win' ? prev.playerScore + 1 : prev.playerScore
-    }));
+    setBattle(prev => {
+      const updatedBattle = {
+        ...prev,
+        battleResult: result,
+      };
+
+      // Atualizar baralhos baseado no resultado
+      if (result === 'win') {
+        // Jogador ganha - adiciona cartas do oponente ao final do seu baralho
+        const newPlayerDeck = [...prev.playerDeck];
+        newPlayerDeck.push(prev.playerCard!, prev.opponentCard!, ...prev.discardPile);
+        
+        updatedBattle.playerDeck = newPlayerDeck;
+        updatedBattle.opponentDeck = prev.opponentDeck.slice(1); // Remove carta do oponente
+        updatedBattle.playerScore = prev.playerScore + 1;
+        updatedBattle.discardPile = [];
+      } else if (result === 'lose') {
+        // Oponente ganha - adiciona cartas do jogador ao final do seu baralho
+        const newOpponentDeck = [...prev.opponentDeck];
+        newOpponentDeck.push(prev.playerCard!, prev.opponentCard!, ...prev.discardPile);
+        
+        updatedBattle.opponentDeck = newOpponentDeck;
+        updatedBattle.playerDeck = prev.playerDeck.slice(1); // Remove carta do jogador
+        updatedBattle.opponentScore = prev.opponentScore + 1;
+        updatedBattle.discardPile = [];
+      } else {
+        // Empate - cartas vão para a pilha de descarte
+        updatedBattle.discardPile = [...prev.discardPile, prev.playerCard!, prev.opponentCard!];
+        updatedBattle.playerDeck = prev.playerDeck.slice(1);
+        updatedBattle.opponentDeck = prev.opponentDeck.slice(1);
+      }
+
+      return updatedBattle;
+    });
 
     setGamePhase('result');
   };
 
   const nextRound = () => {
-    setBattle(prev => ({
-      ...prev,
-      playerCard: null,
-      opponentCard: null,
-      selectedAttribute: null,
-      battleResult: null,
-      round: prev.round + 1
-    }));
+    setBattle(prev => {
+      // Verifica se algum jogador ficou sem cartas
+      if (prev.playerDeck.length <= 1) {
+        setGamePhase('gameOver');
+        return prev;
+      }
+      if (prev.opponentDeck.length <= 1) {
+        setGamePhase('gameOver');
+        return prev;
+      }
+
+      return {
+        ...prev,
+        playerCard: prev.playerDeck[1] || null,
+        opponentCard: prev.opponentDeck[1] || null,
+        selectedAttribute: null,
+        battleResult: null,
+        round: prev.round + 1
+      };
+    });
     
-    setGamePhase('select');
+    setGamePhase('battle');
   };
 
   const getAttributeLabel = (attribute: BattleAttribute): string => {
@@ -223,31 +322,27 @@ const Battle = () => {
         </h2>
         <div className="flex justify-center space-x-8">
           <div className="text-center">
-            <div className="text-lg font-bold text-cosmic-gold">{battle.playerScore}</div>
-            <div className="text-sm text-muted-foreground">Vitórias</div>
+            <div className="text-lg font-bold text-cosmic-gold">{battle.playerDeck.length}</div>
+            <div className="text-sm text-muted-foreground">Suas Cartas</div>
           </div>
           <div className="text-center">
             <div className="text-lg font-bold text-cosmic-blue">{battle.round}</div>
             <div className="text-sm text-muted-foreground">Rodada</div>
           </div>
+          <div className="text-center">
+            <div className="text-lg font-bold text-cosmic-purple">{battle.opponentDeck.length}</div>
+            <div className="text-sm text-muted-foreground">Cartas Oponente</div>
+          </div>
         </div>
       </div>
 
-      {/* Card Selection Phase */}
-      {gamePhase === 'select' && (
-        <div>
-          <h3 className="text-lg font-semibold mb-4 text-center">Escolha sua carta para a batalha</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {userCards.map(card => (
-              <BattleCard
-                key={card.id}
-                card={card}
-                onClick={() => startBattle(card)}
-                showAttributes={false}
-              />
-            ))}
-          </div>
-        </div>
+      {/* Deck Builder Phase */}
+      {gamePhase === 'deckBuilder' && (
+        <DeckBuilder
+          userCards={userCards}
+          onStartBattle={startBattle}
+          onCancel={() => setGamePhase('deckBuilder')}
+        />
       )}
 
       {/* Battle Phase */}
@@ -333,6 +428,62 @@ const Battle = () => {
             className="bg-gradient-to-r from-cosmic-gold to-cosmic-gold-light hover:from-cosmic-gold-light hover:to-cosmic-gold text-cosmic-dark font-semibold"
           >
             Próxima Rodada
+          </Button>
+        </div>
+      )}
+
+      {/* Game Over Phase */}
+      {gamePhase === 'gameOver' && (
+        <div className="text-center space-y-6">
+          <div className="text-4xl font-bold">
+            {battle.playerDeck.length > battle.opponentDeck.length ? (
+              <span className="text-cosmic-gold">🏆 VITÓRIA FINAL!</span>
+            ) : (
+              <span className="text-red-500">💥 DERROTA!</span>
+            )}
+          </div>
+          
+          <div className="bg-card/50 p-6 rounded-lg max-w-md mx-auto">
+            <h3 className="text-lg font-semibold mb-4">Resultado Final</h3>
+            <div className="space-y-2">
+              <div className="flex justify-between">
+                <span>Suas vitórias:</span>
+                <span className="font-bold text-cosmic-gold">{battle.playerScore}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Vitórias do oponente:</span>
+                <span className="font-bold text-cosmic-purple">{battle.opponentScore}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Cartas restantes (você):</span>
+                <span className="font-bold">{battle.playerDeck.length}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Cartas restantes (oponente):</span>
+                <span className="font-bold">{battle.opponentDeck.length}</span>
+              </div>
+            </div>
+          </div>
+
+          <Button
+            onClick={() => {
+              setBattle({
+                playerDeck: [],
+                opponentDeck: [],
+                playerCard: null,
+                opponentCard: null,
+                selectedAttribute: null,
+                battleResult: null,
+                playerScore: 0,
+                opponentScore: 0,
+                round: 1,
+                discardPile: []
+              });
+              setGamePhase('deckBuilder');
+            }}
+            className="bg-gradient-to-r from-cosmic-gold to-cosmic-gold-light hover:from-cosmic-gold-light hover:to-cosmic-gold text-cosmic-dark font-semibold"
+          >
+            Nova Batalha
           </Button>
         </div>
       )}
