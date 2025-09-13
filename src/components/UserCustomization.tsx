@@ -20,7 +20,7 @@ interface UserCustomization {
   };
 }
 
-const avatarStyles = [
+const getAvatarStyles = () => [
   { id: 'default', name: 'Padrão', icon: '👤' },
   { id: 'scientist', name: 'Cientista', icon: '🧑‍🔬' },
   { id: 'robot', name: 'Robô', icon: '🤖' },
@@ -165,7 +165,7 @@ const UserCustomization = () => {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-3 gap-4">
-            {avatarStyles.map((style) => (
+            {getAvatarStyles().map((style) => (
               <div
                 key={style.id}
                 className={`p-4 rounded-lg border cursor-pointer transition-all hover:shadow-md ${

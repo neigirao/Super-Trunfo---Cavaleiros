@@ -35,41 +35,37 @@ interface PackType {
 }
 
 const getPackTypes = (isFirstTime: boolean): PackType[] => {
-  const packs: PackType[] = [];
-  
-  // Pacote inicial para novos usuários
   if (isFirstTime) {
-    packs.push({
-      id: 'starter',
-      name: 'Pacote Inicial',
-      description: 'Suas primeiras 5 cartas para começar a jogar - apenas uma vez',
-      icon: Sparkles,
-      color: 'cosmic-purple',
-      rarity_chances: {
-        common: 70,
-        rare: 20,
-        epic: 8,
-        legendary: 2
+    return [
+      {
+        id: 'starter',
+        name: 'Pacote Inicial',
+        description: 'Suas primeiras 5 cartas para começar a jogar - apenas uma vez',
+        icon: Sparkles,
+        color: 'cosmic-purple',
+        rarity_chances: { common: 70, rare: 20, epic: 8, legendary: 2 }
+      },
+      {
+        id: 'weekly',
+        name: 'Pacote Semanal',
+        description: 'Sua carta semanal gratuita - 1 por semana',
+        icon: Calendar,
+        color: 'cosmic-gold',
+        rarity_chances: { common: 60, rare: 30, epic: 8, legendary: 2 }
       }
-    });
+    ];
   }
   
-  // Pacote semanal regular
-  packs.push({
-    id: 'weekly',
-    name: 'Pacote Semanal',
-    description: 'Sua carta semanal gratuita - 1 por semana',
-    icon: Calendar,
-    color: 'cosmic-gold',
-    rarity_chances: {
-      common: 60,
-      rare: 30,
-      epic: 8,
-      legendary: 2
+  return [
+    {
+      id: 'weekly',
+      name: 'Pacote Semanal',
+      description: 'Sua carta semanal gratuita - 1 por semana',
+      icon: Calendar,
+      color: 'cosmic-gold',
+      rarity_chances: { common: 60, rare: 30, epic: 8, legendary: 2 }
     }
-  });
-  
-  return packs;
+  ];
 };
 
 const PackOpening = () => {

@@ -146,20 +146,20 @@ const Index = () => {
         {/* Quick Stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
           <div className="text-center">
-            <div className="text-3xl font-bold text-primary mb-2">118</div>
-            <div className="text-sm text-muted-foreground">Elementos Disponíveis</div>
+            <div className="text-3xl font-bold text-primary mb-2">⚛️</div>
+            <div className="text-sm text-muted-foreground">Elementos Químicos</div>
           </div>
           <div className="text-center">
-            <div className="text-3xl font-bold text-primary mb-2">∞</div>
-            <div className="text-sm text-muted-foreground">Batalhas Possíveis</div>
+            <div className="text-3xl font-bold text-primary mb-2">⚔️</div>
+            <div className="text-sm text-muted-foreground">Batalhas Épicas</div>
           </div>
           <div className="text-center">
-            <div className="text-3xl font-bold text-primary mb-2">5</div>
-            <div className="text-sm text-muted-foreground">Níveis de Raridade</div>
+            <div className="text-3xl font-bold text-primary mb-2">🏆</div>
+            <div className="text-sm text-muted-foreground">Ranking Global</div>
           </div>
           <div className="text-center">
             <div className="text-3xl font-bold text-primary mb-2">⚡</div>
-            <div className="text-sm text-muted-foreground">Poderes Químicos</div>
+            <div className="text-sm text-muted-foreground">Poderes Únicos</div>
           </div>
         </div>
       </main>
