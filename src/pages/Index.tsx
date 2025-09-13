@@ -2,11 +2,14 @@ import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
+import { useMinimumCards } from '@/hooks/useMinimumCards';
 import Navbar from '@/components/Navbar';
 
 const Index = () => {
   const { user, loading, isAdmin } = useAuth();
+  const { hasMinimumCards, userCardsCount, minimumRequired, loading: cardsLoading, forceEnsureCards } = useMinimumCards();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -52,13 +55,29 @@ const Index = () => {
             Domine os elementos da tabela periódica em épicas batalhas de Super Trunfo
           </p>
           
+          {/* Card Status */}
+          {user && !cardsLoading && (
+            <div className="flex justify-center mb-6">
+              <Badge 
+                variant={hasMinimumCards ? "default" : "destructive"}
+                className="text-sm px-4 py-2"
+              >
+                {hasMinimumCards 
+                  ? `✅ ${userCardsCount} cavaleiros coletados` 
+                  : `⚠️ ${userCardsCount}/${minimumRequired} cavaleiros (mínimo necessário)`
+                }
+              </Badge>
+            </div>
+          )}
+
           <div className="flex flex-wrap justify-center gap-4">
             <Button 
               size="lg" 
               className="h-14 px-8 text-lg bg-gradient-to-r from-cosmic-gold to-cosmic-gold-light hover:from-cosmic-gold-light hover:to-cosmic-gold text-cosmic-dark font-bold shadow-lg hover:shadow-cosmic transition-all duration-300"
               onClick={() => navigate('/game')}
+              disabled={!hasMinimumCards && !cardsLoading}
             >
-              ⚔️ Iniciar Batalha
+              ⚔️ {hasMinimumCards ? 'Iniciar Batalha' : 'Colete Cartas Primeiro'}
             </Button>
             
             <Button 
@@ -69,6 +88,17 @@ const Index = () => {
             >
               📚 Ver Coleção
             </Button>
+
+            {!hasMinimumCards && user && !cardsLoading && (
+              <Button 
+                size="lg" 
+                variant="secondary"
+                className="h-14 px-8 text-lg"
+                onClick={forceEnsureCards}
+              >
+                🎁 Obter Cartas Iniciais
+              </Button>
+            )}
           </div>
         </div>
 

@@ -7,7 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Package, Star, Sword, Shield, Zap, Lock } from 'lucide-react';
+import { useMinimumCards } from '@/hooks/useMinimumCards';
+import { Package, Star, Sword, Shield, Zap, Lock, Gift } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 
 interface ElementCard {
@@ -32,6 +33,7 @@ interface UserCard {
 const Collection = () => {
   const { user, loading } = useAuth();
   const { toast } = useToast();
+  const { hasMinimumCards, userCardsCount, minimumRequired, forceEnsureCards } = useMinimumCards();
   const [userCards, setUserCards] = useState<UserCard[]>([]);
   const [allCards, setAllCards] = useState<ElementCard[]>([]);
   const [collectionLoading, setCollectionLoading] = useState(true);
@@ -155,6 +157,12 @@ const Collection = () => {
                 <div className="text-2xl font-bold text-cosmic-blue">{completionRate}%</div>
                 <div className="text-sm text-muted-foreground">Completude</div>
               </div>
+              {!hasMinimumCards && (
+                <div className="text-center">
+                  <div className="text-lg font-bold text-orange-500">{userCardsCount}/{minimumRequired}</div>
+                  <div className="text-xs text-muted-foreground">Mínimo p/ Jogar</div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -168,17 +176,24 @@ const Collection = () => {
               {userCards.length === 0 ? (
                 <Card className="max-w-md mx-auto bg-card/80 backdrop-blur-lg border-primary/20">
                   <CardHeader className="text-center">
-                    <Package className="w-16 h-16 mx-auto text-cosmic-gold mb-4" />
+                    <Gift className="w-16 h-16 mx-auto text-cosmic-gold mb-4" />
                     <CardTitle className="text-2xl font-bold bg-gradient-to-r from-cosmic-gold to-cosmic-gold-light bg-clip-text text-transparent">
                       Coleção Vazia
                     </CardTitle>
                     <CardDescription>
-                      Vá para a arena e colete seus primeiros cavaleiros!
+                      Colete seus primeiros cavaleiros para começar a aventura!
                     </CardDescription>
                   </CardHeader>
-                  <CardContent>
+                  <CardContent className="space-y-4">
                     <Button 
                       className="w-full bg-gradient-to-r from-cosmic-gold to-cosmic-gold-light hover:from-cosmic-gold-light hover:to-cosmic-gold text-cosmic-dark"
+                      onClick={forceEnsureCards}
+                    >
+                      🎁 Obter Cavaleiros Iniciais
+                    </Button>
+                    <Button 
+                      variant="outline"
+                      className="w-full"
                       onClick={() => window.location.href = '/game'}
                     >
                       Ir para Arena

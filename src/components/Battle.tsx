@@ -306,9 +306,17 @@ const Battle = () => {
 
   if (userCards.length === 0) {
     return (
-      <div className="text-center py-12">
+      <div className="text-center py-12 space-y-4">
         <h3 className="text-xl font-semibold mb-4">Você precisa de cartas para batalhar!</h3>
-        <p className="text-muted-foreground">Vá para a seção de Coleção e abra alguns packs primeiro.</p>
+        <p className="text-muted-foreground mb-6">
+          Colete seus primeiros cavaleiros para começar a jogar
+        </p>
+        <Button 
+          onClick={() => window.location.href = '/collection'}
+          className="bg-gradient-to-r from-cosmic-gold to-cosmic-gold-light hover:from-cosmic-gold-light hover:to-cosmic-gold text-cosmic-dark font-semibold"
+        >
+          Ir para Coleção
+        </Button>
       </div>
     );
   }
