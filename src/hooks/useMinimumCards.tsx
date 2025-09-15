@@ -26,6 +26,28 @@ export const useMinimumCards = () => {
   useEffect(() => {
     if (user) {
       checkUserCards();
+      
+      // Set up real-time listener for user cards
+      const channel = supabase
+        .channel('user-cards-changes')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'user_cards',
+            filter: `user_id=eq.${user.id}`
+          },
+          () => {
+            // Re-check cards when there are changes
+            checkUserCards();
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
     }
   }, [user]);
 
@@ -42,10 +64,11 @@ export const useMinimumCards = () => {
 
       const totalCards = userCards?.reduce((total, card) => total + card.quantity, 0) || 0;
       setUserCardsCount(totalCards);
-      setHasMinimumCards(totalCards >= MINIMUM_CARDS_REQUIRED);
+      const hasMinimum = totalCards >= MINIMUM_CARDS_REQUIRED;
+      setHasMinimumCards(hasMinimum);
 
-      // Se não tem cartas suficientes, tentar garantir automaticamente
-      if (totalCards < MINIMUM_CARDS_REQUIRED) {
+      // Only try to ensure cards if user doesn't have minimum and we're not already ensuring
+      if (!hasMinimum && !ensuring) {
         await ensureMinimumCards();
       }
     } catch (error) {
