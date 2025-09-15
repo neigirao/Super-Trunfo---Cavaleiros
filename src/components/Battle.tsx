@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Sword, Shield, Zap, Star, Crown, Flame } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import BattleCard from './BattleCard';
 import DeckBuilder from './DeckBuilder';
 
@@ -61,6 +62,9 @@ const Battle = () => {
     discardPile: []
   });
   const [gamePhase, setGamePhase] = useState<'deckBuilder' | 'battle' | 'result' | 'gameOver'>('deckBuilder');
+  const [isCardFlipped, setIsCardFlipped] = useState(false);
+  const [isTransferring, setIsTransferring] = useState(false);
+  const [transferDirection, setTransferDirection] = useState<'left' | 'right'>('right');
 
   useEffect(() => {
     loadUserCards();
@@ -178,6 +182,9 @@ const Battle = () => {
 
     setBattle(prev => ({ ...prev, selectedAttribute: attribute }));
     
+    // Flip the card to show opponent's attributes
+    setIsCardFlipped(true);
+    
     setTimeout(() => {
       calculateBattleResult(attribute);
     }, 1000);
@@ -215,6 +222,12 @@ const Battle = () => {
       } else {
         result = 'draw';
       }
+    }
+
+    // Start transfer animation
+    if (result !== 'draw') {
+      setIsTransferring(true);
+      setTransferDirection(result === 'win' ? 'right' : 'left');
     }
 
     setBattle(prev => {
@@ -256,6 +269,10 @@ const Battle = () => {
   };
 
   const nextRound = () => {
+    // Reset animations
+    setIsCardFlipped(false);
+    setIsTransferring(false);
+    
     setBattle(prev => {
       // Verifica se algum jogador ficou sem cartas
       if (prev.playerDeck.length <= 1) {
@@ -356,47 +373,46 @@ const Battle = () => {
       {/* Battle Phase */}
       {gamePhase === 'battle' && battle.playerCard && battle.opponentCard && (
         <div>
-          <h3 className="text-lg font-semibold mb-4 text-center">Escolha o atributo para comparar</h3>
+          <h3 className="text-lg font-semibold mb-4 text-center">
+            {!battle.selectedAttribute ? 'Clique em um atributo na sua carta para comparar' : 'Comparando atributos...'}
+          </h3>
           
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-            <div>
+            <motion.div
+              initial={{ x: -50, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              transition={{ duration: 0.5 }}
+            >
               <h4 className="text-center font-semibold text-cosmic-gold mb-2">Sua Carta</h4>
               <BattleCard 
                 card={battle.playerCard} 
                 showAttributes={true}
                 selectedAttribute={battle.selectedAttribute}
+                onAttributeSelect={selectAttribute}
+                canSelectAttribute={!battle.selectedAttribute}
+                isFlipped={false}
+                isTransferring={isTransferring && battle.battleResult === 'lose'}
+                transferDirection="left"
               />
-            </div>
+            </motion.div>
             
-            <div>
+            <motion.div
+              initial={{ x: 50, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              transition={{ duration: 0.5, delay: 0.2 }}
+            >
               <h4 className="text-center font-semibold text-cosmic-purple mb-2">Oponente</h4>
               <BattleCard 
                 card={battle.opponentCard} 
                 showAttributes={battle.selectedAttribute ? true : false}
                 selectedAttribute={battle.selectedAttribute}
                 isOpponent={true}
+                isFlipped={isCardFlipped}
+                isTransferring={isTransferring && battle.battleResult === 'win'}
+                transferDirection="right"
               />
-            </div>
+            </motion.div>
           </div>
-
-          {!battle.selectedAttribute && (
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 max-w-2xl mx-auto">
-              {(['atomic_number', 'atomic_mass', 'density', 'melting_point', 'reactivity', 'radioactivity'] as BattleAttribute[]).map(attribute => (
-                <Button
-                  key={attribute}
-                  variant="outline"
-                  onClick={() => selectAttribute(attribute)}
-                  className="p-4 h-auto flex flex-col items-center space-y-2 border-cosmic-gold/30 hover:border-cosmic-gold"
-                >
-                  {getAttributeIcon(attribute)}
-                  <span className="text-xs">{getAttributeLabel(attribute)}</span>
-                  <span className="font-bold text-cosmic-gold">
-                    {battle.playerCard[attribute]}
-                  </span>
-                </Button>
-              ))}
-            </div>
-          )}
         </div>
       )}
 

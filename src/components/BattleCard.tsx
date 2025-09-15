@@ -1,6 +1,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Sword, Shield, Zap, Star, Crown, Flame } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface ElementCard {
   id: string;
@@ -29,6 +30,11 @@ interface BattleCardProps {
   showAttributes?: boolean;
   selectedAttribute?: BattleAttribute | null;
   isOpponent?: boolean;
+  onAttributeSelect?: (attribute: BattleAttribute) => void;
+  canSelectAttribute?: boolean;
+  isFlipped?: boolean;
+  isTransferring?: boolean;
+  transferDirection?: 'left' | 'right';
 }
 
 const BattleCard = ({ 
@@ -36,7 +42,12 @@ const BattleCard = ({
   onClick, 
   showAttributes = false, 
   selectedAttribute = null,
-  isOpponent = false 
+  isOpponent = false,
+  onAttributeSelect,
+  canSelectAttribute = false,
+  isFlipped = false,
+  isTransferring = false,
+  transferDirection = 'right'
 }: BattleCardProps) => {
   const getRarityColor = (rarity: string) => {
     switch (rarity) {
@@ -84,17 +95,44 @@ const BattleCard = ({
     }
   };
 
+  const cardVariants = {
+    front: { rotateY: 0 },
+    back: { rotateY: 180 }
+  };
+
+  const transferVariants = {
+    initial: { x: 0, scale: 1, opacity: 1 },
+    transferring: {
+      x: transferDirection === 'right' ? 300 : -300,
+      scale: 0.8,
+      opacity: 0.7
+    }
+  };
+
   return (
-    <Card 
-      className={`
-        ${onClick ? 'cursor-pointer hover:shadow-cosmic transition-all duration-300' : ''} 
-        ${isOpponent ? 'bg-cosmic-purple/10' : 'bg-cosmic-gold/10'} 
-        backdrop-blur-lg border-primary/20 
-        ${card.is_super_trump ? 'border-cosmic-gold border-2 shadow-cosmic' : ''}
-        ${selectedAttribute ? 'transform scale-105' : ''}
-      `}
-      onClick={onClick}
+    <motion.div
+      variants={transferVariants}
+      initial="initial"
+      animate={isTransferring ? "transferring" : "initial"}
+      className="perspective-1000"
     >
+      <motion.div
+        variants={cardVariants}
+        animate={isFlipped ? "back" : "front"}
+        transition={{ duration: 0.6 }}
+        className="preserve-3d"
+      >
+        <Card 
+          className={`
+            ${onClick ? 'cursor-pointer hover:shadow-cosmic transition-all duration-300' : ''} 
+            ${isOpponent ? 'bg-cosmic-purple/10' : 'bg-cosmic-gold/10'} 
+            backdrop-blur-lg border-primary/20 
+            ${card.is_super_trump ? 'border-cosmic-gold border-2 shadow-cosmic' : ''}
+            ${selectedAttribute ? 'transform scale-105' : ''}
+            backface-hidden
+          `}
+          onClick={onClick}
+        >
       <CardHeader className="text-center pb-2">
         {card.is_super_trump && (
           <div className="absolute -top-2 -right-2 bg-cosmic-gold text-cosmic-dark px-2 py-1 rounded-full text-xs font-bold">
@@ -140,7 +178,7 @@ const BattleCard = ({
               { key: 'reactivity' as BattleAttribute, label: 'Reatividade' },
               { key: 'radioactivity' as BattleAttribute, label: 'Radioativ.' }
             ]).map(({ key, label }) => (
-              <div 
+              <motion.div 
                 key={key}
                 className={`
                   p-2 rounded border text-center transition-colors
@@ -148,7 +186,17 @@ const BattleCard = ({
                     ? 'border-cosmic-gold bg-cosmic-gold/20 shadow-cosmic' 
                     : 'border-primary/20 bg-card/50'
                   }
+                  ${canSelectAttribute ? 'cursor-pointer hover:border-cosmic-gold hover:bg-cosmic-gold/10' : ''}
                 `}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (canSelectAttribute && onAttributeSelect) {
+                    onAttributeSelect(key);
+                  }
+                }}
+                whileHover={canSelectAttribute ? { scale: 1.05 } : {}}
+                whileTap={canSelectAttribute ? { scale: 0.95 } : {}}
+                transition={{ duration: 0.1 }}
               >
                 <div className="flex items-center justify-center space-x-1 mb-1">
                   {getAttributeIcon(key)}
@@ -157,7 +205,7 @@ const BattleCard = ({
                 <div className="font-bold text-cosmic-gold">
                   {formatAttributeValue(key, card[key])}
                 </div>
-              </div>
+              </motion.div>
             ))}
           </div>
         )}
@@ -176,7 +224,9 @@ const BattleCard = ({
           </div>
         )}
       </CardContent>
-    </Card>
+        </Card>
+      </motion.div>
+    </motion.div>
   );
 };
 
