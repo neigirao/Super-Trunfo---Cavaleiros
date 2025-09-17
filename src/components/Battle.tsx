@@ -66,6 +66,7 @@ const Battle = () => {
   const [isTransferring, setIsTransferring] = useState(false);
   const [transferDirection, setTransferDirection] = useState<'left' | 'right'>('right');
   const [currentDeckName, setCurrentDeckName] = useState<string | null>(null);
+  const [whoChooses, setWhoChooses] = useState<'player' | 'opponent'>('player');
 
   useEffect(() => {
     loadUserCards();
@@ -147,6 +148,7 @@ const Battle = () => {
       battleResult: null
     }));
     
+    setWhoChooses('player'); // Jogador sempre começa escolhendo
     setGamePhase('battle');
   };
 
@@ -181,7 +183,7 @@ const Battle = () => {
   };
 
   const selectAttribute = (attribute: BattleAttribute) => {
-    if (!battle.playerCard || !battle.opponentCard) return;
+    if (!battle.playerCard || !battle.opponentCard || whoChooses !== 'player') return;
 
     setBattle(prev => ({ ...prev, selectedAttribute: attribute }));
     
@@ -190,6 +192,36 @@ const Battle = () => {
     
     setTimeout(() => {
       calculateBattleResult(attribute);
+    }, 1000);
+  };
+
+  const opponentSelectAttribute = () => {
+    if (!battle.playerCard || !battle.opponentCard || whoChooses !== 'opponent') return;
+
+    // Oponente escolhe automaticamente o melhor atributo para ele
+    const attributes: BattleAttribute[] = ['atomic_number', 'atomic_mass', 'density', 'melting_point', 'reactivity', 'radioactivity'];
+    
+    let bestAttribute = attributes[0];
+    let bestAdvantage = -Infinity;
+    
+    attributes.forEach(attr => {
+      const opponentValue = battle.opponentCard![attr];
+      const playerValue = battle.playerCard![attr];
+      const advantage = opponentValue - playerValue;
+      
+      if (advantage > bestAdvantage) {
+        bestAdvantage = advantage;
+        bestAttribute = attr;
+      }
+    });
+
+    setBattle(prev => ({ ...prev, selectedAttribute: bestAttribute }));
+    
+    // Flip the card to show opponent's attributes
+    setIsCardFlipped(true);
+    
+    setTimeout(() => {
+      calculateBattleResult(bestAttribute);
     }, 1000);
   };
 
@@ -241,25 +273,31 @@ const Battle = () => {
 
       // Atualizar baralhos baseado no resultado
       if (result === 'win') {
-        // Jogador ganha - adiciona cartas do oponente ao final do seu baralho
-        const newPlayerDeck = [...prev.playerDeck];
+        // Jogador ganha - adiciona cartas ao final do seu baralho
+        const newPlayerDeck = [...prev.playerDeck.slice(1)]; // Remove carta atual
         newPlayerDeck.push(prev.playerCard!, prev.opponentCard!, ...prev.discardPile);
         
         updatedBattle.playerDeck = newPlayerDeck;
         updatedBattle.opponentDeck = prev.opponentDeck.slice(1); // Remove carta do oponente
         updatedBattle.playerScore = prev.playerScore + 1;
         updatedBattle.discardPile = [];
+        
+        // Jogador ganha, então ele escolhe no próximo round
+        setWhoChooses('player');
       } else if (result === 'lose') {
-        // Oponente ganha - adiciona cartas do jogador ao final do seu baralho
-        const newOpponentDeck = [...prev.opponentDeck];
+        // Oponente ganha - adiciona cartas ao final do seu baralho  
+        const newOpponentDeck = [...prev.opponentDeck.slice(1)]; // Remove carta atual
         newOpponentDeck.push(prev.playerCard!, prev.opponentCard!, ...prev.discardPile);
         
         updatedBattle.opponentDeck = newOpponentDeck;
         updatedBattle.playerDeck = prev.playerDeck.slice(1); // Remove carta do jogador
         updatedBattle.opponentScore = prev.opponentScore + 1;
         updatedBattle.discardPile = [];
+        
+        // Oponente ganha, então ele escolhe no próximo round
+        setWhoChooses('opponent');
       } else {
-        // Empate - cartas vão para a pilha de descarte
+        // Empate - cartas vão para a pilha de descarte, quem escolhe continua o mesmo
         updatedBattle.discardPile = [...prev.discardPile, prev.playerCard!, prev.opponentCard!];
         updatedBattle.playerDeck = prev.playerDeck.slice(1);
         updatedBattle.opponentDeck = prev.opponentDeck.slice(1);
@@ -278,19 +316,19 @@ const Battle = () => {
     
     setBattle(prev => {
       // Verifica se algum jogador ficou sem cartas
-      if (prev.playerDeck.length <= 1) {
+      if (prev.playerDeck.length === 0) {
         setGamePhase('gameOver');
         return prev;
       }
-      if (prev.opponentDeck.length <= 1) {
+      if (prev.opponentDeck.length === 0) {
         setGamePhase('gameOver');
         return prev;
       }
 
       return {
         ...prev,
-        playerCard: prev.playerDeck[1] || null,
-        opponentCard: prev.opponentDeck[1] || null,
+        playerCard: prev.playerDeck[0] || null,
+        opponentCard: prev.opponentDeck[0] || null,
         selectedAttribute: null,
         battleResult: null,
         round: prev.round + 1
@@ -299,6 +337,17 @@ const Battle = () => {
     
     setGamePhase('battle');
   };
+
+  // Efeito para fazer o oponente escolher automaticamente quando é a sua vez
+  useEffect(() => {
+    if (gamePhase === 'battle' && whoChooses === 'opponent' && battle.playerCard && battle.opponentCard && !battle.selectedAttribute) {
+      const timer = setTimeout(() => {
+        opponentSelectAttribute();
+      }, 1500); // Delay para parecer que o oponente está "pensando"
+      
+      return () => clearTimeout(timer);
+    }
+  }, [gamePhase, whoChooses, battle.playerCard, battle.opponentCard, battle.selectedAttribute]);
 
   const getAttributeLabel = (attribute: BattleAttribute): string => {
     const labels = {
@@ -377,7 +426,11 @@ const Battle = () => {
       {gamePhase === 'battle' && battle.playerCard && battle.opponentCard && (
         <div>
           <h3 className="text-lg font-semibold mb-4 text-center">
-            {!battle.selectedAttribute ? 'Clique em um atributo na sua carta para comparar' : 'Comparando atributos...'}
+            {!battle.selectedAttribute ? (
+              whoChooses === 'player' ? 
+                'Clique em um atributo na sua carta para comparar' : 
+                'Oponente está escolhendo o atributo...'
+            ) : 'Comparando atributos...'}
           </h3>
           
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
@@ -392,7 +445,7 @@ const Battle = () => {
                 showAttributes={true}
                 selectedAttribute={battle.selectedAttribute}
                 onAttributeSelect={selectAttribute}
-                canSelectAttribute={!battle.selectedAttribute}
+                canSelectAttribute={!battle.selectedAttribute && whoChooses === 'player'}
                 isFlipped={false}
                 isTransferring={isTransferring && battle.battleResult === 'lose'}
                 transferDirection="left"
@@ -507,6 +560,7 @@ const Battle = () => {
                 discardPile: []
               });
               setCurrentDeckName(null);
+              setWhoChooses('player');
               setGamePhase('deckBuilder');
             }}
             className="bg-gradient-to-r from-cosmic-gold to-cosmic-gold-light hover:from-cosmic-gold-light hover:to-cosmic-gold text-cosmic-dark font-semibold"
