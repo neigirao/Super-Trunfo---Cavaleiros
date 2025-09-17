@@ -1100,6 +1100,36 @@ export type Database = {
         }
         Relationships: []
       }
+      user_decks: {
+        Row: {
+          card_ids: string[]
+          created_at: string
+          id: string
+          is_favorite: boolean | null
+          name: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          card_ids?: string[]
+          created_at?: string
+          id?: string
+          is_favorite?: boolean | null
+          name: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          card_ids?: string[]
+          created_at?: string
+          id?: string
+          is_favorite?: boolean | null
+          name?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_feedback: {
         Row: {
           category: string

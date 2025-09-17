@@ -65,6 +65,7 @@ const Battle = () => {
   const [isCardFlipped, setIsCardFlipped] = useState(false);
   const [isTransferring, setIsTransferring] = useState(false);
   const [transferDirection, setTransferDirection] = useState<'left' | 'right'>('right');
+  const [currentDeckName, setCurrentDeckName] = useState<string | null>(null);
 
   useEffect(() => {
     loadUserCards();
@@ -113,7 +114,7 @@ const Battle = () => {
     setAllCards(data || []);
   };
 
-  const startBattle = (selectedCards: ElementCard[]) => {
+  const startBattle = (selectedCards: ElementCard[], deckName?: string) => {
     if (selectedCards.length < 6) {
       toast({
         title: "Erro",
@@ -122,6 +123,8 @@ const Battle = () => {
       });
       return;
     }
+
+    setCurrentDeckName(deckName || null);
 
     // Embaralhar as cartas do jogador
     const shuffledPlayerDeck = [...selectedCards].sort(() => Math.random() - 0.5);
@@ -343,7 +346,7 @@ const Battle = () => {
       {/* Battle Header */}
       <div className="text-center">
         <h2 className="text-2xl font-bold bg-gradient-to-r from-cosmic-gold to-cosmic-gold-light bg-clip-text text-transparent mb-2">
-          Arena de Batalha
+          Arena de Batalha {currentDeckName && `- ${currentDeckName}`}
         </h2>
         <div className="flex justify-center space-x-8">
           <div className="text-center">
@@ -503,6 +506,7 @@ const Battle = () => {
                 round: 1,
                 discardPile: []
               });
+              setCurrentDeckName(null);
               setGamePhase('deckBuilder');
             }}
             className="bg-gradient-to-r from-cosmic-gold to-cosmic-gold-light hover:from-cosmic-gold-light hover:to-cosmic-gold text-cosmic-dark font-semibold"
