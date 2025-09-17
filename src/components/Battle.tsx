@@ -433,14 +433,15 @@ const Battle = () => {
             ) : 'Comparando atributos...'}
           </h3>
           
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-6 justify-items-center">
             <motion.div
               initial={{ x: -50, opacity: 0 }}
               animate={{ x: 0, opacity: 1 }}
               transition={{ duration: 0.5 }}
+              className="flex flex-col items-center"
             >
-              <h4 className="text-center font-semibold text-cosmic-gold mb-2">Sua Carta</h4>
-              <BattleCard 
+              <h4 className="text-center font-semibold text-cosmic-gold mb-4">Sua Carta</h4>
+              <BattleCard
                 card={battle.playerCard} 
                 showAttributes={true}
                 selectedAttribute={battle.selectedAttribute}
@@ -456,9 +457,10 @@ const Battle = () => {
               initial={{ x: 50, opacity: 0 }}
               animate={{ x: 0, opacity: 1 }}
               transition={{ duration: 0.5, delay: 0.2 }}
+              className="flex flex-col items-center"
             >
-              <h4 className="text-center font-semibold text-cosmic-purple mb-2">Oponente</h4>
-              <BattleCard 
+              <h4 className="text-center font-semibold text-cosmic-purple mb-4">Oponente</h4>
+              <BattleCard
                 card={battle.opponentCard} 
                 showAttributes={battle.selectedAttribute ? true : false}
                 selectedAttribute={battle.selectedAttribute}

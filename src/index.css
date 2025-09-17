@@ -46,6 +46,9 @@ All colors MUST be HSL.
     --cosmic-blue-light: 220 70% 60%;
     --cosmic-green: 120 60% 40%;
     --cosmic-green-light: 120 60% 60%;
+    --cosmic-dark: 230 25% 4%;
+    --cosmic-nebula: 280 40% 15%;
+    --cosmic-nebula-light: 280 40% 25%;
     --space-dark: 230 25% 4%;
     --nebula: 280 40% 15%;
     
@@ -133,4 +136,12 @@ All colors MUST be HSL.
 
 .backface-hidden {
   backface-visibility: hidden;
+}
+
+/* Text utilities */
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }

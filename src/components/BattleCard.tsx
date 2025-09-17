@@ -124,6 +124,7 @@ const BattleCard = ({
       >
         <Card 
           className={`
+            w-64 h-96 relative overflow-hidden
             ${onClick ? 'cursor-pointer hover:shadow-cosmic transition-all duration-300' : ''} 
             ${isOpponent ? 'bg-cosmic-purple/10' : 'bg-cosmic-gold/10'} 
             backdrop-blur-lg border-primary/20 
@@ -133,97 +134,124 @@ const BattleCard = ({
           `}
           onClick={onClick}
         >
-      <CardHeader className="text-center pb-2">
-        {card.is_super_trump && (
-          <div className="absolute -top-2 -right-2 bg-cosmic-gold text-cosmic-dark px-2 py-1 rounded-full text-xs font-bold">
-            SUPER TRUNFO
-          </div>
-        )}
-        
-        <div className="flex justify-center mb-3">
-          <div className={`w-16 h-16 bg-gradient-to-br from-${getRarityColor(card.rarity)} to-${getRarityColor(card.rarity)}-light rounded-full flex items-center justify-center shadow-cosmic`}>
-            <span className="text-2xl font-bold text-cosmic-dark">
-              {card.symbol}
-            </span>
-          </div>
-        </div>
-        
-        <CardTitle className="text-lg font-bold bg-gradient-to-r from-cosmic-gold to-cosmic-gold-light bg-clip-text text-transparent">
-          {card.knight_name}
-        </CardTitle>
-        
-        <CardDescription className="text-sm">
-          {card.name}
-        </CardDescription>
-        
-        <div className="flex justify-center items-center space-x-2 mt-2">
-          <Badge variant="outline" className="border-cosmic-gold/30 text-xs">
-            {getElementTypeIcon(card.element_type)}
-            <span className="ml-1 capitalize">{card.element_type.replace('_', ' ')}</span>
-          </Badge>
-          <Badge variant="outline" className={`border-${getRarityColor(card.rarity)}/30 text-xs`}>
-            <span className="capitalize">{card.rarity}</span>
-          </Badge>
-        </div>
-      </CardHeader>
+          {/* Super Trunfo Badge */}
+          {card.is_super_trump && (
+            <div className="absolute top-2 right-2 bg-cosmic-gold text-cosmic-dark px-2 py-1 rounded-full text-xs font-bold z-10">
+              SUPER TRUNFO
+            </div>
+          )}
 
-      <CardContent className="space-y-3">
-        {showAttributes && (
-          <div className="grid grid-cols-2 gap-2 text-xs">
-            {([
-              { key: 'atomic_number' as BattleAttribute, label: 'Nº Atômico' },
-              { key: 'atomic_mass' as BattleAttribute, label: 'Massa' },
-              { key: 'density' as BattleAttribute, label: 'Densidade' },
-              { key: 'melting_point' as BattleAttribute, label: 'P. Fusão' },
-              { key: 'reactivity' as BattleAttribute, label: 'Reatividade' },
-              { key: 'radioactivity' as BattleAttribute, label: 'Radioativ.' }
-            ]).map(({ key, label }) => (
-              <motion.div 
-                key={key}
-                className={`
-                  p-2 rounded border text-center transition-colors
-                  ${selectedAttribute === key 
-                    ? 'border-cosmic-gold bg-cosmic-gold/20 shadow-cosmic' 
-                    : 'border-primary/20 bg-card/50'
-                  }
-                  ${canSelectAttribute ? 'cursor-pointer hover:border-cosmic-gold hover:bg-cosmic-gold/10' : ''}
-                `}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (canSelectAttribute && onAttributeSelect) {
-                    onAttributeSelect(key);
-                  }
+          {/* Header com tipo e símbolo */}
+          <div className="bg-gradient-to-r from-cosmic-gold to-cosmic-gold-light p-2 text-center">
+            <div className="flex items-center justify-between">
+              <Badge variant="outline" className="bg-cosmic-dark/20 border-cosmic-dark/30 text-xs">
+                {getElementTypeIcon(card.element_type)}
+                <span className="ml-1 capitalize">{card.element_type.replace('_', ' ')}</span>
+              </Badge>
+              <div className="bg-cosmic-dark/20 px-3 py-1 rounded-full">
+                <span className="text-lg font-bold text-cosmic-dark">{card.symbol}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Imagem da carta */}
+          <div className="relative h-40 bg-gradient-to-br from-cosmic-nebula/20 to-cosmic-nebula-light/20 overflow-hidden">
+            {card.image_url ? (
+              <img 
+                src={card.image_url} 
+                alt={card.knight_name}
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none';
                 }}
-                whileHover={canSelectAttribute ? { scale: 1.05 } : {}}
-                whileTap={canSelectAttribute ? { scale: 0.95 } : {}}
-                transition={{ duration: 0.1 }}
-              >
-                <div className="flex items-center justify-center space-x-1 mb-1">
-                  {getAttributeIcon(key)}
-                  <span className="font-medium">{label}</span>
+              />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-cosmic-nebula/30 to-cosmic-nebula-light/30">
+                <div className={`w-20 h-20 bg-gradient-to-br from-${getRarityColor(card.rarity)} to-${getRarityColor(card.rarity)}-light rounded-full flex items-center justify-center shadow-cosmic`}>
+                  <span className="text-3xl font-bold text-cosmic-dark">
+                    {card.symbol}
+                  </span>
                 </div>
-                <div className="font-bold text-cosmic-gold">
-                  {formatAttributeValue(key, card[key])}
-                </div>
-              </motion.div>
-            ))}
+              </div>
+            )}
+            
+            {/* Overlay com rarity */}
+            <div className="absolute bottom-2 left-2">
+              <Badge variant="outline" className={`border-${getRarityColor(card.rarity)}/60 bg-${getRarityColor(card.rarity)}/20 text-xs`}>
+                <span className="capitalize font-semibold">{card.rarity}</span>
+              </Badge>
+            </div>
           </div>
-        )}
 
-        {card.special_ability && (!showAttributes || selectedAttribute) && (
-          <div className="p-2 bg-cosmic-nebula/20 rounded border border-cosmic-gold/20">
-            <div className="text-xs text-cosmic-gold font-semibold mb-1">Habilidade Especial</div>
-            <div className="text-xs text-muted-foreground">{card.special_ability}</div>
+          {/* Nome do cavaleiro */}
+          <div className="px-3 py-2 text-center bg-cosmic-dark/5">
+            <h3 className="text-lg font-bold bg-gradient-to-r from-cosmic-gold to-cosmic-gold-light bg-clip-text text-transparent">
+              {card.knight_name}
+            </h3>
+            <p className="text-sm text-muted-foreground">{card.name}</p>
           </div>
-        )}
 
-        {card.is_super_trump && card.trump_weakness && (
-          <div className="p-2 bg-red-500/20 rounded border border-red-500/30">
-            <div className="text-xs text-red-400 font-semibold mb-1">Fraqueza</div>
-            <div className="text-xs">Perde contra: {card.trump_weakness}</div>
-          </div>
-        )}
-      </CardContent>
+          {/* Atributos */}
+          {showAttributes && (
+            <div className="px-2 py-1 space-y-1 flex-1">
+              {([
+                { key: 'atomic_number' as BattleAttribute, label: 'Nº Atômico' },
+                { key: 'atomic_mass' as BattleAttribute, label: 'Massa Atômica' },
+                { key: 'density' as BattleAttribute, label: 'Densidade' },
+                { key: 'melting_point' as BattleAttribute, label: 'P. Fusão' },
+                { key: 'reactivity' as BattleAttribute, label: 'Reatividade' },
+                { key: 'radioactivity' as BattleAttribute, label: 'Radioatividade' }
+              ]).map(({ key, label }) => (
+                <motion.div 
+                  key={key}
+                  className={`
+                    flex items-center justify-between px-2 py-1 rounded text-xs transition-colors
+                    ${selectedAttribute === key 
+                      ? 'border border-cosmic-gold bg-cosmic-gold/20 shadow-cosmic' 
+                      : 'border border-primary/10 bg-card/30'
+                    }
+                    ${canSelectAttribute ? 'cursor-pointer hover:border-cosmic-gold hover:bg-cosmic-gold/10' : ''}
+                  `}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (canSelectAttribute && onAttributeSelect) {
+                      onAttributeSelect(key);
+                    }
+                  }}
+                  whileHover={canSelectAttribute ? { scale: 1.02 } : {}}
+                  whileTap={canSelectAttribute ? { scale: 0.98 } : {}}
+                  transition={{ duration: 0.1 }}
+                >
+                  <div className="flex items-center space-x-1">
+                    {getAttributeIcon(key)}
+                    <span className="font-medium">{label}</span>
+                  </div>
+                  <div className="font-bold text-cosmic-gold">
+                    {formatAttributeValue(key, card[key])}
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          )}
+
+          {/* Habilidade especial (se houver espaço) */}
+          {card.special_ability && !showAttributes && (
+            <div className="px-2 py-1 mt-auto">
+              <div className="p-2 bg-cosmic-nebula/20 rounded border border-cosmic-gold/20">
+                <div className="text-xs text-cosmic-gold font-semibold mb-1">Habilidade Especial</div>
+                <div className="text-xs text-muted-foreground line-clamp-2">{card.special_ability}</div>
+              </div>
+            </div>
+          )}
+
+          {/* Fraqueza do Super Trunfo */}
+          {card.is_super_trump && card.trump_weakness && !showAttributes && (
+            <div className="px-2 py-1">
+              <div className="p-1 bg-red-500/20 rounded border border-red-500/30">
+                <div className="text-xs text-red-400 font-semibold">Fraqueza: {card.trump_weakness}</div>
+              </div>
+            </div>
+          )}
         </Card>
       </motion.div>
     </motion.div>
