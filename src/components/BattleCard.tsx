@@ -124,12 +124,12 @@ const BattleCard = ({
       >
         <Card 
           className={`
-            w-64 h-96 relative overflow-hidden
-            ${onClick ? 'cursor-pointer hover:shadow-cosmic transition-all duration-300' : ''} 
-            ${isOpponent ? 'bg-cosmic-purple/10' : 'bg-cosmic-gold/10'} 
-            backdrop-blur-lg border-primary/20 
-            ${card.is_super_trump ? 'border-cosmic-gold border-2 shadow-cosmic' : ''}
-            ${selectedAttribute ? 'transform scale-105' : ''}
+            w-72 h-[440px] relative overflow-hidden flex flex-col
+            ${onClick ? 'cursor-pointer hover:shadow-cosmic hover:scale-[1.02] transition-all duration-300' : ''} 
+            ${isOpponent ? 'bg-cosmic-purple/10 border-cosmic-purple/30' : 'bg-cosmic-gold/10 border-cosmic-gold/30'} 
+            backdrop-blur-lg border-2
+            ${card.is_super_trump ? 'border-cosmic-gold border-3 shadow-cosmic animate-pulse' : ''}
+            ${selectedAttribute ? 'transform scale-105 shadow-2xl' : ''}
             backface-hidden
           `}
           onClick={onClick}
@@ -155,7 +155,7 @@ const BattleCard = ({
           </div>
 
           {/* Imagem da carta */}
-          <div className="relative h-40 bg-gradient-to-br from-cosmic-nebula/20 to-cosmic-nebula-light/20 overflow-hidden">
+          <div className="relative h-32 bg-gradient-to-br from-cosmic-nebula/20 to-cosmic-nebula-light/20 overflow-hidden">
             {card.image_url ? (
               <img 
                 src={card.image_url} 
@@ -167,8 +167,8 @@ const BattleCard = ({
               />
             ) : (
               <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-cosmic-nebula/30 to-cosmic-nebula-light/30">
-                <div className={`w-20 h-20 bg-gradient-to-br from-${getRarityColor(card.rarity)} to-${getRarityColor(card.rarity)}-light rounded-full flex items-center justify-center shadow-cosmic`}>
-                  <span className="text-3xl font-bold text-cosmic-dark">
+                <div className={`w-16 h-16 bg-gradient-to-br from-${getRarityColor(card.rarity)} to-${getRarityColor(card.rarity)}-light rounded-full flex items-center justify-center shadow-cosmic`}>
+                  <span className="text-2xl font-bold text-cosmic-dark">
                     {card.symbol}
                   </span>
                 </div>
@@ -193,7 +193,7 @@ const BattleCard = ({
 
           {/* Atributos */}
           {showAttributes && (
-            <div className="px-2 py-1 space-y-1 flex-1">
+            <div className="px-3 py-2 space-y-1.5 flex-1 min-h-0">
               {([
                 { key: 'atomic_number' as BattleAttribute, label: 'Nº Atômico' },
                 { key: 'atomic_mass' as BattleAttribute, label: 'Massa Atômica' },
@@ -205,12 +205,12 @@ const BattleCard = ({
                 <motion.div 
                   key={key}
                   className={`
-                    flex items-center justify-between px-2 py-1 rounded text-xs transition-colors
+                    flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-all duration-200
                     ${selectedAttribute === key 
-                      ? 'border border-cosmic-gold bg-cosmic-gold/20 shadow-cosmic' 
-                      : 'border border-primary/10 bg-card/30'
+                      ? 'border-2 border-cosmic-gold bg-cosmic-gold/30 shadow-cosmic scale-[1.02] ring-2 ring-cosmic-gold/50' 
+                      : 'border border-primary/20 bg-card/50 hover:bg-card/70'
                     }
-                    ${canSelectAttribute ? 'cursor-pointer hover:border-cosmic-gold hover:bg-cosmic-gold/10' : ''}
+                    ${canSelectAttribute ? 'cursor-pointer hover:border-cosmic-gold/60 hover:shadow-lg hover:scale-[1.01]' : ''}
                   `}
                   onClick={(e) => {
                     e.stopPropagation();
@@ -218,15 +218,15 @@ const BattleCard = ({
                       onAttributeSelect(key);
                     }
                   }}
-                  whileHover={canSelectAttribute ? { scale: 1.02 } : {}}
+                  whileHover={canSelectAttribute ? { y: -1 } : {}}
                   whileTap={canSelectAttribute ? { scale: 0.98 } : {}}
-                  transition={{ duration: 0.1 }}
+                  transition={{ duration: 0.15 }}
                 >
-                  <div className="flex items-center space-x-1">
+                  <div className="flex items-center space-x-2">
                     {getAttributeIcon(key)}
                     <span className="font-medium">{label}</span>
                   </div>
-                  <div className="font-bold text-cosmic-gold">
+                  <div className="font-bold text-cosmic-gold text-base">
                     {formatAttributeValue(key, card[key])}
                   </div>
                 </motion.div>
