@@ -9,6 +9,12 @@ import { Sword, Shield, Zap, Star, Crown, Flame } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import BattleCard from './BattleCard';
 import DeckBuilder from './DeckBuilder';
+import TurnIndicator from './battle/TurnIndicator';
+import BattleProgress from './battle/BattleProgress';
+import CardCounter from './battle/CardCounter';
+import ThinkingIndicator from './battle/ThinkingIndicator';
+import BattleControls from './battle/BattleControls';
+import ErrorBoundary from './ui/ErrorBoundary';
 
 interface ElementCard {
   id: string;
@@ -67,6 +73,9 @@ const Battle = () => {
   const [transferDirection, setTransferDirection] = useState<'left' | 'right'>('right');
   const [currentDeckName, setCurrentDeckName] = useState<string | null>(null);
   const [whoChooses, setWhoChooses] = useState<'player' | 'opponent'>('player');
+  const [isPaused, setIsPaused] = useState(false);
+  const [initialPlayerCards, setInitialPlayerCards] = useState(0);
+  const [initialOpponentCards, setInitialOpponentCards] = useState(0);
 
   useEffect(() => {
     loadUserCards();
@@ -137,6 +146,10 @@ const Battle = () => {
       const randomIndex = Math.floor(Math.random() * availableCards.length);
       opponentDeck.push(availableCards[randomIndex]);
     }
+
+    // Store initial deck sizes for progress tracking
+    setInitialPlayerCards(shuffledPlayerDeck.length);
+    setInitialOpponentCards(opponentDeck.length);
     
     setBattle(prev => ({
       ...prev,
@@ -390,28 +403,71 @@ const Battle = () => {
     );
   }
 
+  const handleSurrender = () => {
+    setBattle(prev => ({
+      ...prev,
+      playerDeck: [],
+      opponentDeck: prev.opponentDeck,
+      battleResult: 'lose'
+    }));
+    setGamePhase('gameOver');
+    toast({
+      title: "Batalha Encerrada",
+      description: "Você desistiu da batalha.",
+      variant: "destructive"
+    });
+  };
+
+  const handlePause = () => {
+    setIsPaused(true);
+  };
+
+  const handleResume = () => {
+    setIsPaused(false);
+  };
+
+  const handleTimeOut = () => {
+    if (gamePhase === 'battle' && whoChooses === 'player' && !battle.selectedAttribute) {
+      // Auto-select first attribute on timeout
+      const firstAttribute: BattleAttribute = 'atomic_number';
+      selectAttribute(firstAttribute);
+      toast({
+        title: "Tempo Esgotado",
+        description: "Atributo selecionado automaticamente.",
+        variant: "default"
+      });
+    }
+  };
+
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
-      {/* Battle Header */}
-      <div className="text-center">
-        <h2 className="text-2xl font-bold bg-gradient-to-r from-cosmic-gold to-cosmic-gold-light bg-clip-text text-transparent mb-2">
-          Arena de Batalha {currentDeckName && `- ${currentDeckName}`}
-        </h2>
-        <div className="flex justify-center space-x-8">
-          <div className="text-center">
-            <div className="text-lg font-bold text-cosmic-gold">{battle.playerDeck.length}</div>
-            <div className="text-sm text-muted-foreground">Suas Cartas</div>
-          </div>
-          <div className="text-center">
-            <div className="text-lg font-bold text-cosmic-blue">{battle.round}</div>
-            <div className="text-sm text-muted-foreground">Rodada</div>
-          </div>
-          <div className="text-center">
-            <div className="text-lg font-bold text-cosmic-purple">{battle.opponentDeck.length}</div>
-            <div className="text-sm text-muted-foreground">Cartas Oponente</div>
-          </div>
+    <ErrorBoundary>
+      <div className="max-w-6xl mx-auto space-y-6">
+        {/* Battle Controls */}
+        {(gamePhase === 'battle' || gamePhase === 'result') && (
+          <BattleControls
+            onSurrender={handleSurrender}
+            onPause={handlePause}
+            onResume={handleResume}
+            isPaused={isPaused}
+            canSurrender={gamePhase === 'battle'}
+            canPause={gamePhase === 'battle'}
+          />
+        )}
+
+        {/* Battle Header */}
+        <div className="text-center">
+          <h2 className="text-2xl font-bold bg-gradient-to-r from-cosmic-gold to-cosmic-gold-light bg-clip-text text-transparent mb-2">
+            Arena de Batalha {currentDeckName && `- ${currentDeckName}`}
+          </h2>
+          
+          {/* Enhanced Card Counter */}
+          {(gamePhase === 'battle' || gamePhase === 'result') && (
+            <CardCounter 
+              playerCards={battle.playerDeck.length}
+              opponentCards={battle.opponentDeck.length}
+            />
+          )}
         </div>
-      </div>
 
       {/* Deck Builder Phase */}
       {gamePhase === 'deckBuilder' && (
@@ -425,6 +481,31 @@ const Battle = () => {
       {/* Battle Phase */}
       {gamePhase === 'battle' && battle.playerCard && battle.opponentCard && (
         <div>
+          {/* Turn Indicator */}
+          <TurnIndicator
+            whoChooses={whoChooses}
+            isActive={!battle.selectedAttribute && !isPaused}
+            onTimeOut={handleTimeOut}
+            timeLimit={15}
+          />
+
+          {/* Battle Progress */}
+          <BattleProgress
+            playerCards={battle.playerDeck.length}
+            opponentCards={battle.opponentDeck.length}
+            initialPlayerCards={initialPlayerCards}
+            initialOpponentCards={initialOpponentCards}
+            round={battle.round}
+            playerScore={battle.playerScore}
+            opponentScore={battle.opponentScore}
+          />
+
+          {/* Thinking Indicator */}
+          <ThinkingIndicator
+            isVisible={whoChooses === 'opponent' && !battle.selectedAttribute && !isPaused}
+            message="Oponente analisando cartas..."
+          />
+
           <h3 className="text-lg font-semibold mb-4 text-center">
             {!battle.selectedAttribute ? (
               whoChooses === 'player' ? 
@@ -571,7 +652,8 @@ const Battle = () => {
           </Button>
         </div>
       )}
-    </div>
+      </div>
+    </ErrorBoundary>
   );
 };
 

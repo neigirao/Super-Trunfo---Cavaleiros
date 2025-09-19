@@ -2,6 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Sword, Shield, Zap, Star, Crown, Flame } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import RuleTooltip, { HelpIcon } from './ui/RuleTooltip';
 
 interface ElementCard {
   id: string;
@@ -222,10 +223,12 @@ const BattleCard = ({
                   whileTap={canSelectAttribute ? { scale: 0.98 } : {}}
                   transition={{ duration: 0.15 }}
                 >
-                  <div className="flex items-center space-x-2">
-                    {getAttributeIcon(key)}
-                    <span className="font-medium">{label}</span>
-                  </div>
+                  <RuleTooltip rule="attribute">
+                    <div className="flex items-center space-x-2 cursor-help">
+                      {getAttributeIcon(key)}
+                      <span className="font-medium">{label}</span>
+                    </div>
+                  </RuleTooltip>
                   <div className="font-bold text-cosmic-gold text-base">
                     {formatAttributeValue(key, card[key])}
                   </div>

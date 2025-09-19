@@ -9,6 +9,9 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import BattleCard from './BattleCard';
+import ValidationMessage, { useValidation } from './ui/ValidationMessage';
+import ConfirmationDialog from './ui/ConfirmationDialog';
+import { HelpIcon } from './ui/RuleTooltip';
 
 interface ElementCard {
   id: string;
@@ -51,6 +54,13 @@ const DeckBuilder = ({ userCards, onStartBattle, onCancel }: DeckBuilderProps) =
   const [deckName, setDeckName] = useState('');
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [currentView, setCurrentView] = useState<'saved' | 'builder'>('saved');
+  const [deleteConfirmation, setDeleteConfirmation] = useState<{ isOpen: boolean; deckId: string; deckName: string }>({
+    isOpen: false,
+    deckId: '',
+    deckName: ''
+  });
+  
+  const { validateDeckSize, validateDeckName } = useValidation();
 
   useEffect(() => {
     if (user) {
@@ -142,6 +152,19 @@ const DeckBuilder = ({ userCards, onStartBattle, onCancel }: DeckBuilderProps) =
     loadUserDecks();
   };
 
+  const handleDeleteDeck = (deckId: string, deckName: string) => {
+    setDeleteConfirmation({
+      isOpen: true,
+      deckId,
+      deckName
+    });
+  };
+
+  const confirmDeleteDeck = () => {
+    deleteDeck(deleteConfirmation.deckId);
+    setDeleteConfirmation({ isOpen: false, deckId: '', deckName: '' });
+  };
+
   const loadDeck = async (deck: UserDeck) => {
     const deckCards = userCards.filter(card => deck.card_ids.includes(card.id));
     setSelectedCards(deckCards);
@@ -176,6 +199,10 @@ const DeckBuilder = ({ userCards, onStartBattle, onCancel }: DeckBuilderProps) =
   };
 
   const canStartBattle = selectedCards.length >= 6 && selectedCards.length <= 20;
+  
+  // Validation states
+  const deckSizeValidation = validateDeckSize(selectedCards.length);
+  const deckNameValidation = validateDeckName(deckName);
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
@@ -183,12 +210,15 @@ const DeckBuilder = ({ userCards, onStartBattle, onCancel }: DeckBuilderProps) =
         <h2 className="text-2xl font-bold bg-gradient-to-r from-cosmic-gold to-cosmic-gold-light bg-clip-text text-transparent mb-2">
           {currentView === 'saved' ? 'Seus Baralhos' : 'Monte seu Baralho'}
         </h2>
-        <p className="text-muted-foreground mb-4">
-          {currentView === 'saved' 
-            ? 'Escolha um baralho salvo ou crie um novo' 
-            : 'Selecione entre 6 e 20 cartas para formar seu baralho de batalha'
-          }
-        </p>
+        <div className="flex items-center justify-center space-x-2 mb-4">
+          <p className="text-muted-foreground">
+            {currentView === 'saved' 
+              ? 'Escolha um baralho salvo ou crie um novo' 
+              : 'Selecione entre 6 e 20 cartas para formar seu baralho de batalha'
+            }
+          </p>
+          <HelpIcon rule="deck_building" />
+        </div>
 
         {/* Navigation Tabs */}
         <div className="flex justify-center space-x-2 mb-6">
@@ -253,7 +283,7 @@ const DeckBuilder = ({ userCards, onStartBattle, onCancel }: DeckBuilderProps) =
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => deleteDeck(deck.id)}
+                        onClick={() => handleDeleteDeck(deck.id, deck.name)}
                         className="text-red-500 hover:text-red-600"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -271,22 +301,32 @@ const DeckBuilder = ({ userCards, onStartBattle, onCancel }: DeckBuilderProps) =
       {currentView === 'builder' && (
         <>
           {/* Card Selection Status */}
-          <div className="flex justify-center items-center space-x-4 mb-6">
-            <Badge variant={selectedCards.length >= 6 ? "default" : "secondary"} className="text-sm">
-              {selectedCards.length}/20 cartas selecionadas
-            </Badge>
-            
-            {selectedCards.length >= 6 ? (
-              <Badge variant="outline" className="text-cosmic-gold border-cosmic-gold">
-                <Check className="w-3 h-3 mr-1" />
-                Mínimo atingido
+          <div className="space-y-4 mb-6">
+            <div className="flex justify-center items-center space-x-4">
+              <Badge variant={selectedCards.length >= 6 ? "default" : "secondary"} className="text-sm">
+                {selectedCards.length}/20 cartas selecionadas
               </Badge>
-            ) : (
-              <Badge variant="outline" className="text-muted-foreground">
-                <X className="w-3 h-3 mr-1" />
-                Mínimo: 6 cartas
-              </Badge>
-            )}
+              
+              {selectedCards.length >= 6 ? (
+                <Badge variant="outline" className="text-cosmic-gold border-cosmic-gold">
+                  <Check className="w-3 h-3 mr-1" />
+                  Mínimo atingido
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="text-muted-foreground">
+                  <X className="w-3 h-3 mr-1" />
+                  Mínimo: 6 cartas
+                </Badge>
+              )}
+            </div>
+
+            {/* Real-time Validation */}
+            <ValidationMessage
+              type={deckSizeValidation.type}
+              message={deckSizeValidation.message}
+              isVisible={selectedCards.length > 0}
+              className="max-w-md mx-auto"
+            />
           </div>
 
           {/* Card Selection Grid */}
@@ -342,12 +382,20 @@ const DeckBuilder = ({ userCards, onStartBattle, onCancel }: DeckBuilderProps) =
                     </DialogDescription>
                   </DialogHeader>
                   <div className="space-y-4">
-                    <Input
-                      placeholder="Nome do baralho..."
-                      value={deckName}
-                      onChange={(e) => setDeckName(e.target.value)}
-                      maxLength={30}
-                    />
+                    <div className="space-y-2">
+                      <Input
+                        placeholder="Nome do baralho..."
+                        value={deckName}
+                        onChange={(e) => setDeckName(e.target.value)}
+                        maxLength={30}
+                        className="focus-cosmic"
+                      />
+                      <ValidationMessage
+                        type={deckNameValidation.type}
+                        message={deckNameValidation.message}
+                        isVisible={deckName.length > 0}
+                      />
+                    </div>
                     <div className="flex space-x-2">
                       <Button 
                         variant="outline" 
@@ -358,7 +406,7 @@ const DeckBuilder = ({ userCards, onStartBattle, onCancel }: DeckBuilderProps) =
                       </Button>
                       <Button
                         onClick={saveDeck}
-                        disabled={!deckName.trim()}
+                        disabled={!deckNameValidation.isValid}
                         className="flex-1 bg-cosmic-gold text-cosmic-dark hover:bg-cosmic-gold-light"
                       >
                         Salvar
