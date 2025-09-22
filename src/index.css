@@ -158,6 +158,64 @@ All colors MUST be HSL.
   }
 }
 
+/* Victory and Effect Animations */
+@keyframes victory-shake {
+  0% { transform: translate(0); }
+  10% { transform: translate(-2px, -1px) rotate(-0.5deg); }
+  20% { transform: translate(-1px, 0px) rotate(0.5deg); }
+  30% { transform: translate(1px, 1px) rotate(0deg); }
+  40% { transform: translate(1px, -1px) rotate(0.5deg); }
+  50% { transform: translate(-1px, 1px) rotate(-0.5deg); }
+  60% { transform: translate(-1px, 0px) rotate(0deg); }
+  70% { transform: translate(1px, 0px) rotate(-0.5deg); }
+  80% { transform: translate(-1px, -1px) rotate(0.5deg); }
+  90% { transform: translate(1px, 1px) rotate(0deg); }
+  100% { transform: translate(0); }
+}
+
+@keyframes particle-float {
+  0% { 
+    transform: translateY(0) scale(0);
+    opacity: 0;
+  }
+  10% {
+    transform: translateY(-10px) scale(1);
+    opacity: 1;
+  }
+  90% {
+    transform: translateY(-100px) scale(1);
+    opacity: 1;
+  }
+  100% { 
+    transform: translateY(-120px) scale(0);
+    opacity: 0;
+  }
+}
+
+@keyframes level-up-glow {
+  0%, 100% { 
+    box-shadow: 0 0 5px hsl(var(--cosmic-gold) / 0.3);
+  }
+  50% { 
+    box-shadow: 0 0 25px hsl(var(--cosmic-gold) / 0.8), 0 0 35px hsl(var(--cosmic-gold) / 0.6);
+  }
+}
+
+@keyframes achievement-unlock {
+  0% { 
+    transform: scale(0) rotate(-180deg);
+    opacity: 0;
+  }
+  50% { 
+    transform: scale(1.1) rotate(0deg);
+    opacity: 1;
+  }
+  100% { 
+    transform: scale(1) rotate(0deg);
+    opacity: 1;
+  }
+}
+
 @keyframes status-glow {
   0%, 100% { 
     box-shadow: 0 0 10px hsl(var(--cosmic-gold) / 0.3);
@@ -222,6 +280,22 @@ All colors MUST be HSL.
 
 .validation-bounce {
   animation: validation-bounce 0.6s ease-in-out;
+}
+
+.victory-shake {
+  animation: victory-shake 0.5s ease-in-out;
+}
+
+.particle-animation {
+  animation: particle-float 3s ease-out forwards;
+}
+
+.level-up-glow {
+  animation: level-up-glow 2s ease-in-out infinite;
+}
+
+.achievement-unlock {
+  animation: achievement-unlock 0.8s cubic-bezier(0.68, -0.55, 0.265, 1.55) forwards;
 }
 
 /* Hover Effects */
