@@ -96,6 +96,37 @@ const Battle = () => {
     loadAllCards();
   }, []);
 
+  // Lógica para oponente escolher atributo automaticamente
+  useEffect(() => {
+    if (whoChooses === 'opponent' && !battle.selectedAttribute && battle.opponentCard && gamePhase === 'battle') {
+      const timer = setTimeout(() => {
+        // Oponente escolhe o melhor atributo da carta dele
+        const attributes: BattleAttribute[] = ['atomic_number', 'atomic_mass', 'density', 'melting_point', 'reactivity', 'radioactivity'];
+        const opponentCard = battle.opponentCard!;
+        
+        // Escolhe o atributo com maior valor
+        let bestAttribute = attributes[0];
+        let bestValue = opponentCard[bestAttribute];
+        
+        for (const attr of attributes) {
+          if (opponentCard[attr] > bestValue) {
+            bestAttribute = attr;
+            bestValue = opponentCard[attr];
+          }
+        }
+        
+        setBattle(prev => ({ ...prev, selectedAttribute: bestAttribute }));
+        setIsCardFlipped(true);
+        
+        setTimeout(() => {
+          calculateBattleResult(bestAttribute);
+        }, 1000);
+      }, 2000); // 2 segundos para simular "pensamento"
+
+      return () => clearTimeout(timer);
+    }
+  }, [whoChooses, battle.selectedAttribute, battle.opponentCard, gamePhase]);
+
   const loadUserCards = async () => {
     if (!user) return;
     
@@ -136,6 +167,61 @@ const Battle = () => {
     }
 
     setAllCards(data || []);
+  };
+
+  const saveGameResult = async (isVictory: boolean) => {
+    if (!user) return;
+
+    try {
+      // Buscar ou criar registro do ranking do usuário
+      const { data: existingRanking } = await supabase
+        .from('card_game_rankings')
+        .select('*')
+        .eq('user_id', user.id)
+        .single();
+
+      const gamesWon = isVictory ? (existingRanking?.games_won || 0) + 1 : (existingRanking?.games_won || 0);
+      const gamesLost = !isVictory ? (existingRanking?.games_lost || 0) + 1 : (existingRanking?.games_lost || 0);
+      const totalGames = gamesWon + gamesLost;
+      const winRate = totalGames > 0 ? (gamesWon / totalGames) * 100 : 0;
+      const currentScore = battle.playerScore * 10 + (isVictory ? 100 : 0);
+      const newTotalScore = (existingRanking?.total_score || 0) + currentScore;
+
+      const rankingData = {
+        user_id: user.id,
+        player_name: user.email?.split('@')[0] || 'Jogador',
+        total_score: newTotalScore,
+        games_won: gamesWon,
+        games_lost: gamesLost,
+        total_games: totalGames,
+        win_rate: parseFloat(winRate.toFixed(2)),
+        highest_score: Math.max(currentScore, existingRanking?.highest_score || 0),
+        current_streak: isVictory ? (existingRanking?.current_streak || 0) + 1 : 0,
+        longest_streak: isVictory ? Math.max((existingRanking?.current_streak || 0) + 1, existingRanking?.longest_streak || 0) : (existingRanking?.longest_streak || 0),
+        total_cards_played: (existingRanking?.total_cards_played || 0) + initialPlayerCards,
+        difficulty_level: 'medium',
+        last_played_at: new Date().toISOString()
+      };
+
+      if (existingRanking) {
+        await supabase
+          .from('card_game_rankings')
+          .update(rankingData)
+          .eq('user_id', user.id);
+      } else {
+        await supabase
+          .from('card_game_rankings')
+          .insert([rankingData]);
+      }
+
+      toast({
+        title: isVictory ? "Vitória registrada!" : "Partida registrada!",
+        description: `+${currentScore} pontos`,
+      });
+
+    } catch (error) {
+      console.error('Erro ao salvar resultado:', error);
+    }
   };
 
   const startBattle = (selectedCards: ElementCard[], deckName?: string) => {
@@ -235,7 +321,7 @@ const Battle = () => {
       setShowVictoryEffect(true);
       setShowParticles(true);
       
-      const xpGained = 100;
+      const xpGained = 15;
       setPlayerLevel(prev => ({
         ...prev,
         experience: prev.experience + xpGained,
@@ -252,27 +338,110 @@ const Battle = () => {
 
   const nextRound = () => {
     setIsCardFlipped(false);
-    setIsTransferring(false);
+    setIsTransferring(true);
     setShowVictoryEffect(false);
     setShowParticles(false);
-    
+
     setBattle(prev => {
-      if (prev.playerDeck.length === 0 || prev.opponentDeck.length === 0) {
-        setGamePhase('gameOver');
+      if (!prev.playerCard || !prev.opponentCard || !prev.battleResult) {
         return prev;
       }
 
+      let newPlayerDeck = [...prev.playerDeck.slice(1)]; // Remove a carta jogada do topo
+      let newOpponentDeck = [...prev.opponentDeck.slice(1)]; // Remove a carta jogada do topo
+      let newDiscardPile = [...prev.discardPile];
+      let newWhoChooses = whoChooses;
+      let newPlayerScore = prev.playerScore;
+      let newOpponentScore = prev.opponentScore;
+
+      // Cartas em jogo (a serem distribuídas)
+      const cardsInPlay = [prev.playerCard, prev.opponentCard, ...newDiscardPile];
+
+      if (prev.battleResult === 'win') {
+        // Jogador vence: ganha todas as cartas em jogo
+        newPlayerDeck = [...newPlayerDeck, ...cardsInPlay];
+        newDiscardPile = [];
+        newWhoChooses = 'player'; // Vencedor escolhe próximo atributo
+        newPlayerScore = prev.playerScore + 1;
+        setTransferDirection('left'); // Cartas vão para o jogador (esquerda)
+      } else if (prev.battleResult === 'lose') {
+        // Oponente vence: ganha todas as cartas em jogo
+        newOpponentDeck = [...newOpponentDeck, ...cardsInPlay];
+        newDiscardPile = [];
+        newWhoChooses = 'opponent'; // Vencedor escolhe próximo atributo
+        newOpponentScore = prev.opponentScore + 1;
+        setTransferDirection('right'); // Cartas vão para o oponente (direita)
+      } else {
+        // Empate: cartas vão para pilha de descarte
+        newDiscardPile = cardsInPlay;
+        // Quem escolhe continua o mesmo
+      }
+
+      // Verificar fim de jogo
+      if (newPlayerDeck.length === 0) {
+        setTimeout(() => {
+          setGamePhase('gameOver');
+          saveGameResult(false); // Jogador perdeu
+        }, 500);
+        return {
+          ...prev,
+          playerDeck: newPlayerDeck,
+          opponentDeck: newOpponentDeck,
+          discardPile: newDiscardPile,
+          playerScore: newPlayerScore,
+          opponentScore: newOpponentScore,
+          battleResult: null,
+          selectedAttribute: null,
+          playerCard: null,
+          opponentCard: null
+        };
+      }
+
+      if (newOpponentDeck.length === 0) {
+        setTimeout(() => {
+          setGamePhase('gameOver');
+          saveGameResult(true); // Jogador ganhou
+        }, 500);
+        return {
+          ...prev,
+          playerDeck: newPlayerDeck,
+          opponentDeck: newOpponentDeck,
+          discardPile: newDiscardPile,
+          playerScore: newPlayerScore,
+          opponentScore: newOpponentScore,
+          battleResult: null,
+          selectedAttribute: null,
+          playerCard: null,
+          opponentCard: null
+        };
+      }
+
+      // Continua o jogo
       return {
         ...prev,
-        playerCard: prev.playerDeck[0] || null,
-        opponentCard: prev.opponentDeck[0] || null,
+        playerDeck: newPlayerDeck,
+        opponentDeck: newOpponentDeck,
+        playerCard: newPlayerDeck[0] || null,
+        opponentCard: newOpponentDeck[0] || null,
+        discardPile: newDiscardPile,
         selectedAttribute: null,
         battleResult: null,
+        playerScore: newPlayerScore,
+        opponentScore: newOpponentScore,
         round: prev.round + 1
       };
     });
-    
-    setGamePhase('battle');
+
+    // Atualizar quem escolhe depois da transferência
+    setTimeout(() => {
+      setWhoChooses(prev => {
+        if (battle.battleResult === 'win') return 'player';
+        if (battle.battleResult === 'lose') return 'opponent';
+        return prev; // Mantém o mesmo em caso de empate
+      });
+      setIsTransferring(false);
+      setGamePhase('battle');
+    }, 1000);
   };
 
   if (userCards.length === 0) {
@@ -336,7 +505,7 @@ const Battle = () => {
             <div>
               <TurnIndicator
                 whoChooses={whoChooses}
-                isActive={!battle.selectedAttribute && !isPaused}
+                isActive={!battle.selectedAttribute && !isPaused && !isTransferring}
                 onTimeOut={() => {}}
                 timeLimit={15}
               />
@@ -351,13 +520,34 @@ const Battle = () => {
                 opponentScore={battle.opponentScore}
               />
 
+              <div className="text-center mb-4">
+                <CardCounter
+                  playerCards={battle.playerDeck.length}
+                  opponentCards={battle.opponentDeck.length}
+                />
+                {battle.discardPile.length > 0 && (
+                  <div className="text-sm text-cosmic-blue mt-2">
+                    Cartas em disputa: {battle.discardPile.length}
+                  </div>
+                )}
+              </div>
+
+              {whoChooses === 'opponent' && !battle.selectedAttribute && (
+                <div className="text-center mb-4">
+                  <ThinkingIndicator 
+                    message="Oponente escolhendo atributo..." 
+                    isVisible={true}
+                  />
+                </div>
+              )}
+
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-6 justify-items-center">
                 <BattleCard
                   card={battle.playerCard} 
                   showAttributes={true}
                   selectedAttribute={battle.selectedAttribute}
                   onAttributeSelect={selectAttribute}
-                  canSelectAttribute={!battle.selectedAttribute && whoChooses === 'player'}
+                  canSelectAttribute={!battle.selectedAttribute && whoChooses === 'player' && !isTransferring}
                   isFlipped={false}
                 />
                 
@@ -369,6 +559,19 @@ const Battle = () => {
                   isFlipped={isCardFlipped}
                 />
               </div>
+
+              <BattleControls
+                onSurrender={() => {
+                  setGamePhase('gameOver');
+                  setBattle(prev => ({
+                    ...prev,
+                    playerDeck: [],
+                    opponentDeck: [...prev.opponentDeck, ...prev.playerDeck]
+                  }));
+                }}
+                onPause={() => setIsPaused(!isPaused)}
+                isPaused={isPaused}
+              />
             </div>
           )}
 
@@ -392,34 +595,51 @@ const Battle = () => {
           {gamePhase === 'gameOver' && (
             <div className="text-center space-y-6">
               <div className="text-4xl font-bold">
-                {battle.playerDeck.length > battle.opponentDeck.length ? (
-                  <span className="text-cosmic-gold">🏆 VITÓRIA FINAL!</span>
-                ) : (
+                {battle.playerDeck.length === 0 ? (
                   <span className="text-red-500">💥 DERROTA!</span>
+                ) : (
+                  <span className="text-cosmic-gold">🏆 VITÓRIA FINAL!</span>
                 )}
               </div>
               
-              <Button
-                onClick={() => {
-                  setBattle({
-                    playerDeck: [],
-                    opponentDeck: [],
-                    playerCard: null,
-                    opponentCard: null,
-                    selectedAttribute: null,
-                    battleResult: null,
-                    playerScore: 0,
-                    opponentScore: 0,
-                    round: 1,
-                    discardPile: []
-                  });
-                  setCurrentDeckName(null);
-                  setWhoChooses('player');
-                  setGamePhase('deckBuilder');
-                }}
-              >
-                Nova Batalha
-              </Button>
+              <div className="text-lg text-muted-foreground">
+                {battle.playerDeck.length === 0 ? (
+                  "Você ficou sem cartas! O oponente venceu."
+                ) : (
+                  `Parabéns! O oponente ficou sem cartas. Você venceu com ${battle.playerDeck.length} cartas restantes!`
+                )}
+              </div>
+              
+              <div className="flex justify-center gap-4">
+                <Button
+                  onClick={() => {
+                    setBattle({
+                      playerDeck: [],
+                      opponentDeck: [],
+                      playerCard: null,
+                      opponentCard: null,
+                      selectedAttribute: null,
+                      battleResult: null,
+                      playerScore: 0,
+                      opponentScore: 0,
+                      round: 1,
+                      discardPile: []
+                    });
+                    setCurrentDeckName(null);
+                    setWhoChooses('player');
+                    setGamePhase('deckBuilder');
+                  }}
+                >
+                  Nova Batalha
+                </Button>
+                
+                <Button
+                  variant="outline"
+                  onClick={() => window.location.href = '/ranking'}
+                >
+                  Ver Ranking
+                </Button>
+              </div>
             </div>
           )}
         </div>
