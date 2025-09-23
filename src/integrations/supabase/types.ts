@@ -142,6 +142,69 @@ export type Database = {
           },
         ]
       }
+      card_game_rankings: {
+        Row: {
+          average_game_duration: number
+          created_at: string
+          current_streak: number
+          difficulty_level: string
+          favorite_element_type: string | null
+          games_lost: number
+          games_won: number
+          highest_score: number
+          id: string
+          last_played_at: string | null
+          longest_streak: number
+          player_name: string
+          total_cards_played: number
+          total_games: number
+          total_score: number
+          updated_at: string
+          user_id: string | null
+          win_rate: number
+        }
+        Insert: {
+          average_game_duration?: number
+          created_at?: string
+          current_streak?: number
+          difficulty_level?: string
+          favorite_element_type?: string | null
+          games_lost?: number
+          games_won?: number
+          highest_score?: number
+          id?: string
+          last_played_at?: string | null
+          longest_streak?: number
+          player_name: string
+          total_cards_played?: number
+          total_games?: number
+          total_score?: number
+          updated_at?: string
+          user_id?: string | null
+          win_rate?: number
+        }
+        Update: {
+          average_game_duration?: number
+          created_at?: string
+          current_streak?: number
+          difficulty_level?: string
+          favorite_element_type?: string | null
+          games_lost?: number
+          games_won?: number
+          highest_score?: number
+          id?: string
+          last_played_at?: string | null
+          longest_streak?: number
+          player_name?: string
+          total_cards_played?: number
+          total_games?: number
+          total_score?: number
+          updated_at?: string
+          user_id?: string | null
+          win_rate?: number
+        }
+        Relationships: []
+      }
       check_ins: {
         Row: {
           check_in_time: string

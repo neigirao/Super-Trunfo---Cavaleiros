@@ -10,13 +10,22 @@ import { useToast } from '@/hooks/use-toast';
 import { Trophy, Crown, Medal, Star, Sword, Shield } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 
-interface RankingEntry {
+interface CardGameRanking {
   id: string;
   player_name: string;
-  score: number;
-  games_played: number;
-  difficulty_level?: string;
-  game_mode: string;
+  total_score: number;
+  games_won: number;
+  games_lost: number;
+  total_games: number;
+  win_rate: number;
+  highest_score: number;
+  current_streak: number;
+  longest_streak: number;
+  favorite_element_type?: string;
+  total_cards_played: number;
+  average_game_duration: number;
+  difficulty_level: string;
+  last_played_at: string;
   created_at: string;
   user_id?: string;
 }
@@ -31,25 +40,23 @@ interface Profile {
 const Ranking = () => {
   const { user, loading } = useAuth();
   const { toast } = useToast();
-  const [rankings, setRankings] = useState<RankingEntry[]>([]);
+  const [rankings, setRankings] = useState<CardGameRanking[]>([]);
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [rankingLoading, setRankingLoading] = useState(true);
-  const [currentGameMode, setCurrentGameMode] = useState('classic');
 
   useEffect(() => {
     if (!loading) {
       loadRankings();
       loadProfiles();
     }
-  }, [loading, currentGameMode]);
+  }, [loading]);
 
   const loadRankings = async () => {
     try {
       const { data, error } = await supabase
-        .from('rankings')
+        .from('card_game_rankings')
         .select('*')
-        .eq('game_mode', currentGameMode)
-        .order('score', { ascending: false })
+        .order('total_score', { ascending: false })
         .limit(100);
 
       if (error) throw error;
@@ -160,7 +167,7 @@ const Ranking = () => {
                   <div className="text-center">
                     <div className="text-sm text-muted-foreground">Pontuação</div>
                     <div className="text-2xl font-bold text-cosmic-blue">
-                      {rankings[currentUserRank - 1]?.score || 0}
+                      {rankings[currentUserRank - 1]?.total_score || 0}
                     </div>
                   </div>
                 </CardContent>
@@ -168,10 +175,9 @@ const Ranking = () => {
             )}
           </div>
 
-          <Tabs defaultValue="classic" className="w-full" onValueChange={setCurrentGameMode}>
-            <TabsList className="grid w-full grid-cols-2 max-w-md mx-auto mb-8">
-              <TabsTrigger value="classic">Clássico</TabsTrigger>
-              <TabsTrigger value="battle">Batalha</TabsTrigger>
+          <Tabs defaultValue="classic" className="w-full">
+            <TabsList className="grid w-full grid-cols-1 max-w-md mx-auto mb-8">
+              <TabsTrigger value="classic">Cavaleiros dos Elementos</TabsTrigger>
             </TabsList>
 
             <TabsContent value="classic" className="space-y-4">
@@ -215,7 +221,7 @@ const Ranking = () => {
                                   {isCurrentUser && <span className="ml-2 text-cosmic-blue text-sm">(Você)</span>}
                                 </div>
                                 <div className="text-sm text-muted-foreground">
-                                  {entry.games_played} jogos
+                                  {entry.total_games} jogos • Taxa: {entry.win_rate}%
                                 </div>
                               </div>
                             </div>
@@ -230,7 +236,7 @@ const Ranking = () => {
                             
                             <div className="text-right">
                               <div className="text-2xl font-bold text-cosmic-gold">
-                                {entry.score.toLocaleString()}
+                                {entry.total_score.toLocaleString()}
                               </div>
                               <div className="text-sm text-muted-foreground">
                                 #{index + 1}
@@ -243,20 +249,6 @@ const Ranking = () => {
                   })}
                 </div>
               )}
-            </TabsContent>
-
-            <TabsContent value="battle" className="space-y-4">
-              <Card className="bg-card/80 backdrop-blur-lg border-primary/20">
-                <CardHeader className="text-center">
-                  <Sword className="w-16 h-16 mx-auto text-cosmic-gold mb-4" />
-                  <CardTitle className="text-2xl font-bold bg-gradient-to-r from-cosmic-gold to-cosmic-gold-light bg-clip-text text-transparent">
-                    Modo Batalha
-                  </CardTitle>
-                  <CardDescription>
-                    Em breve: ranking das batalhas entre cavaleiros
-                  </CardDescription>
-                </CardHeader>
-              </Card>
             </TabsContent>
           </Tabs>
         </div>
