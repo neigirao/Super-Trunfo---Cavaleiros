@@ -1,3 +1,17 @@
+/**
+ * Battle Component - Componente principal da batalha de cartas
+ * 
+ * Implementa as regras do Super Trunfo:
+ * - Cada jogador tem um baralho de cartas
+ * - A cada rodada, ambos revelam uma carta
+ * - O jogador da vez escolhe um atributo para comparação
+ * - O vencedor leva AMBAS as cartas (sua carta + carta do oponente)
+ * - Em caso de empate, cartas vão para pilha de descarte
+ * - Vencedor da próxima rodada leva também as cartas do descarte
+ * - Jogo termina quando um jogador fica sem cartas
+ * 
+ * @component
+ */
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -20,38 +34,47 @@ import ParticleEffect from './effects/ParticleEffect';
 import PlayerLevel from './progression/PlayerLevel';
 import TutorialModal from './tutorial/TutorialModal';
 
+/**
+ * Interface que representa uma carta de elemento do jogo
+ */
 interface ElementCard {
   id: string;
   name: string;
   symbol: string;
-  atomic_number: number;
-  atomic_mass: number;
-  density: number;
-  melting_point: number;
-  reactivity: number;
-  radioactivity: number;
+  atomic_number: number;    // Número atômico (atributo de batalha)
+  atomic_mass: number;      // Massa atômica (atributo de batalha)
+  density: number;          // Densidade (atributo de batalha)
+  melting_point: number;    // Ponto de fusão (atributo de batalha)
+  reactivity: number;       // Reatividade (atributo de batalha)
+  radioactivity: number;    // Radioatividade (atributo de batalha)
   knight_name: string;
   special_ability: string;
-  rarity: string;
+  rarity: string;          // common, rare, epic, legendary
   element_type: string;
-  is_super_trump: boolean;
-  trump_weakness?: string;
+  is_super_trump: boolean; // Se é carta Super Trunfo especial
+  trump_weakness?: string; // Fraqueza específica do Super Trunfo
   image_url?: string;
 }
 
+/**
+ * Tipos de atributos disponíveis para comparação nas batalhas
+ */
 type BattleAttribute = 'atomic_number' | 'atomic_mass' | 'density' | 'melting_point' | 'reactivity' | 'radioactivity';
 
+/**
+ * Interface que representa o estado completo de uma batalha
+ */
 interface BattleState {
-  playerDeck: ElementCard[];
-  opponentDeck: ElementCard[];
-  playerCard: ElementCard | null;
-  opponentCard: ElementCard | null;
-  selectedAttribute: BattleAttribute | null;
-  battleResult: 'win' | 'lose' | 'draw' | null;
-  playerScore: number;
-  opponentScore: number;
-  round: number;
-  discardPile: ElementCard[];
+  playerDeck: ElementCard[];        // Baralho atual do jogador
+  opponentDeck: ElementCard[];      // Baralho atual do oponente
+  playerCard: ElementCard | null;   // Carta revelada do jogador
+  opponentCard: ElementCard | null; // Carta revelada do oponente
+  selectedAttribute: BattleAttribute | null; // Atributo escolhido para comparação
+  battleResult: 'win' | 'lose' | 'draw' | null; // Resultado da rodada atual
+  playerScore: number;              // Rodadas vencidas pelo jogador
+  opponentScore: number;            // Rodadas vencidas pelo oponente
+  round: number;                    // Número da rodada atual
+  discardPile: ElementCard[];       // Pilha de descarte (cartas de empates)
 }
 
 const Battle = () => {
@@ -96,7 +119,12 @@ const Battle = () => {
     loadAllCards();
   }, []);
 
-  // Lógica para oponente escolher atributo automaticamente
+  /**
+   * IA do Oponente - Escolha automática de atributo
+   * 
+   * Estratégia: Escolhe o atributo com maior valor na carta atual
+   * Simula "pensamento" com delay de 2 segundos
+   */
   useEffect(() => {
     if (whoChooses === 'opponent' && !battle.selectedAttribute && battle.opponentCard && gamePhase === 'battle') {
       const timer = setTimeout(() => {
@@ -169,6 +197,12 @@ const Battle = () => {
     setAllCards(data || []);
   };
 
+  /**
+   * Salva o resultado da partida no banco de dados
+   * Atualiza estatísticas no ranking (card_game_rankings)
+   * 
+   * @param isVictory - Se o jogador venceu a partida
+   */
   const saveGameResult = async (isVictory: boolean) => {
     if (!user) return;
 
@@ -278,6 +312,16 @@ const Battle = () => {
     }, 1000);
   };
 
+  /**
+   * Calcula o resultado de uma rodada baseado no atributo selecionado
+   * 
+   * Regras:
+   * - Super Trunfo vence carta normal (exceto se enfrentar sua fraqueza)
+   * - Maior valor do atributo vence
+   * - Valores iguais = empate
+   * 
+   * @param attribute - Atributo escolhido para comparação
+   */
   const calculateBattleResult = (attribute: BattleAttribute) => {
     if (!battle.playerCard || !battle.opponentCard) return;
 
@@ -336,6 +380,16 @@ const Battle = () => {
     }
   };
 
+  /**
+   * Avança para a próxima rodada
+   * 
+   * Lógica de Super Trunfo:
+   * - Remove cartas jogadas dos baralhos
+   * - Vencedor leva ambas cartas + descarte
+   * - Empate: cartas vão para descarte
+   * - Verifica fim de jogo (jogador sem cartas)
+   * - Próximo a escolher é o vencedor (ou mantém em empate)
+   */
   const nextRound = () => {
     setIsCardFlipped(false);
     setIsTransferring(true);
