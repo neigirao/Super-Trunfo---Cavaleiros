@@ -24,54 +24,67 @@ Jogo de cartas baseado nas regras do Super Trunfo, desenvolvido com React, TypeS
 ```
 src/
 ├── components/           # Componentes React
-│   ├── Battle.tsx       # Componente principal da batalha
+│   ├── Battle.tsx       # 🎯 Componente principal (REFATORADO - usa hooks)
 │   ├── BattleCard.tsx   # Carta individual na batalha
 │   ├── battle/          # Componentes específicos da batalha
-│   │   ├── BattleControls.tsx    # Controles (pause, surrender)
-│   │   ├── BattleProgress.tsx    # Progresso e pontuação
-│   │   ├── CardCounter.tsx       # Contador de cartas
-│   │   ├── ThinkingIndicator.tsx # Indicador de pensamento do oponente
-│   │   └── TurnIndicator.tsx     # Indicador de turno
+│   │   ├── AttributeSelector.tsx   # ✨ Seletor de atributos
+│   │   ├── BattleControls.tsx      # Controles (pause, surrender)
+│   │   ├── BattleField.tsx         # ✨ Campo de batalha
+│   │   ├── BattleProgress.tsx      # Progresso e pontuação
+│   │   ├── BattleResultScreen.tsx  # ✨ Tela de resultado
+│   │   ├── CardCounter.tsx         # Contador de cartas
+│   │   ├── GameOverScreen.tsx      # ✨ Tela fim de jogo
+│   │   ├── ThinkingIndicator.tsx   # Indicador IA
+│   │   └── TurnIndicator.tsx       # Indicador de turno
 │   ├── effects/         # Efeitos visuais
-│   │   ├── ParticleEffect.tsx   # Efeitos de partículas
-│   │   └── VictoryEffect.tsx    # Efeito de vitória
 │   ├── progression/     # Sistema de progressão
-│   │   ├── AchievementSystem.tsx # Conquistas
-│   │   └── PlayerLevel.tsx       # Nível do jogador
-│   └── ui/             # Componentes UI reutilizáveis (shadcn)
-├── contexts/           # Contextos React
-│   └── AuthContext.tsx # Autenticação
-├── integrations/       # Integrações externas
-│   └── supabase/      # Supabase client e types
-├── pages/             # Páginas principais
-│   ├── Game.tsx       # Página do jogo
-│   ├── Ranking.tsx    # Página de ranking
-│   ├── Collection.tsx # Coleção de cartas
-│   └── Auth.tsx       # Autenticação
-└── hooks/             # Custom hooks
-    └── useMinimumCards.tsx # Verifica cartas mínimas
+│   └── ui/             # Componentes shadcn
+├── hooks/             # 🆕 Custom hooks
+│   └── battle/        # 🆕 Hooks da batalha
+│       ├── useBattleLogic.tsx  # 🎯 LÓGICA de batalha
+│       └── useBattleCards.tsx  # 🎯 Gerencia cartas
+├── contexts/          # Contextos React
+├── integrations/      # Supabase
+└── pages/             # Páginas
 ```
 
-## Fluxo de Dados da Batalha
+## Arquitetura Refatorada
 
-### Estado Principal (Battle.tsx)
+### Separação de Responsabilidades
+
+O projeto segue uma arquitetura modular com clara separação entre:
+
+1. **Lógica de Negócio** (hooks customizados em `src/hooks/battle/`)
+   - `useBattleLogic`: Gerencia estado da batalha, regras do Super Trunfo, cálculos
+   - `useBattleCards`: Carrega e gerencia cartas do usuário e do jogo
+
+2. **Apresentação** (componentes em `src/components/`)
+   - Componentes focados apenas em UI e interação
+   - Não contêm lógica de negócio complexa
+
+3. **Estado Global** (contextos em `src/contexts/`)
+   - AuthContext para autenticação
+   - Outros contextos conforme necessário
+
+### Ciclo de uma Rodada
+### Estado da Batalha (useBattleLogic hook)
 ```typescript
 interface BattleState {
   playerDeck: Card[];        // Baralho do jogador
   opponentDeck: Card[];      // Baralho do oponente
-  playerCurrentCard: Card;   // Carta atual do jogador
-  opponentCurrentCard: Card; // Carta atual do oponente
+  playerCard: Card | null;   // Carta atual do jogador
+  opponentCard: Card | null; // Carta atual do oponente
   discardPile: Card[];       // Pilha de descarte (empates)
-  playerScore: number;       // Pontuação do jogador
-  opponentScore: number;     // Pontuação do oponente
+  playerScore: number;       // Rodadas vencidas pelo jogador
+  opponentScore: number;     // Rodadas vencidas pelo oponente
   whoChooses: 'player' | 'opponent'; // Quem escolhe o atributo
-  roundWinner: 'player' | 'opponent' | 'draw' | null;
-  gameOver: boolean;
-  winner: 'player' | 'opponent' | null;
+  battleResult: 'player' | 'opponent' | 'draw' | null; // Resultado da rodada
+  round: number;            // Número da rodada atual
+  selectedAttribute: BattleAttribute | null; // Atributo escolhido
 }
 ```
 
-### Ciclo de uma Rodada
+### Fluxo de uma Rodada
 1. **Início**: Carta do topo de cada baralho é revelada
 2. **Escolha**: Jogador/oponente seleciona atributo
 3. **Comparação**: Valores são comparados
@@ -188,16 +201,21 @@ Todos os componentes UI seguem o design system:
 ## Manutenção e Evolução
 
 ### Para Adicionar Novas Features
-1. Verifique se precisa de mudanças no banco (migrations)
-2. Atualize interfaces TypeScript relevantes
-3. Adicione testes se possível
-4. Documente mudanças neste arquivo
+1. **Hooks**: Para lógica, crie em `src/hooks/battle/`
+2. **Componentes**: Para UI, crie em `src/components/battle/`
+3. **Migrations**: Se precisar mudar banco de dados
+4. **Documente**: Atualize ARCHITECTURE.md
 
 ### Para Modificar Regras do Jogo
-1. **SEMPRE** consulte a seção "Regras do Jogo" acima
-2. Atualize `Battle.tsx` mantendo a lógica do Super Trunfo
-3. Teste todos os cenários (vitória, derrota, empate)
-4. Atualize documentação se necessário
+1. **SEMPRE** consulte "Regras do Jogo" acima
+2. **Edite** `hooks/battle/useBattleLogic.tsx` (NÃO Battle.tsx)
+3. **Teste** vitória, derrota, empate
+4. **Mantenha** componentes apenas com UI
+
+### Para Modificar UI
+1. **Edite** componentes em `components/battle/`
+2. **Use** tokens do design system (`index.css`)
+3. **NÃO** adicione lógica nos componentes
 
 ### Para Debugar Problemas
 1. Console logs estão disponíveis automaticamente
