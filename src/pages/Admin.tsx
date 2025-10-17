@@ -14,6 +14,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Plus, Edit, Trash2, BarChart3, Users, Crown, Shield } from 'lucide-react';
 import Navbar from '@/components/Navbar';
+import { CardImageUpload } from '@/components/admin/CardImageUpload';
+import { useImageUpload } from '@/hooks/useImageUpload';
 
 interface ElementCard {
   id: string;
@@ -35,6 +37,7 @@ interface ElementCard {
 const Admin = () => {
   const { user, loading, isAdmin } = useAuth();
   const { toast } = useToast();
+  const { deleteImage } = useImageUpload();
   const [cards, setCards] = useState<ElementCard[]>([]);
   const [adminLoading, setAdminLoading] = useState(true);
   const [editingCard, setEditingCard] = useState<ElementCard | null>(null);
@@ -169,12 +172,21 @@ const Admin = () => {
     if (!confirm('Tem certeza que deseja excluir esta carta?')) return;
 
     try {
+      // Find card to get image URL
+      const card = cards.find(c => c.id === cardId);
+      
+      // Delete card from database
       const { error } = await supabase
         .from('element_cards')
         .delete()
         .eq('id', cardId);
 
       if (error) throw error;
+
+      // Delete image from storage if it exists
+      if (card?.image_url) {
+        await deleteImage(card.image_url);
+      }
 
       toast({
         title: "Sucesso",
@@ -378,15 +390,12 @@ const Admin = () => {
         />
       </div>
 
-      <div>
-        <Label htmlFor="image_url">URL da Imagem</Label>
-        <Input
-          id="image_url"
-          value={formData.image_url}
-          onChange={(e) => setFormData(prev => ({ ...prev, image_url: e.target.value }))}
-          placeholder="URL da imagem do cavaleiro"
-        />
-      </div>
+      <CardImageUpload
+        currentImageUrl={formData.image_url}
+        cardId={editingCard?.id || 'new'}
+        onImageUpload={(url) => setFormData(prev => ({ ...prev, image_url: url }))}
+        onImageDelete={() => setFormData(prev => ({ ...prev, image_url: '' }))}
+      />
     </div>
   );
 
