@@ -28,6 +28,7 @@ import BattleField from './battle/BattleField';
 import AttributeSelector from './battle/AttributeSelector';
 import BattleResultScreen from './battle/BattleResultScreen';
 import GameOverScreen from './battle/GameOverScreen';
+import PowerCounter from './battle/PowerCounter';
 import { useBattleLogic } from '@/hooks/battle/useBattleLogic';
 import { useBattleCards } from '@/hooks/battle/useBattleCards';
 import type { BattleAttribute } from '@/hooks/battle/useBattleLogic';
@@ -59,6 +60,8 @@ const Battle = () => {
     experienceToNextLevel: 100, 
     totalExperience: 0 
   });
+  const [previousPlayerPower, setPreviousPlayerPower] = useState(0);
+  const [previousOpponentPower, setPreviousOpponentPower] = useState(0);
 
   /**
    * Efeito para escolha automática do oponente
@@ -121,6 +124,10 @@ const Battle = () => {
   const handleBattleResult = (attribute: BattleAttribute) => {
     const result = battleLogic.calculateBattleResult(attribute);
     if (!result) return;
+
+    // Store previous power values for animation
+    setPreviousPlayerPower(calculatePower(battleLogic.battle.playerCard));
+    setPreviousOpponentPower(calculatePower(battleLogic.battle.opponentCard));
 
     setGamePhase('result');
     
@@ -203,6 +210,22 @@ const Battle = () => {
     setIsPaused(false);
     setShowVictoryEffect(false);
     setShowParticles(false);
+    setPreviousPlayerPower(0);
+    setPreviousOpponentPower(0);
+  };
+
+  /**
+   * Calcula o poder de uma carta (soma dos atributos principais)
+   */
+  const calculatePower = (card: typeof battleLogic.battle.playerCard): number => {
+    if (!card) return 0;
+    return Math.round(
+      card.atomic_number + 
+      card.atomic_mass + 
+      card.density + 
+      card.reactivity + 
+      card.radioactivity
+    );
   };
 
   // Loading state
@@ -290,6 +313,14 @@ const Battle = () => {
             <CardCounter
               playerCards={battleLogic.battle.playerDeck.length}
               opponentCards={battleLogic.battle.opponentDeck.length}
+            />
+
+            {/* Power Counter - Marvel Snap Style */}
+            <PowerCounter
+              playerPower={calculatePower(battleLogic.battle.playerCard)}
+              opponentPower={calculatePower(battleLogic.battle.opponentCard)}
+              previousPlayerPower={previousPlayerPower}
+              previousOpponentPower={previousOpponentPower}
             />
 
             {/* Battle Field */}

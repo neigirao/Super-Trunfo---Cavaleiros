@@ -126,20 +126,28 @@ const BattleCard = ({
         <Card 
           className={`
             w-72 h-[440px] relative overflow-hidden flex flex-col
-            ${onClick ? 'cursor-pointer hover:shadow-cosmic hover:scale-[1.02] transition-all duration-300' : ''} 
+            ${onClick ? 'cursor-pointer hover:scale-[1.03] transition-all duration-300 card-hover-glow' : ''} 
             ${isOpponent ? 'bg-cosmic-purple/10 border-cosmic-purple/30' : 'bg-cosmic-gold/10 border-cosmic-gold/30'} 
             backdrop-blur-lg border-2
-            ${card.is_super_trump ? 'border-cosmic-gold border-3 shadow-cosmic animate-pulse' : ''}
-            ${selectedAttribute ? 'transform scale-105 shadow-2xl' : ''}
-            backface-hidden
+            ${card.is_super_trump ? 'border-cosmic-gold border-3 snap-effect' : ''}
+            ${selectedAttribute ? 'transform scale-105' : ''}
+            backface-hidden shadow-[var(--shadow-elevated)]
           `}
+          style={{
+            boxShadow: card.is_super_trump ? 'var(--glow-intense)' : undefined
+          }}
           onClick={onClick}
         >
           {/* Super Trunfo Badge */}
           {card.is_super_trump && (
-            <div className="absolute top-2 right-2 bg-cosmic-gold text-cosmic-dark px-2 py-1 rounded-full text-xs font-bold z-10">
-              SUPER TRUNFO
-            </div>
+            <motion.div 
+              className="absolute top-2 right-2 bg-cosmic-gold text-cosmic-dark px-3 py-1.5 rounded-full text-xs font-bold z-10 snap-effect"
+              style={{ boxShadow: 'var(--glow-intense)' }}
+              animate={{ scale: [1, 1.05, 1] }}
+              transition={{ duration: 2, repeat: Infinity }}
+            >
+              ⚡ SUPER TRUNFO
+            </motion.div>
           )}
 
           {/* Header com tipo e símbolo */}
@@ -206,22 +214,25 @@ const BattleCard = ({
                 <motion.div 
                   key={key}
                   className={`
-                    flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-all duration-200
+                    flex items-center justify-between px-3 py-2.5 rounded-lg text-sm transition-all duration-200
                     ${selectedAttribute === key 
-                      ? 'border-2 border-cosmic-gold bg-cosmic-gold/30 shadow-cosmic scale-[1.02] ring-2 ring-cosmic-gold/50' 
+                      ? 'border-2 border-cosmic-gold bg-cosmic-gold/30 scale-[1.02] ring-2 ring-cosmic-gold/50' 
                       : 'border border-primary/20 bg-card/50 hover:bg-card/70'
                     }
-                    ${canSelectAttribute ? 'cursor-pointer hover:border-cosmic-gold/60 hover:shadow-lg hover:scale-[1.01]' : ''}
+                    ${canSelectAttribute ? 'cursor-pointer hover:border-cosmic-gold/60 hover:scale-[1.02]' : ''}
                   `}
+                  style={{
+                    boxShadow: selectedAttribute === key ? 'var(--glow-intense)' : undefined
+                  }}
                   onClick={(e) => {
                     e.stopPropagation();
                     if (canSelectAttribute && onAttributeSelect) {
                       onAttributeSelect(key);
                     }
                   }}
-                  whileHover={canSelectAttribute ? { y: -1 } : {}}
+                  whileHover={canSelectAttribute ? { y: -2, boxShadow: '0 4px 12px hsl(var(--cosmic-gold) / 0.3)' } : {}}
                   whileTap={canSelectAttribute ? { scale: 0.98 } : {}}
-                  transition={{ duration: 0.15 }}
+                  transition={{ duration: 0.2 }}
                 >
                   <RuleTooltip rule="attribute">
                     <div className="flex items-center space-x-2 cursor-help">
