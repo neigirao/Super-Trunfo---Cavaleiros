@@ -11,6 +11,7 @@ interface BattleFieldProps {
   isCardFlipped: boolean;
   isTransferring: boolean;
   transferDirection: 'left' | 'right';
+  showPlayerAttributes?: boolean;
 }
 
 const BattleField = ({ 
@@ -18,7 +19,8 @@ const BattleField = ({
   opponentCard, 
   isCardFlipped, 
   isTransferring,
-  transferDirection 
+  transferDirection,
+  showPlayerAttributes = false
 }: BattleFieldProps) => {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8 max-w-6xl mx-auto">
@@ -32,7 +34,7 @@ const BattleField = ({
         {playerCard && (
           <BattleCard 
             card={playerCard} 
-            showAttributes={true}
+            showAttributes={showPlayerAttributes}
             isTransferring={isTransferring && transferDirection === 'left'}
             transferDirection="left"
           />

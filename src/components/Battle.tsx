@@ -330,6 +330,7 @@ const Battle = () => {
               isCardFlipped={isCardFlipped}
               isTransferring={isTransferring}
               transferDirection={transferDirection}
+              showPlayerAttributes={battleLogic.whoChooses === 'opponent' || !!battleLogic.battle.selectedAttribute}
             />
 
             {/* Attribute Selector (Player's Turn) */}
