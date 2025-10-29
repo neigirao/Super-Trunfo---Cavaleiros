@@ -40,6 +40,7 @@ const Game = () => {
   const [score, setScore] = useState(0);
   const [streak, setStreak] = useState(0);
   const [gameLoading, setGameLoading] = useState(true);
+  const [isBattleActive, setIsBattleActive] = useState(false);
 
   useEffect(() => {
     if (!loading && user) {
@@ -116,45 +117,47 @@ const Game = () => {
 
       <div className="relative pt-24 pb-8 px-4">
         <div className="max-w-7xl mx-auto">
-          {/* Game Header */}
-          <div className="text-center mb-8">
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-cosmic-gold to-cosmic-gold-light bg-clip-text text-transparent mb-4">
-              Arena dos Elementos
-            </h1>
-            <div className="flex justify-center items-center space-x-8 mb-6">
-              <div className="text-center">
-                <div className="text-2xl font-bold text-cosmic-gold">{score}</div>
-                <div className="text-sm text-muted-foreground">Pontuação</div>
+          {/* Game Header - Only show when battle is not active */}
+          {!isBattleActive && (
+            <div className="text-center mb-8">
+              <h1 className="text-4xl font-bold bg-gradient-to-r from-cosmic-gold to-cosmic-gold-light bg-clip-text text-transparent mb-4">
+                Arena dos Elementos
+              </h1>
+              <div className="flex justify-center items-center space-x-8 mb-6">
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-cosmic-gold">{score}</div>
+                  <div className="text-sm text-muted-foreground">Pontuação</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-cosmic-blue">{streak}</div>
+                  <div className="text-sm text-muted-foreground">Sequência</div>
+                </div>
               </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-cosmic-blue">{streak}</div>
-                <div className="text-sm text-muted-foreground">Sequência</div>
+              
+              {/* Game Mode Selector */}
+              <div className="flex justify-center space-x-4 mb-8">
+                <Button
+                  variant={gameMode === 'battle' ? 'default' : 'outline'}
+                  onClick={() => setGameMode('battle')}
+                  className="bg-gradient-to-r from-cosmic-gold to-cosmic-gold-light hover:from-cosmic-gold-light hover:to-cosmic-gold text-cosmic-dark"
+                >
+                  <Sword className="w-4 h-4 mr-2" />
+                  Batalha
+                </Button>
+                <Button
+                  variant={gameMode === 'collection' ? 'default' : 'outline'}
+                  onClick={() => setGameMode('collection')}
+                  className="bg-gradient-to-r from-cosmic-purple to-cosmic-purple-light hover:from-cosmic-purple-light hover:to-cosmic-purple"
+                >
+                  <Star className="w-4 h-4 mr-2" />
+                  Coleção
+                </Button>
               </div>
             </div>
-            
-            {/* Game Mode Selector */}
-            <div className="flex justify-center space-x-4 mb-8">
-              <Button
-                variant={gameMode === 'battle' ? 'default' : 'outline'}
-                onClick={() => setGameMode('battle')}
-                className="bg-gradient-to-r from-cosmic-gold to-cosmic-gold-light hover:from-cosmic-gold-light hover:to-cosmic-gold text-cosmic-dark"
-              >
-                <Sword className="w-4 h-4 mr-2" />
-                Batalha
-              </Button>
-              <Button
-                variant={gameMode === 'collection' ? 'default' : 'outline'}
-                onClick={() => setGameMode('collection')}
-                className="bg-gradient-to-r from-cosmic-purple to-cosmic-purple-light hover:from-cosmic-purple-light hover:to-cosmic-purple"
-              >
-                <Star className="w-4 h-4 mr-2" />
-                Coleção
-              </Button>
-            </div>
-          </div>
+          )}
 
           {gameMode === 'battle' && (
-            <Battle />
+            <Battle onBattleStateChange={setIsBattleActive} />
           )}
           
           {gameMode === 'collection' && (

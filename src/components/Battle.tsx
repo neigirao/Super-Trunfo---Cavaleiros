@@ -35,7 +35,11 @@ import type { BattleAttribute } from '@/hooks/battle/useBattleLogic';
 
 type GamePhase = 'deckBuilder' | 'battle' | 'result' | 'gameOver';
 
-const Battle = () => {
+interface BattleProps {
+  onBattleStateChange?: (isActive: boolean) => void;
+}
+
+const Battle = ({ onBattleStateChange }: BattleProps = {}) => {
   const { user } = useAuth();
   const { toast } = useToast();
   
@@ -62,6 +66,15 @@ const Battle = () => {
   });
   const [previousPlayerPower, setPreviousPlayerPower] = useState(0);
   const [previousOpponentPower, setPreviousOpponentPower] = useState(0);
+
+  /**
+   * Notifica quando a batalha está ativa
+   */
+  useEffect(() => {
+    if (onBattleStateChange) {
+      onBattleStateChange(gamePhase !== 'deckBuilder');
+    }
+  }, [gamePhase, onBattleStateChange]);
 
   /**
    * Efeito para escolha automática do oponente
