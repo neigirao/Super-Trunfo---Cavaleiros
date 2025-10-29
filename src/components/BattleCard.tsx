@@ -169,7 +169,7 @@ const BattleCard = ({
               <img 
                 src={card.image_url} 
                 alt={card.knight_name}
-                className="w-full h-full object-cover"
+                className="w-full h-full object-contain"
                 onError={(e) => {
                   e.currentTarget.style.display = 'none';
                 }}
