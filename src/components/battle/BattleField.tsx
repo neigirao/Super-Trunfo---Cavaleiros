@@ -23,10 +23,10 @@ const BattleField = ({
   showPlayerAttributes = false
 }: BattleFieldProps) => {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4 max-w-5xl mx-auto">
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-6xl mx-auto">
       {/* Player Card */}
       <motion.div 
-        className="flex justify-center"
+        className="flex justify-center items-center"
         initial={{ x: -100, opacity: 0 }}
         animate={{ x: 0, opacity: 1 }}
         transition={{ duration: 0.5 }}
@@ -43,7 +43,7 @@ const BattleField = ({
 
       {/* Opponent Card */}
       <motion.div 
-        className="flex justify-center"
+        className="flex justify-center items-center"
         initial={{ x: 100, opacity: 0 }}
         animate={{ x: 0, opacity: 1 }}
         transition={{ duration: 0.5 }}

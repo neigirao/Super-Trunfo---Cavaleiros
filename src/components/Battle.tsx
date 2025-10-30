@@ -290,11 +290,12 @@ const Battle = ({ onBattleStateChange }: BattleProps = {}) => {
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="h-screen flex flex-col overflow-hidden"
+            className="container mx-auto max-w-7xl py-4 space-y-4"
           >
-            {/* Compact Header */}
-            <div className="flex-shrink-0 px-2 py-2 space-y-2">
-              <div className="flex items-center justify-between gap-2">
+            {/* Header Section */}
+            <div className="space-y-3">
+              {/* Top Controls */}
+              <div className="flex items-center justify-between">
                 <BattleControls
                   onSurrender={handleSurrender}
                   onPause={() => setIsPaused(true)}
@@ -304,7 +305,8 @@ const Battle = ({ onBattleStateChange }: BattleProps = {}) => {
                 <PlayerLevel {...playerLevel} />
               </div>
 
-              <div className="flex items-center justify-between gap-2 text-sm">
+              {/* Stats Row */}
+              <div className="grid grid-cols-3 gap-4">
                 <CardCounter
                   playerCards={battleLogic.battle.playerDeck.length}
                   opponentCards={battleLogic.battle.opponentDeck.length}
@@ -321,6 +323,7 @@ const Battle = ({ onBattleStateChange }: BattleProps = {}) => {
                 />
               </div>
 
+              {/* Progress Bar */}
               <BattleProgress
                 playerCards={battleLogic.battle.playerDeck.length}
                 opponentCards={battleLogic.battle.opponentDeck.length}
@@ -332,30 +335,30 @@ const Battle = ({ onBattleStateChange }: BattleProps = {}) => {
               />
             </div>
 
-            {/* Main Battle Area - Always Visible */}
-            <div className="flex-1 flex flex-col justify-center min-h-0 px-2 py-4">
-              {/* Battle Field - Compact */}
-              <div className="mb-4">
-                <BattleField
-                  playerCard={battleLogic.battle.playerCard}
-                  opponentCard={battleLogic.battle.opponentCard}
-                  isCardFlipped={isCardFlipped}
-                  isTransferring={isTransferring}
-                  transferDirection={transferDirection}
-                  showPlayerAttributes={battleLogic.whoChooses === 'opponent' || !!battleLogic.battle.selectedAttribute}
-                />
-              </div>
+            {/* Battle Field */}
+            <div className="py-6">
+              <BattleField
+                playerCard={battleLogic.battle.playerCard}
+                opponentCard={battleLogic.battle.opponentCard}
+                isCardFlipped={isCardFlipped}
+                isTransferring={isTransferring}
+                transferDirection={transferDirection}
+                showPlayerAttributes={battleLogic.whoChooses === 'opponent' || !!battleLogic.battle.selectedAttribute}
+              />
+            </div>
 
-              {/* Attribute Selector (Player's Turn) - Always Visible */}
+            {/* Action Area */}
+            <div className="min-h-[300px] flex items-center justify-center">
+              {/* Attribute Selector (Player's Turn) */}
               {battleLogic.whoChooses === 'player' && 
                !battleLogic.battle.selectedAttribute && 
                battleLogic.battle.playerCard && (
                 <motion.div
-                  className="max-w-md mx-auto w-full px-2"
+                  className="w-full max-w-md"
                   initial={{ y: 20, opacity: 0 }}
                   animate={{ y: 0, opacity: 1 }}
                 >
-                  <h3 className="text-center text-base font-semibold mb-2 text-primary">
+                  <h3 className="text-center text-lg font-semibold mb-4 text-primary">
                     Escolha um atributo:
                   </h3>
                   <AttributeSelector
