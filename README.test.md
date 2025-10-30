@@ -1,5 +1,14 @@
 # Guia de Testes
 
+## Testes Automáticos
+
+O projeto está configurado com **Husky** e **lint-staged** para executar testes automaticamente:
+
+- **Pre-commit**: Executa lint e testes nos arquivos modificados
+- **Pre-push**: Executa todos os testes antes de enviar ao repositório
+
+Isso garante que nenhuma modificação quebre o código existente.
+
 ## Executar Testes
 
 ```bash
