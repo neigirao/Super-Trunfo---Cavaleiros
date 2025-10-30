@@ -25,7 +25,7 @@ const AttributeSelector = ({ card, onSelectAttribute, disabled, selectedAttribut
   ];
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-1.5">
       {attributes.map((attr, index) => {
         const Icon = attr.icon;
         const isSelected = selectedAttribute === attr.key;
@@ -40,7 +40,7 @@ const AttributeSelector = ({ card, onSelectAttribute, disabled, selectedAttribut
             <Button
               onClick={() => onSelectAttribute(attr.key)}
               disabled={disabled || isSelected}
-              className={`w-full justify-between ${
+              className={`w-full justify-between py-2 h-auto ${
                 isSelected 
                   ? 'bg-primary text-primary-foreground' 
                   : 'bg-card hover:bg-card/80'
@@ -48,10 +48,10 @@ const AttributeSelector = ({ card, onSelectAttribute, disabled, selectedAttribut
               variant={isSelected ? "default" : "outline"}
             >
               <span className="flex items-center space-x-2">
-                <Icon className="w-4 h-4" />
-                <span>{attr.label}</span>
+                <Icon className="w-3.5 h-3.5" />
+                <span className="text-sm">{attr.label}</span>
               </span>
-              <Badge variant={isSelected ? "secondary" : "outline"}>
+              <Badge variant={isSelected ? "secondary" : "outline"} className="text-xs">
                 {attr.value.toFixed(2)}
               </Badge>
             </Button>

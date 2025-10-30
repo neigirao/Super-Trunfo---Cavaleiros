@@ -290,87 +290,88 @@ const Battle = ({ onBattleStateChange }: BattleProps = {}) => {
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="space-y-6"
+            className="h-screen flex flex-col overflow-hidden"
           >
-            {/* Battle Controls */}
-            <BattleControls
-              onSurrender={handleSurrender}
-              onPause={() => setIsPaused(true)}
-              onResume={() => setIsPaused(false)}
-              isPaused={isPaused}
-            />
+            {/* Compact Header */}
+            <div className="flex-shrink-0 px-2 py-2 space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <BattleControls
+                  onSurrender={handleSurrender}
+                  onPause={() => setIsPaused(true)}
+                  onResume={() => setIsPaused(false)}
+                  isPaused={isPaused}
+                />
+                <PlayerLevel {...playerLevel} />
+              </div>
 
-            {/* Player Level */}
-            <div className="flex justify-center">
-              <PlayerLevel {...playerLevel} />
+              <div className="flex items-center justify-between gap-2 text-sm">
+                <CardCounter
+                  playerCards={battleLogic.battle.playerDeck.length}
+                  opponentCards={battleLogic.battle.opponentDeck.length}
+                />
+                <TurnIndicator
+                  whoChooses={battleLogic.whoChooses}
+                  isActive={!isPaused && battleLogic.whoChooses === 'player'}
+                />
+                <PowerCounter
+                  playerPower={calculatePower(battleLogic.battle.playerCard)}
+                  opponentPower={calculatePower(battleLogic.battle.opponentCard)}
+                  previousPlayerPower={previousPlayerPower}
+                  previousOpponentPower={previousOpponentPower}
+                />
+              </div>
+
+              <BattleProgress
+                playerCards={battleLogic.battle.playerDeck.length}
+                opponentCards={battleLogic.battle.opponentDeck.length}
+                initialPlayerCards={battleLogic.initialPlayerCards}
+                initialOpponentCards={battleLogic.initialOpponentCards}
+                round={battleLogic.battle.round}
+                playerScore={battleLogic.battle.playerScore}
+                opponentScore={battleLogic.battle.opponentScore}
+              />
             </div>
 
-            {/* Battle Progress */}
-            <BattleProgress
-              playerCards={battleLogic.battle.playerDeck.length}
-              opponentCards={battleLogic.battle.opponentDeck.length}
-              initialPlayerCards={battleLogic.initialPlayerCards}
-              initialOpponentCards={battleLogic.initialOpponentCards}
-              round={battleLogic.battle.round}
-              playerScore={battleLogic.battle.playerScore}
-              opponentScore={battleLogic.battle.opponentScore}
-            />
-
-            {/* Turn Indicator */}
-            <TurnIndicator
-              whoChooses={battleLogic.whoChooses}
-              isActive={!isPaused && battleLogic.whoChooses === 'player'}
-            />
-
-            {/* Card Counters */}
-            <CardCounter
-              playerCards={battleLogic.battle.playerDeck.length}
-              opponentCards={battleLogic.battle.opponentDeck.length}
-            />
-
-            {/* Power Counter - Marvel Snap Style */}
-            <PowerCounter
-              playerPower={calculatePower(battleLogic.battle.playerCard)}
-              opponentPower={calculatePower(battleLogic.battle.opponentCard)}
-              previousPlayerPower={previousPlayerPower}
-              previousOpponentPower={previousOpponentPower}
-            />
-
-            {/* Battle Field */}
-            <BattleField
-              playerCard={battleLogic.battle.playerCard}
-              opponentCard={battleLogic.battle.opponentCard}
-              isCardFlipped={isCardFlipped}
-              isTransferring={isTransferring}
-              transferDirection={transferDirection}
-              showPlayerAttributes={battleLogic.whoChooses === 'opponent' || !!battleLogic.battle.selectedAttribute}
-            />
-
-            {/* Attribute Selector (Player's Turn) */}
-            {battleLogic.whoChooses === 'player' && 
-             !battleLogic.battle.selectedAttribute && 
-             battleLogic.battle.playerCard && (
-              <motion.div
-                className="max-w-md mx-auto"
-                initial={{ y: 50, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-              >
-                <h3 className="text-center text-lg font-semibold mb-4 text-primary">
-                  Escolha um atributo:
-                </h3>
-                <AttributeSelector
-                  card={battleLogic.battle.playerCard}
-                  onSelectAttribute={selectAttribute}
-                  disabled={isPaused}
-                  selectedAttribute={battleLogic.battle.selectedAttribute}
+            {/* Main Battle Area - Always Visible */}
+            <div className="flex-1 flex flex-col justify-center min-h-0 px-2 py-4">
+              {/* Battle Field - Compact */}
+              <div className="mb-4">
+                <BattleField
+                  playerCard={battleLogic.battle.playerCard}
+                  opponentCard={battleLogic.battle.opponentCard}
+                  isCardFlipped={isCardFlipped}
+                  isTransferring={isTransferring}
+                  transferDirection={transferDirection}
+                  showPlayerAttributes={battleLogic.whoChooses === 'opponent' || !!battleLogic.battle.selectedAttribute}
                 />
-              </motion.div>
-            )}
+              </div>
 
-            {/* Thinking Indicator (Opponent's Turn) */}
-            {battleLogic.whoChooses === 'opponent' && !battleLogic.battle.selectedAttribute && (
-              <ThinkingIndicator isVisible={true} />
-            )}
+              {/* Attribute Selector (Player's Turn) - Always Visible */}
+              {battleLogic.whoChooses === 'player' && 
+               !battleLogic.battle.selectedAttribute && 
+               battleLogic.battle.playerCard && (
+                <motion.div
+                  className="max-w-md mx-auto w-full px-2"
+                  initial={{ y: 20, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                >
+                  <h3 className="text-center text-base font-semibold mb-2 text-primary">
+                    Escolha um atributo:
+                  </h3>
+                  <AttributeSelector
+                    card={battleLogic.battle.playerCard}
+                    onSelectAttribute={selectAttribute}
+                    disabled={isPaused}
+                    selectedAttribute={battleLogic.battle.selectedAttribute}
+                  />
+                </motion.div>
+              )}
+
+              {/* Thinking Indicator (Opponent's Turn) */}
+              {battleLogic.whoChooses === 'opponent' && !battleLogic.battle.selectedAttribute && (
+                <ThinkingIndicator isVisible={true} />
+              )}
+            </div>
 
             {/* Effects */}
             <AnimatePresence>
