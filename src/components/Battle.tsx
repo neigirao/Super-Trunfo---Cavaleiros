@@ -290,23 +290,65 @@ const Battle = ({ onBattleStateChange }: BattleProps = {}) => {
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="container mx-auto max-w-7xl py-4 space-y-4"
+            className="container mx-auto max-w-6xl py-4 space-y-4"
           >
-            {/* Header Section */}
-            <div className="space-y-3">
-              {/* Top Controls */}
-              <div className="flex items-center justify-between">
-                <BattleControls
-                  onSurrender={handleSurrender}
-                  onPause={() => setIsPaused(true)}
-                  onResume={() => setIsPaused(false)}
-                  isPaused={isPaused}
+            {/* 1) MENU - Controles principais da batalha */}
+            <div className="flex items-center justify-between">
+              <BattleControls
+                onSurrender={handleSurrender}
+                onPause={() => setIsPaused(true)}
+                onResume={() => setIsPaused(false)}
+                isPaused={isPaused}
+              />
+            </div>
+
+            {/* 2) CARTAS + AÇÃO (fica na primeira dobra/viewport) */}
+            <section className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
+              {/* Cartas em batalha */}
+              <div className="md:col-span-2">
+                <BattleField
+                  playerCard={battleLogic.battle.playerCard}
+                  opponentCard={battleLogic.battle.opponentCard}
+                  isCardFlipped={isCardFlipped}
+                  isTransferring={isTransferring}
+                  transferDirection={transferDirection}
+                  showPlayerAttributes={
+                    battleLogic.whoChooses === 'opponent' || !!battleLogic.battle.selectedAttribute
+                  }
                 />
-                <PlayerLevel {...playerLevel} />
               </div>
 
-              {/* Stats Row */}
-              <div className="grid grid-cols-3 gap-4">
+              {/* Área de ação (seleção de atributo ou "pensando...") */}
+              <div className="md:col-span-1 md:sticky md:top-16 self-start">
+                {battleLogic.whoChooses === 'player' &&
+                  !battleLogic.battle.selectedAttribute &&
+                  battleLogic.battle.playerCard && (
+                    <motion.div
+                      className="w-full"
+                      initial={{ y: 12, opacity: 0 }}
+                      animate={{ y: 0, opacity: 1 }}
+                    >
+                      <h3 className="text-base font-semibold mb-3 text-primary">
+                        Escolha um atributo
+                      </h3>
+                      <AttributeSelector
+                        card={battleLogic.battle.playerCard}
+                        onSelectAttribute={selectAttribute}
+                        disabled={isPaused}
+                        selectedAttribute={battleLogic.battle.selectedAttribute}
+                      />
+                    </motion.div>
+                  )}
+
+                {battleLogic.whoChooses === 'opponent' &&
+                  !battleLogic.battle.selectedAttribute && <ThinkingIndicator isVisible={true} />}
+              </div>
+            </section>
+
+            {/* 3) OUTRAS INFORMAÇÕES */}
+            <section className="space-y-4">
+              {/* Linha de estatísticas */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <CardCounter
                   playerCards={battleLogic.battle.playerDeck.length}
                   opponentCards={battleLogic.battle.opponentDeck.length}
@@ -323,7 +365,7 @@ const Battle = ({ onBattleStateChange }: BattleProps = {}) => {
                 />
               </div>
 
-              {/* Progress Bar */}
+              {/* Barra de progresso */}
               <BattleProgress
                 playerCards={battleLogic.battle.playerDeck.length}
                 opponentCards={battleLogic.battle.opponentDeck.length}
@@ -333,62 +375,24 @@ const Battle = ({ onBattleStateChange }: BattleProps = {}) => {
                 playerScore={battleLogic.battle.playerScore}
                 opponentScore={battleLogic.battle.opponentScore}
               />
-            </div>
 
-            {/* Battle Field */}
-            <div className="py-6">
-              <BattleField
-                playerCard={battleLogic.battle.playerCard}
-                opponentCard={battleLogic.battle.opponentCard}
-                isCardFlipped={isCardFlipped}
-                isTransferring={isTransferring}
-                transferDirection={transferDirection}
-                showPlayerAttributes={battleLogic.whoChooses === 'opponent' || !!battleLogic.battle.selectedAttribute}
-              />
-            </div>
+              {/* Nível do jogador (lado direito) */}
+              <div className="flex justify-end">
+                <PlayerLevel {...playerLevel} />
+              </div>
+            </section>
 
-            {/* Action Area */}
-            <div className="min-h-[300px] flex items-center justify-center">
-              {/* Attribute Selector (Player's Turn) */}
-              {battleLogic.whoChooses === 'player' && 
-               !battleLogic.battle.selectedAttribute && 
-               battleLogic.battle.playerCard && (
-                <motion.div
-                  className="w-full max-w-md"
-                  initial={{ y: 20, opacity: 0 }}
-                  animate={{ y: 0, opacity: 1 }}
-                >
-                  <h3 className="text-center text-lg font-semibold mb-4 text-primary">
-                    Escolha um atributo:
-                  </h3>
-                  <AttributeSelector
-                    card={battleLogic.battle.playerCard}
-                    onSelectAttribute={selectAttribute}
-                    disabled={isPaused}
-                    selectedAttribute={battleLogic.battle.selectedAttribute}
-                  />
-                </motion.div>
-              )}
-
-              {/* Thinking Indicator (Opponent's Turn) */}
-              {battleLogic.whoChooses === 'opponent' && !battleLogic.battle.selectedAttribute && (
-                <ThinkingIndicator isVisible={true} />
-              )}
-            </div>
-
-            {/* Effects */}
+            {/* Efeitos visuais */}
             <AnimatePresence>
               {showVictoryEffect && (
-                <VictoryEffect 
-                  isVisible={showVictoryEffect} 
-                  type={victoryType} 
-                />
+                <VictoryEffect isVisible={showVictoryEffect} type={victoryType} />
               )}
             </AnimatePresence>
 
             {showParticles && <ParticleEffect isActive={showParticles} />}
           </motion.div>
         )}
+
 
         {/* Result Phase */}
         {gamePhase === 'result' && battleLogic.battle.battleResult && (

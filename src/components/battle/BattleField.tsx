@@ -23,7 +23,7 @@ const BattleField = ({
   showPlayerAttributes = false
 }: BattleFieldProps) => {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-6xl mx-auto">
+    <div className="w-full grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 items-start">
       {/* Player Card */}
       <motion.div 
         className="flex justify-center items-center"
