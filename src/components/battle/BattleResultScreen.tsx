@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Crown, Sword, Equal } from 'lucide-react';
+import { useEffect, useState } from 'react';
 
 interface BattleResultScreenProps {
   result: 'win' | 'lose' | 'draw';
@@ -12,6 +13,23 @@ interface BattleResultScreenProps {
 }
 
 const BattleResultScreen = ({ result, onNextRound }: BattleResultScreenProps) => {
+  const [timeLeft, setTimeLeft] = useState(6);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          onNextRound();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [onNextRound]);
+
   const resultConfig = {
     win: {
       title: 'Você Venceu!',
@@ -64,7 +82,7 @@ const BattleResultScreen = ({ result, onNextRound }: BattleResultScreenProps) =>
             className="w-full"
             size="lg"
           >
-            Próxima Rodada
+            Próxima Rodada ({timeLeft}s)
           </Button>
         </CardContent>
       </Card>
