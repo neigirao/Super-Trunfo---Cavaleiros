@@ -44,6 +44,7 @@ export type {
 export type {
   UserProfile,
   CardGameRanking,
+  RankingEntry,
   Achievement,
   UserAchievement,
   PlayerLevel,

@@ -269,3 +269,9 @@ export interface UserDeck {
   /** Data de última atualização */
   updated_at: Date;
 }
+
+/**
+ * Alias para CardGameRanking
+ * Usado nos repositórios
+ */
+export type RankingEntry = CardGameRanking;

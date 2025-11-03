@@ -1,7 +1,229 @@
-# Arquitetura do Card Battle Game
+# Arquitetura do Projeto - Super Trunfo
 
 ## Visão Geral
-Jogo de cartas baseado nas regras do Super Trunfo, desenvolvido com React, TypeScript, Tailwind CSS e Supabase.
+
+Este projeto segue uma **arquitetura em camadas** (Layered Architecture) com separação clara de responsabilidades.
+
+## Estrutura de Camadas
+
+```
+┌─────────────────────────────────────┐
+│     Presentation Layer (UI)         │  ← React Components, Pages
+├─────────────────────────────────────┤
+│     Application Layer               │  ← Services, Use Cases
+├─────────────────────────────────────┤
+│     Domain Layer                    │  ← Business Logic, Interfaces
+├─────────────────────────────────────┤
+│     Infrastructure Layer            │  ← Repositories, External APIs
+└─────────────────────────────────────┘
+```
+
+## Camadas
+
+### 1. Domain Layer (`src/domain/`)
+
+**Responsabilidade**: Lógica de negócio pura, independente de frameworks
+
+```
+domain/
+├── entities/          # Entidades do domínio (futuro)
+├── interfaces/        # Contratos de repositórios
+│   ├── ICardRepository.ts
+│   ├── IRankingRepository.ts
+│   └── index.ts
+├── value-objects/     # Objetos de valor (futuro)
+└── services/         # Serviços de domínio (futuro)
+```
+
+**Características**:
+- ✅ Sem dependências externas
+- ✅ Funções puras
+- ✅ Regras de negócio centralizadas
+- ✅ Altamente testável
+
+### 2. Application Layer (`src/application/`)
+
+**Responsabilidade**: Casos de uso e orquestração
+
+```
+application/
+├── services/
+│   ├── BattleService.ts    # Orquestra lógica de batalha
+│   └── index.ts
+├── use-cases/              # Casos de uso específicos (futuro)
+└── dto/                    # Data Transfer Objects (futuro)
+```
+
+**Características**:
+- ✅ Coordena domínio e infraestrutura
+- ✅ Valida entrada
+- ✅ Transforma dados (DTOs)
+- ✅ Implementa casos de uso
+
+### 3. Infrastructure Layer (`src/infrastructure/`)
+
+**Responsabilidade**: Implementações concretas e serviços externos
+
+```
+infrastructure/
+├── repositories/
+│   ├── SupabaseCardRepository.ts      # Implementação ICardRepository
+│   ├── SupabaseRankingRepository.ts   # Implementação IRankingRepository
+│   ├── RepositoryFactory.ts           # Factory de repositórios
+│   └── index.ts
+├── supabase/              # Configuração Supabase
+└── external/              # Outros serviços externos (futuro)
+```
+
+**Características**:
+- ✅ Implementa interfaces do domínio
+- ✅ Isola detalhes técnicos
+- ✅ Facilita substituição de implementações
+- ✅ Gerencia persistência
+
+### 4. Presentation Layer (`src/components/`, `src/pages/`)
+
+**Responsabilidade**: Interface do usuário
+
+```
+components/
+├── battle/              # Componentes de batalha
+├── ui/                 # Componentes UI base
+├── effects/            # Efeitos visuais
+└── ...
+
+pages/
+├── Game.tsx            # Página principal do jogo
+├── Collection.tsx      # Coleção de cartas
+└── ...
+
+hooks/
+├── battle/             # Hooks de batalha
+│   ├── useBattleOrchestrator.tsx  # Hook principal
+│   ├── useBattleLogic.tsx         # Lógica de batalha
+│   ├── useBattleState.tsx         # Estado da UI
+│   └── useBattleEffects.tsx       # Efeitos visuais
+└── ...
+```
+
+**Características**:
+- ✅ React Components
+- ✅ Custom Hooks
+- ✅ Gerenciamento de estado local
+- ✅ Interação com usuário
+
+## Fluxo de Dados
+
+### Exemplo: Iniciar Batalha
+
+```
+1. User Action (Presentation)
+   ↓
+   onClick handler in BattleArena.tsx
+
+2. Hook (Presentation)
+   ↓
+   useBattleOrchestrator.startBattle()
+
+3. Application Service
+   ↓
+   BattleService.validateDeckSize()
+   BattleService.loadUserCards()
+
+4. Infrastructure
+   ↓
+   SupabaseCardRepository.findByUserId()
+
+5. Domain Interface
+   ↓
+   ICardRepository contract
+
+6. Back to Presentation
+   ↓
+   Update UI with battle state
+```
+
+## Princípios Arquiteturais
+
+### 1. Dependency Inversion Principle (DIP)
+
+```typescript
+// ❌ ERRADO: Dependência direta
+import { supabase } from '@/integrations/supabase';
+
+// ✅ CORRETO: Dependência de interface
+import type { ICardRepository } from '@/domain/interfaces';
+```
+
+### 2. Single Responsibility Principle (SRP)
+
+Cada camada tem UMA responsabilidade clara:
+- **Domain**: Regras de negócio
+- **Application**: Orquestração
+- **Infrastructure**: Persistência
+- **Presentation**: UI/UX
+
+### 3. Open/Closed Principle (OCP)
+
+Sistema aberto para extensão, fechado para modificação:
+
+```typescript
+// Fácil adicionar novo repositório sem modificar código existente
+class MongoDBCardRepository implements ICardRepository {
+  // Nova implementação
+}
+```
+
+## Benefícios desta Arquitetura
+
+### Para Desenvolvimento com IA
+
+1. **Contexto Claro**: IA entende rapidamente onde adicionar código
+2. **Documentação**: JSDoc e READMEs facilitam compreensão
+3. **Padrões**: Estrutura consistente acelera geração de código
+4. **Testabilidade**: Fácil criar testes para validar mudanças
+
+### Para Manutenção
+
+1. **Separação de Responsabilidades**: Fácil localizar bugs
+2. **Substituibilidade**: Trocar implementações sem quebrar código
+3. **Escalabilidade**: Adicionar features sem refatorar tudo
+4. **Clareza**: Código auto-documentado
+
+### Para Testes
+
+1. **Isolamento**: Testar cada camada independentemente
+2. **Mocks**: Fácil mockar repositórios e serviços
+3. **Cobertura**: Testes unitários e de integração claros
+
+## Exemplos de Uso
+
+### Usando Repositórios
+
+```typescript
+import { RepositoryFactory } from '@/infrastructure/repositories';
+import { supabase } from '@/integrations/supabase/client';
+
+// Criar repositórios
+const cardRepo = RepositoryFactory.createCardRepository(supabase);
+const rankingRepo = RepositoryFactory.createRankingRepository(supabase);
+
+// Usar nos hooks
+const cards = await cardRepo.findByUserId(userId);
+```
+
+### Usando Serviços
+
+```typescript
+import { BattleService } from '@/application/services';
+
+// Criar serviço
+const battleService = new BattleService(cardRepo, rankingRepo);
+
+// Validar e iniciar
+battleService.validateDeckSize(selectedCards.length);
+const opponentDeck = await battleService.createOpponentDeck(6);
+```
 
 ## Regras do Jogo (Super Trunfo)
 
@@ -19,82 +241,6 @@ Jogo de cartas baseado nas regras do Super Trunfo, desenvolvido com React, TypeS
 - **Vitória**: Adversário fica sem cartas no baralho
 - **Derrota**: Jogador fica sem cartas no baralho
 
-## Estrutura do Projeto
-
-```
-src/
-├── components/           # Componentes React
-│   ├── Battle.tsx       # 🎯 Componente principal (REFATORADO - usa hooks)
-│   ├── BattleCard.tsx   # Carta individual na batalha
-│   ├── battle/          # Componentes específicos da batalha
-│   │   ├── AttributeSelector.tsx   # ✨ Seletor de atributos
-│   │   ├── BattleControls.tsx      # Controles (pause, surrender)
-│   │   ├── BattleField.tsx         # ✨ Campo de batalha
-│   │   ├── BattleProgress.tsx      # Progresso e pontuação
-│   │   ├── BattleResultScreen.tsx  # ✨ Tela de resultado
-│   │   ├── CardCounter.tsx         # Contador de cartas
-│   │   ├── GameOverScreen.tsx      # ✨ Tela fim de jogo
-│   │   ├── ThinkingIndicator.tsx   # Indicador IA
-│   │   └── TurnIndicator.tsx       # Indicador de turno
-│   ├── effects/         # Efeitos visuais
-│   ├── progression/     # Sistema de progressão
-│   └── ui/             # Componentes shadcn
-├── hooks/             # 🆕 Custom hooks
-│   └── battle/        # 🆕 Hooks da batalha
-│       ├── useBattleLogic.tsx  # 🎯 LÓGICA de batalha
-│       └── useBattleCards.tsx  # 🎯 Gerencia cartas
-├── contexts/          # Contextos React
-├── integrations/      # Supabase
-└── pages/             # Páginas
-```
-
-## Arquitetura Refatorada
-
-### Separação de Responsabilidades
-
-O projeto segue uma arquitetura modular com clara separação entre:
-
-1. **Lógica de Negócio** (hooks customizados em `src/hooks/battle/`)
-   - `useBattleLogic`: Gerencia estado da batalha, regras do Super Trunfo, cálculos
-   - `useBattleCards`: Carrega e gerencia cartas do usuário e do jogo
-
-2. **Apresentação** (componentes em `src/components/`)
-   - Componentes focados apenas em UI e interação
-   - Não contêm lógica de negócio complexa
-
-3. **Estado Global** (contextos em `src/contexts/`)
-   - AuthContext para autenticação
-   - Outros contextos conforme necessário
-
-### Ciclo de uma Rodada
-### Estado da Batalha (useBattleLogic hook)
-```typescript
-interface BattleState {
-  playerDeck: Card[];        // Baralho do jogador
-  opponentDeck: Card[];      // Baralho do oponente
-  playerCard: Card | null;   // Carta atual do jogador
-  opponentCard: Card | null; // Carta atual do oponente
-  discardPile: Card[];       // Pilha de descarte (empates)
-  playerScore: number;       // Rodadas vencidas pelo jogador
-  opponentScore: number;     // Rodadas vencidas pelo oponente
-  whoChooses: 'player' | 'opponent'; // Quem escolhe o atributo
-  battleResult: 'player' | 'opponent' | 'draw' | null; // Resultado da rodada
-  round: number;            // Número da rodada atual
-  selectedAttribute: BattleAttribute | null; // Atributo escolhido
-}
-```
-
-### Fluxo de uma Rodada
-1. **Início**: Carta do topo de cada baralho é revelada
-2. **Escolha**: Jogador/oponente seleciona atributo
-3. **Comparação**: Valores são comparados
-4. **Resultado**: 
-   - Vitória: Vencedor leva ambas cartas + descarte
-   - Empate: Cartas vão para descarte
-5. **Atualização**: Baralhos são atualizados
-6. **Verificação**: Checa se algum jogador ficou sem cartas
-7. **Próxima Rodada**: Se jogo não acabou, revela próximas cartas
-
 ## Database Schema
 
 ### Tabelas Principais
@@ -105,10 +251,11 @@ interface BattleState {
 - name: text              # Nome do elemento
 - knight_name: text       # Nome do cavaleiro
 - rarity: text           # Raridade (common, rare, epic, legendary)
-- attack: integer        # Atributo ataque
-- defense: integer       # Atributo defesa
-- intelligence: integer  # Atributo inteligência
-- speed: integer         # Atributo velocidade
+- atomic_number: integer # Número atômico
+- atomic_mass: numeric   # Massa atômica
+- density: numeric       # Densidade
+- reactivity: integer    # Reatividade
+- radioactivity: integer # Radioatividade
 - image_url: text        # URL da imagem
 ```
 
@@ -124,7 +271,7 @@ interface BattleState {
 ```sql
 - id: uuid (PK)
 - user_id: uuid (FK -> auth.users)
-- username: text
+- player_name: text
 - total_score: integer       # Pontuação total
 - games_won: integer         # Partidas vencidas
 - games_lost: integer        # Partidas perdidas
@@ -133,92 +280,20 @@ interface BattleState {
 - last_played_at: timestamp
 ```
 
-## Sistema de Autenticação
+## Próximos Passos
 
-### AuthContext
-- Gerencia estado do usuário autenticado
-- Providers: Google OAuth
-- Perfis: Armazena informações adicionais do usuário
-- Roles: `user` (padrão) ou `admin`
+### Fase 4 - Testing (Planejado)
+- [ ] Testes unitários para repositórios
+- [ ] Testes de integração para serviços
+- [ ] Testes E2E para fluxos principais
 
-### Proteção de Rotas
-Páginas protegidas redirecionam para `/auth` se não autenticado.
+### Fase 5 - Developer Experience (Planejado)
+- [ ] Storybook para componentes
+- [ ] Scripts de desenvolvimento
+- [ ] Documentação interativa
 
-## Integrações
+## Referências
 
-### Supabase
-- **Database**: PostgreSQL para persistência
-- **Auth**: Autenticação de usuários
-- **Storage**: Imagens de cartas (bucket: `card-images`)
-- **Edge Functions**: `ensure-minimum-cards` (garante cartas iniciais)
-
-## Componentes UI (shadcn/ui)
-
-Todos os componentes UI seguem o design system:
-- **Cores**: HSL tokens do `index.css`
-- **Temas**: Suporta dark/light mode
-- **Variantes**: Componentes customizáveis via CVA
-
-## Regras de Negócio
-
-### Cartas Iniciais
-- Usuários recebem 8 cartas comuns automaticamente ao criar conta
-- Verificado por edge function `ensure-minimum-cards`
-
-### Pack Opening
-- Usuários podem abrir 1 pack a cada 7 dias
-- Controlado pela tabela `user_pack_openings`
-
-### IA do Oponente
-- Seleciona atributo com maior valor da carta atual
-- Delay de 2 segundos para simular "pensamento"
-- Implementado em `Battle.tsx` na função `handleOpponentChoice`
-
-## Performance
-
-### Otimizações
-- `framer-motion` para animações suaves
-- Lazy loading de componentes quando possível
-- React Query para cache de dados do Supabase
-
-## Convenções de Código
-
-### TypeScript
-- Interfaces para todos os tipos complexos
-- Strict mode habilitado
-- Props sempre tipadas
-
-### React
-- Functional components
-- Hooks para lógica reutilizável
-- Context API para estado global
-
-### CSS
-- Tailwind CSS utility-first
-- Design tokens no `index.css`
-- Classes semânticas (não cores diretas)
-
-## Manutenção e Evolução
-
-### Para Adicionar Novas Features
-1. **Hooks**: Para lógica, crie em `src/hooks/battle/`
-2. **Componentes**: Para UI, crie em `src/components/battle/`
-3. **Migrations**: Se precisar mudar banco de dados
-4. **Documente**: Atualize ARCHITECTURE.md
-
-### Para Modificar Regras do Jogo
-1. **SEMPRE** consulte "Regras do Jogo" acima
-2. **Edite** `hooks/battle/useBattleLogic.tsx` (NÃO Battle.tsx)
-3. **Teste** vitória, derrota, empate
-4. **Mantenha** componentes apenas com UI
-
-### Para Modificar UI
-1. **Edite** componentes em `components/battle/`
-2. **Use** tokens do design system (`index.css`)
-3. **NÃO** adicione lógica nos componentes
-
-### Para Debugar Problemas
-1. Console logs estão disponíveis automaticamente
-2. Network requests podem ser inspecionados
-3. Supabase logs disponíveis no dashboard
-4. Edge function logs específicos por função
+- [Clean Architecture - Robert C. Martin](https://blog.cleancoder.com/uncle-bob/2012/08/13/the-clean-architecture.html)
+- [Domain-Driven Design](https://martinfowler.com/tags/domain%20driven%20design.html)
+- [Layered Architecture Pattern](https://www.oreilly.com/library/view/software-architecture-patterns/9781491971437/ch01.html)
