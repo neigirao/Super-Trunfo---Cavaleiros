@@ -1,19 +1,22 @@
-# Hooks - Custom React Hooks
+# Hooks - Custom React Hooks (REFATORADO - Fase 2)
 
 Esta pasta contém todos os hooks customizados do projeto, organizados por funcionalidade.
 
-## 📁 Estrutura
+## 📁 Estrutura (ATUALIZADA)
 
 ```
 src/hooks/
-├── battle/                  # Hooks de batalha
-│   ├── useBattleLogic.tsx   # Lógica principal de batalha
-│   ├── useBattleCards.tsx   # Gerenciamento de cartas
-│   └── __tests__/           # Testes dos hooks
-├── use-toast.ts             # Hook de notificações (shadcn)
-├── use-mobile.tsx           # Detecção de dispositivo móvel
-├── useImageUpload.tsx       # Upload de imagens
-└── useMinimumCards.tsx      # Verificação de cartas mínimas
+├── battle/                       # Hooks de batalha (MODULAR)
+│   ├── useBattleLogic.tsx        # Lógica core do jogo
+│   ├── useBattleCards.tsx        # Gerenciamento de cartas
+│   ├── useBattleState.tsx        # Estado da UI (NOVO)
+│   ├── useBattleEffects.tsx      # Efeitos visuais (NOVO)
+│   ├── useBattleOrchestrator.tsx # Coordenador (NOVO)
+│   └── __tests__/                # Testes dos hooks
+├── use-toast.ts                  # Hook de notificações (shadcn)
+├── use-mobile.tsx                # Detecção de dispositivo móvel
+├── useImageUpload.tsx            # Upload de imagens
+└── useMinimumCards.tsx           # Verificação de cartas mínimas
 ```
 
 ## 🎯 Hooks por Categoria
