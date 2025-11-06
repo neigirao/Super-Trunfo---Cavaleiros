@@ -19,6 +19,12 @@ export default defineConfig({
         '**/mockData',
         'src/main.tsx',
       ],
+      thresholds: {
+        lines: 80,
+        functions: 80,
+        branches: 75,
+        statements: 80,
+      },
     },
   },
   resolve: {
