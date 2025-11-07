@@ -81,6 +81,8 @@ const BattleCard = ({
   };
 
   const formatAttributeValue = (attribute: BattleAttribute, value: number) => {
+    if (value == null) return '0';
+    
     switch (attribute) {
       case 'atomic_mass':
         return value.toFixed(3);

@@ -52,7 +52,7 @@ const AttributeSelector = ({ card, onSelectAttribute, disabled, selectedAttribut
                 <span className="text-sm font-medium">{attr.label}</span>
               </span>
               <Badge variant={isSelected ? "secondary" : "outline"} className="text-sm font-semibold">
-                {attr.value.toFixed(2)}
+                {attr.value != null ? attr.value.toFixed(2) : '0.00'}
               </Badge>
             </Button>
           </motion.div>
