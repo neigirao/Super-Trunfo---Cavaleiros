@@ -21,7 +21,6 @@
  */
 import { motion, AnimatePresence } from 'framer-motion';
 import BattleField from './BattleField';
-import AttributeSelector from './AttributeSelector';
 import BattleControls from './BattleControls';
 import TurnIndicator from './TurnIndicator';
 import CardCounter from './CardCounter';
@@ -66,47 +65,30 @@ const BattleArena = ({ logic, state, effects, actions, onSurrender }: BattleAren
         />
       </div>
 
-      {/* 2) CARTAS + AÇÃO (fica na primeira dobra/viewport) */}
-      <section className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
-        {/* Cartas em batalha */}
-        <div className="md:col-span-2">
-          <BattleField
-            playerCard={logic.battle.playerCard}
-            opponentCard={logic.battle.opponentCard}
-            isCardFlipped={state.isCardFlipped}
-            isTransferring={state.isTransferring}
-            transferDirection={state.transferDirection}
-            showPlayerAttributes={
-              logic.whoChooses === 'opponent' || !!logic.battle.selectedAttribute
-            }
-          />
-        </div>
-
-        {/* Área de ação (seleção de atributo ou "pensando...") */}
-        <div className="md:col-span-1 md:sticky md:top-16 self-start">
-          {logic.whoChooses === 'player' &&
-            !logic.battle.selectedAttribute &&
-            logic.battle.playerCard && (
-              <motion.div
-                className="w-full"
-                initial={{ y: 12, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-              >
-                <h3 className="text-base font-semibold mb-3 text-primary">
-                  Escolha um atributo
-                </h3>
-                <AttributeSelector
-                  card={logic.battle.playerCard}
-                  onSelectAttribute={actions.selectAttribute}
-                  disabled={state.isPaused}
-                  selectedAttribute={logic.battle.selectedAttribute}
-                />
-              </motion.div>
-            )}
-
-          {logic.whoChooses === 'opponent' &&
-            !logic.battle.selectedAttribute && <ThinkingIndicator isVisible={true} />}
-        </div>
+      {/* 2) CAMPO DE BATALHA COM CARTAS */}
+      <section className="w-full">
+        <BattleField
+          playerCard={logic.battle.playerCard}
+          opponentCard={logic.battle.opponentCard}
+          isCardFlipped={state.isCardFlipped}
+          isTransferring={state.isTransferring}
+          transferDirection={state.transferDirection}
+          showPlayerAttributes={true}
+          canSelectAttribute={
+            logic.whoChooses === 'player' && 
+            !logic.battle.selectedAttribute && 
+            !state.isPaused
+          }
+          onAttributeSelect={actions.selectAttribute}
+          selectedAttribute={logic.battle.selectedAttribute}
+        />
+        
+        {/* Indicador de pensamento do oponente */}
+        {logic.whoChooses === 'opponent' && !logic.battle.selectedAttribute && (
+          <div className="flex justify-center mt-4">
+            <ThinkingIndicator isVisible={true} />
+          </div>
+        )}
       </section>
 
       {/* 3) OUTRAS INFORMAÇÕES */}

@@ -12,6 +12,9 @@ interface BattleFieldProps {
   isTransferring: boolean;
   transferDirection: 'left' | 'right';
   showPlayerAttributes?: boolean;
+  canSelectAttribute?: boolean;
+  onAttributeSelect?: (attribute: any) => void;
+  selectedAttribute?: any;
 }
 
 const BattleField = ({ 
@@ -20,7 +23,10 @@ const BattleField = ({
   isCardFlipped, 
   isTransferring,
   transferDirection,
-  showPlayerAttributes = false
+  showPlayerAttributes = false,
+  canSelectAttribute = false,
+  onAttributeSelect,
+  selectedAttribute
 }: BattleFieldProps) => {
   return (
     <div className="w-full grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 items-start">
@@ -35,6 +41,9 @@ const BattleField = ({
           <BattleCard 
             card={playerCard} 
             showAttributes={showPlayerAttributes}
+            canSelectAttribute={canSelectAttribute}
+            onAttributeSelect={onAttributeSelect}
+            selectedAttribute={selectedAttribute}
             isTransferring={isTransferring && transferDirection === 'left'}
             transferDirection="left"
           />
