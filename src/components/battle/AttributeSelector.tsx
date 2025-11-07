@@ -40,18 +40,24 @@ const AttributeSelector = ({ card, onSelectAttribute, disabled, selectedAttribut
             <Button
               onClick={() => onSelectAttribute(attr.key)}
               disabled={disabled || isSelected}
-              className={`w-full justify-between py-3 h-auto ${
+              className={`w-full justify-between py-3 h-auto transition-all ${
                 isSelected 
-                  ? 'bg-primary text-primary-foreground' 
+                  ? 'bg-gradient-to-r from-cosmic-gold to-cosmic-gold-light text-cosmic-dark ring-4 ring-cosmic-gold/60 scale-[1.03] shadow-xl' 
                   : 'bg-card hover:bg-card/80'
               }`}
               variant={isSelected ? "default" : "outline"}
+              style={{
+                boxShadow: isSelected ? '0 0 25px hsl(var(--cosmic-gold) / 0.7)' : undefined
+              }}
             >
               <span className="flex items-center space-x-3">
                 <Icon className="w-4 h-4" />
                 <span className="text-sm font-medium">{attr.label}</span>
               </span>
-              <Badge variant={isSelected ? "secondary" : "outline"} className="text-sm font-semibold">
+              <Badge 
+                variant={isSelected ? "secondary" : "outline"} 
+                className={`text-sm font-semibold ${isSelected ? 'bg-cosmic-dark/20 text-cosmic-dark text-base' : ''}`}
+              >
                 {attr.value != null ? attr.value.toFixed(2) : '0.00'}
               </Badge>
             </Button>

@@ -218,13 +218,13 @@ const BattleCard = ({
                   className={`
                     flex items-center justify-between px-3 py-2.5 rounded-lg text-sm transition-all duration-200
                     ${selectedAttribute === key 
-                      ? 'border-2 border-cosmic-gold bg-cosmic-gold/30 scale-[1.02] ring-2 ring-cosmic-gold/50' 
+                      ? 'border-3 border-cosmic-gold bg-gradient-to-r from-cosmic-gold/40 to-cosmic-gold-light/40 scale-[1.05] ring-4 ring-cosmic-gold/60 shadow-xl' 
                       : 'border border-primary/20 bg-card/50 hover:bg-card/70'
                     }
                     ${canSelectAttribute ? 'cursor-pointer hover:border-cosmic-gold/60 hover:scale-[1.02]' : ''}
                   `}
                   style={{
-                    boxShadow: selectedAttribute === key ? 'var(--glow-intense)' : undefined
+                    boxShadow: selectedAttribute === key ? '0 0 30px hsl(var(--cosmic-gold) / 0.8), inset 0 0 20px hsl(var(--cosmic-gold) / 0.3)' : undefined
                   }}
                   onClick={(e) => {
                     e.stopPropagation();
@@ -232,9 +232,16 @@ const BattleCard = ({
                       onAttributeSelect(key);
                     }
                   }}
+                  animate={selectedAttribute === key ? {
+                    boxShadow: [
+                      '0 0 30px hsl(var(--cosmic-gold) / 0.8), inset 0 0 20px hsl(var(--cosmic-gold) / 0.3)',
+                      '0 0 40px hsl(var(--cosmic-gold) / 1), inset 0 0 25px hsl(var(--cosmic-gold) / 0.5)',
+                      '0 0 30px hsl(var(--cosmic-gold) / 0.8), inset 0 0 20px hsl(var(--cosmic-gold) / 0.3)'
+                    ]
+                  } : {}}
                   whileHover={canSelectAttribute ? { y: -2, boxShadow: '0 4px 12px hsl(var(--cosmic-gold) / 0.3)' } : {}}
                   whileTap={canSelectAttribute ? { scale: 0.98 } : {}}
-                  transition={{ duration: 0.2 }}
+                  transition={{ duration: selectedAttribute === key ? 1.5 : 0.2, repeat: selectedAttribute === key ? Infinity : 0 }}
                 >
                   <RuleTooltip rule="attribute">
                     <div className="flex items-center space-x-2 cursor-help">
@@ -242,7 +249,7 @@ const BattleCard = ({
                       <span className="font-medium">{label}</span>
                     </div>
                   </RuleTooltip>
-                  <div className="font-bold text-cosmic-gold text-base">
+                  <div className={`font-bold text-base ${selectedAttribute === key ? 'text-cosmic-gold text-lg' : 'text-cosmic-gold'}`}>
                     {formatAttributeValue(key, card[key])}
                   </div>
                 </motion.div>
