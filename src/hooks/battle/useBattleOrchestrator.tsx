@@ -91,7 +91,7 @@ export const useBattleOrchestrator = (
         
         setTimeout(() => {
           handleBattleResult(bestAttribute);
-        }, 1000);
+        }, 10000);
       }, 2000);
 
       return () => clearTimeout(timer);
@@ -141,7 +141,7 @@ export const useBattleOrchestrator = (
     
     setTimeout(() => {
       handleBattleResult(attribute);
-    }, 1000);
+    }, 10000);
   }, [logic.battle.playerCard, logic.battle.opponentCard, logic.whoChooses, state]);
 
   /**
