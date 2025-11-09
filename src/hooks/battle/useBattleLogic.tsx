@@ -99,8 +99,14 @@ export const useBattleLogic = (userId: string | undefined) => {
   const calculateBattleResult = useCallback((attribute: BattleAttribute): 'win' | 'lose' | 'draw' | null => {
     if (!battle.playerCard || !battle.opponentCard) return null;
 
-    const playerValue = battle.playerCard[attribute];
-    const opponentValue = battle.opponentCard[attribute];
+    let playerValue = battle.playerCard[attribute];
+    let opponentValue = battle.opponentCard[attribute];
+
+    // Para melting_point, usar valor absoluto (ignorar sinal negativo)
+    if (attribute === 'melting_point') {
+      playerValue = Math.abs(playerValue);
+      opponentValue = Math.abs(opponentValue);
+    }
 
     let result: 'win' | 'lose' | 'draw';
 

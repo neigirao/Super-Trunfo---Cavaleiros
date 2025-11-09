@@ -46,6 +46,8 @@ const BattleField = ({
             selectedAttribute={selectedAttribute}
             isTransferring={isTransferring && transferDirection === 'left'}
             transferDirection="left"
+            showOwnerLabel={true}
+            isOpponent={false}
           />
         )}
       </motion.div>
@@ -66,6 +68,8 @@ const BattleField = ({
               isFlipped={!isCardFlipped}
               isTransferring={isTransferring && transferDirection === 'right'}
               transferDirection="right"
+              selectedAttribute={selectedAttribute}
+              showOwnerLabel={true}
             />
           )}
         </AnimatePresence>

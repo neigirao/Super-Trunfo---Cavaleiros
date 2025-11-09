@@ -36,6 +36,7 @@ interface BattleCardProps {
   isFlipped?: boolean;
   isTransferring?: boolean;
   transferDirection?: 'left' | 'right';
+  showOwnerLabel?: boolean;
 }
 
 const BattleCard = ({ 
@@ -48,7 +49,8 @@ const BattleCard = ({
   canSelectAttribute = false,
   isFlipped = false,
   isTransferring = false,
-  transferDirection = 'right'
+  transferDirection = 'right',
+  showOwnerLabel = false
 }: BattleCardProps) => {
   const getRarityColor = (rarity: string) => {
     switch (rarity) {
@@ -140,6 +142,17 @@ const BattleCard = ({
           }}
           onClick={onClick}
         >
+          {/* Owner Label Badge */}
+          {showOwnerLabel && (
+            <Badge className={`absolute -top-3 left-1/2 -translate-x-1/2 z-30 font-bold shadow-lg px-4 py-1.5 text-xs ${
+              isOpponent 
+                ? 'bg-gradient-to-r from-red-500 to-red-600 text-white border-red-700' 
+                : 'bg-gradient-to-r from-blue-500 to-blue-600 text-white border-blue-700'
+            }`}>
+              {isOpponent ? '👾 ADVERSÁRIO' : '🎮 SEU BARALHO'}
+            </Badge>
+          )}
+
           {/* Super Trunfo Badge */}
           {card.is_super_trump && (
             <motion.div 
