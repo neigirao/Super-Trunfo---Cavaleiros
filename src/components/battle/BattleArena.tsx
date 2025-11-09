@@ -30,6 +30,8 @@ import PowerCounter from './PowerCounter';
 import VictoryEffect from '../effects/VictoryEffect';
 import ParticleEffect from '../effects/ParticleEffect';
 import PlayerLevel from '../progression/PlayerLevel';
+import ComparisonTimer from './ComparisonTimer';
+import AttributeConnection from './AttributeConnection';
 import type { useBattleLogic, BattleAttribute } from '@/hooks/battle/useBattleLogic';
 import type { useBattleState } from '@/hooks/battle/useBattleState';
 import type { useBattleEffects } from '@/hooks/battle/useBattleEffects';
@@ -41,6 +43,7 @@ interface BattleArenaProps {
   actions: {
     selectAttribute: (attribute: BattleAttribute) => void;
     calculatePower: (card: any) => number;
+    skipTimer: () => void;
   };
   onSurrender: () => void;
 }
@@ -132,6 +135,26 @@ const BattleArena = ({ logic, state, effects, actions, onSurrender }: BattleAren
       <AnimatePresence>
         {effects.showVictoryEffect && (
           <VictoryEffect isVisible={effects.showVictoryEffect} type={effects.victoryType} />
+        )}
+        
+        {/* Timer de comparação */}
+        {state.isTimerActive && (
+          <ComparisonTimer
+            duration={10}
+            onComplete={actions.skipTimer}
+            onSkip={actions.skipTimer}
+            isActive={state.isTimerActive}
+          />
+        )}
+        
+        {/* Conexão visual de atributos */}
+        {state.showAttributeConnection && logic.battle.selectedAttribute && (
+          <AttributeConnection
+            selectedAttribute={logic.battle.selectedAttribute}
+            playerValue={logic.battle.playerCard?.[logic.battle.selectedAttribute] || 0}
+            opponentValue={logic.battle.opponentCard?.[logic.battle.selectedAttribute] || 0}
+            isVisible={state.showAttributeConnection}
+          />
         )}
       </AnimatePresence>
 

@@ -23,7 +23,7 @@
  * battle.actions.nextRound();
  * ```
  */
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { useBattleLogic, BattleAttribute, ElementCard } from './useBattleLogic';
 import { useBattleState } from './useBattleState';
@@ -37,6 +37,7 @@ interface BattleOrchestratorActions {
   surrender: () => void;
   restart: () => void;
   calculatePower: (card: ElementCard | null) => number;
+  skipTimer: () => void;
 }
 
 interface BattleOrchestratorHook {
@@ -66,6 +67,9 @@ export const useBattleOrchestrator = (
   const effects = useBattleEffects();
   const cards = useBattleCards();
 
+  // Timer reference para poder cancelar
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+
   /**
    * Notifica mudanças no estado da batalha
    */
@@ -88,13 +92,23 @@ export const useBattleOrchestrator = (
       const timer = setTimeout(() => {
         const bestAttribute = logic.getOpponentChoice();
         state.setCardFlipped(true);
+        state.setTimerActive(true);
+        state.setShowAttributeConnection(true);
         
-        setTimeout(() => {
+        timerRef.current = setTimeout(() => {
+          state.setTimerActive(false);
+          state.setShowAttributeConnection(false);
           handleBattleResult(bestAttribute);
         }, 10000);
       }, 2000);
 
-      return () => clearTimeout(timer);
+      return () => {
+        clearTimeout(timer);
+        if (timerRef.current) {
+          clearTimeout(timerRef.current);
+          timerRef.current = null;
+        }
+      };
     }
   }, [logic.whoChooses, logic.battle.selectedAttribute, logic.battle.opponentCard, state.gamePhase, state.isPaused]);
 
@@ -138,11 +152,32 @@ export const useBattleOrchestrator = (
     if (!logic.battle.playerCard || !logic.battle.opponentCard || logic.whoChooses !== 'player') return;
     
     state.setCardFlipped(true);
+    state.setTimerActive(true);
+    state.setShowAttributeConnection(true);
     
-    setTimeout(() => {
+    timerRef.current = setTimeout(() => {
+      state.setTimerActive(false);
+      state.setShowAttributeConnection(false);
       handleBattleResult(attribute);
     }, 10000);
   }, [logic.battle.playerCard, logic.battle.opponentCard, logic.whoChooses, state]);
+
+  /**
+   * Pula o timer e avança imediatamente
+   */
+  const skipTimer = useCallback(() => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+    state.setTimerActive(false);
+    state.setShowAttributeConnection(false);
+    
+    // O atributo já foi selecionado, só processar resultado
+    if (logic.battle.selectedAttribute) {
+      handleBattleResult(logic.battle.selectedAttribute);
+    }
+  }, [logic.battle.selectedAttribute, state]);
 
   /**
    * Processa o resultado da batalha
@@ -236,7 +271,8 @@ export const useBattleOrchestrator = (
       nextRound,
       surrender,
       restart,
-      calculatePower
+      calculatePower,
+      skipTimer
     }
   };
 };

@@ -33,6 +33,8 @@ interface BattleStateHook {
   isPaused: boolean;
   previousPlayerPower: number;
   previousOpponentPower: number;
+  isTimerActive: boolean;
+  showAttributeConnection: boolean;
   
   // Ações
   setGamePhase: (phase: GamePhase) => void;
@@ -42,6 +44,8 @@ interface BattleStateHook {
   setCurrentDeckName: (name: string | null) => void;
   setPaused: (paused: boolean) => void;
   setPreviousPowers: (playerPower: number, opponentPower: number) => void;
+  setTimerActive: (active: boolean) => void;
+  setShowAttributeConnection: (show: boolean) => void;
   resetState: () => void;
 }
 
@@ -57,6 +61,8 @@ export const useBattleState = (): BattleStateHook => {
   const [isPaused, setIsPaused] = useState(false);
   const [previousPlayerPower, setPreviousPlayerPower] = useState(0);
   const [previousOpponentPower, setPreviousOpponentPower] = useState(0);
+  const [isTimerActive, setIsTimerActive] = useState(false);
+  const [showAttributeConnection, setShowAttributeConnection] = useState(false);
 
   /**
    * Define os poderes anteriores para animação
@@ -78,6 +84,8 @@ export const useBattleState = (): BattleStateHook => {
     setIsPaused(false);
     setPreviousPlayerPower(0);
     setPreviousOpponentPower(0);
+    setIsTimerActive(false);
+    setShowAttributeConnection(false);
   }, []);
 
   return {
@@ -89,6 +97,8 @@ export const useBattleState = (): BattleStateHook => {
     isPaused,
     previousPlayerPower,
     previousOpponentPower,
+    isTimerActive,
+    showAttributeConnection,
     setGamePhase,
     setCardFlipped: setIsCardFlipped,
     setTransferring: setIsTransferring,
@@ -96,6 +106,8 @@ export const useBattleState = (): BattleStateHook => {
     setCurrentDeckName,
     setPaused: setIsPaused,
     setPreviousPowers,
+    setTimerActive: setIsTimerActive,
+    setShowAttributeConnection,
     resetState
   };
 };
