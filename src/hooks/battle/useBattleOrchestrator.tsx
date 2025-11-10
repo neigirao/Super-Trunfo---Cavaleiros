@@ -80,39 +80,6 @@ export const useBattleOrchestrator = (
   }, [state.gamePhase, onBattleStateChange]);
 
   /**
-   * IA do oponente - escolha automática de atributo
-   */
-  useEffect(() => {
-    if (logic.whoChooses === 'opponent' && 
-        !logic.battle.selectedAttribute && 
-        logic.battle.opponentCard && 
-        state.gamePhase === 'battle' &&
-        !state.isPaused) {
-      
-      const timer = setTimeout(() => {
-        const bestAttribute = logic.getOpponentChoice();
-        state.setCardFlipped(true);
-        state.setTimerActive(true);
-        state.setShowAttributeConnection(true);
-        
-        timerRef.current = setTimeout(() => {
-          state.setTimerActive(false);
-          state.setShowAttributeConnection(false);
-          handleBattleResult(bestAttribute);
-        }, 10000);
-      }, 2000);
-
-      return () => {
-        clearTimeout(timer);
-        if (timerRef.current) {
-          clearTimeout(timerRef.current);
-          timerRef.current = null;
-        }
-      };
-    }
-  }, [logic.whoChooses, logic.battle.selectedAttribute, logic.battle.opponentCard, state.gamePhase, state.isPaused]);
-
-  /**
    * Calcula o poder total de uma carta
    */
   const calculatePower = useCallback((card: ElementCard | null): number => {
@@ -125,6 +92,68 @@ export const useBattleOrchestrator = (
       card.radioactivity
     );
   }, []);
+
+  /**
+   * Mostra os efeitos visuais do resultado
+   */
+  const showBattleResult = useCallback((result: 'win' | 'lose' | 'draw') => {
+    // Armazena poderes para animação
+    state.setPreviousPowers(
+      calculatePower(logic.battle.playerCard),
+      calculatePower(logic.battle.opponentCard)
+    );
+
+    state.setGamePhase('result');
+    
+    // Efeitos visuais baseados no resultado
+    if (result === 'win') {
+      effects.showVictory('victory');
+      effects.addExperience(15);
+    } else if (result === 'lose') {
+      effects.showVictory('defeat');
+      state.setTransferDirection('right');
+    } else {
+      effects.showVictory('draw');
+    }
+  }, [logic.battle.playerCard, logic.battle.opponentCard, state, effects, calculatePower]);
+
+  /**
+   * IA do oponente - escolha automática de atributo
+   */
+  useEffect(() => {
+    if (logic.whoChooses === 'opponent' && 
+        !logic.battle.selectedAttribute && 
+        logic.battle.opponentCard && 
+        state.gamePhase === 'battle' &&
+        !state.isPaused) {
+      
+      const timer = setTimeout(() => {
+        const bestAttribute = logic.getOpponentChoice();
+        
+        // Calcula resultado IMEDIATAMENTE
+        const result = logic.calculateBattleResult(bestAttribute);
+        if (!result) return;
+        
+        state.setCardFlipped(true);
+        state.setTimerActive(true);
+        state.setShowAttributeConnection(true);
+        
+        timerRef.current = setTimeout(() => {
+          state.setTimerActive(false);
+          state.setShowAttributeConnection(false);
+          showBattleResult(result);
+        }, 10000);
+      }, 2000);
+
+      return () => {
+        clearTimeout(timer);
+        if (timerRef.current) {
+          clearTimeout(timerRef.current);
+          timerRef.current = null;
+        }
+      };
+    }
+  }, [logic, state, showBattleResult]);
 
   /**
    * Inicia uma nova batalha
@@ -151,16 +180,21 @@ export const useBattleOrchestrator = (
   const selectAttribute = useCallback((attribute: BattleAttribute) => {
     if (!logic.battle.playerCard || !logic.battle.opponentCard || logic.whoChooses !== 'player') return;
     
+    // Calcula resultado IMEDIATAMENTE
+    const result = logic.calculateBattleResult(attribute);
+    if (!result) return;
+    
     state.setCardFlipped(true);
     state.setTimerActive(true);
     state.setShowAttributeConnection(true);
     
+    // Aguarda 10s ou até pular para mostrar resultado
     timerRef.current = setTimeout(() => {
       state.setTimerActive(false);
       state.setShowAttributeConnection(false);
-      handleBattleResult(attribute);
+      showBattleResult(result);
     }, 10000);
-  }, [logic.battle.playerCard, logic.battle.opponentCard, logic.whoChooses, state]);
+  }, [logic, state, showBattleResult]);
 
   /**
    * Pula o timer e avança imediatamente
@@ -173,38 +207,11 @@ export const useBattleOrchestrator = (
     state.setTimerActive(false);
     state.setShowAttributeConnection(false);
     
-    // O atributo já foi selecionado, só processar resultado
-    if (logic.battle.selectedAttribute) {
-      handleBattleResult(logic.battle.selectedAttribute);
+    // Mostra resultado imediatamente
+    if (logic.battle.battleResult) {
+      showBattleResult(logic.battle.battleResult);
     }
-  }, [logic.battle.selectedAttribute, state]);
-
-  /**
-   * Processa o resultado da batalha
-   */
-  const handleBattleResult = useCallback((attribute: BattleAttribute) => {
-    const result = logic.calculateBattleResult(attribute);
-    if (!result) return;
-
-    // Armazena poderes para animação
-    state.setPreviousPowers(
-      calculatePower(logic.battle.playerCard),
-      calculatePower(logic.battle.opponentCard)
-    );
-
-    state.setGamePhase('result');
-    
-    // Efeitos visuais baseados no resultado
-    if (result === 'win') {
-      effects.showVictory('victory');
-      effects.addExperience(15);
-    } else if (result === 'lose') {
-      effects.showVictory('defeat');
-      state.setTransferDirection('right');
-    } else {
-      effects.showVictory('draw');
-    }
-  }, [logic, state, effects, calculatePower]);
+  }, [logic.battle.battleResult, state, showBattleResult]);
 
   /**
    * Avança para próxima rodada
