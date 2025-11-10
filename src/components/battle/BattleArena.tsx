@@ -26,7 +26,6 @@ import TurnIndicator from './TurnIndicator';
 import CardCounter from './CardCounter';
 import BattleProgress from './BattleProgress';
 import ThinkingIndicator from './ThinkingIndicator';
-import PowerCounter from './PowerCounter';
 import VictoryEffect from '../effects/VictoryEffect';
 import ParticleEffect from '../effects/ParticleEffect';
 import PlayerLevel from '../progression/PlayerLevel';
@@ -56,7 +55,7 @@ const BattleArena = ({ logic, state, effects, actions, onSurrender }: BattleAren
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      className="container mx-auto max-w-6xl py-4 space-y-4"
+      className="container mx-auto max-w-6xl py-2 space-y-2"
     >
       {/* 1) MENU - Controles principais da batalha */}
       <div className="flex items-center justify-between">
@@ -68,7 +67,19 @@ const BattleArena = ({ logic, state, effects, actions, onSurrender }: BattleAren
         />
       </div>
 
-      {/* 2) CAMPO DE BATALHA COM CARTAS */}
+      {/* 2) ESTATÍSTICAS ACIMA DAS CARTAS */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <CardCounter
+          playerCards={logic.battle.playerDeck.length}
+          opponentCards={logic.battle.opponentDeck.length}
+        />
+        <TurnIndicator
+          whoChooses={logic.whoChooses}
+          isActive={!state.isPaused && logic.whoChooses === 'player'}
+        />
+      </div>
+
+      {/* 3) CAMPO DE BATALHA COM CARTAS */}
       <section className="w-full">
         <BattleField
           playerCard={logic.battle.playerCard}
@@ -94,26 +105,8 @@ const BattleArena = ({ logic, state, effects, actions, onSurrender }: BattleAren
         )}
       </section>
 
-      {/* 3) OUTRAS INFORMAÇÕES */}
-      <section className="space-y-4">
-        {/* Linha de estatísticas */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <CardCounter
-            playerCards={logic.battle.playerDeck.length}
-            opponentCards={logic.battle.opponentDeck.length}
-          />
-          <TurnIndicator
-            whoChooses={logic.whoChooses}
-            isActive={!state.isPaused && logic.whoChooses === 'player'}
-          />
-          <PowerCounter
-            playerPower={actions.calculatePower(logic.battle.playerCard)}
-            opponentPower={actions.calculatePower(logic.battle.opponentCard)}
-            previousPlayerPower={state.previousPlayerPower}
-            previousOpponentPower={state.previousOpponentPower}
-          />
-        </div>
-
+      {/* 4) PROGRESSO E NÍVEL */}
+      <section className="space-y-3">
         {/* Barra de progresso */}
         <BattleProgress
           playerCards={logic.battle.playerDeck.length}
