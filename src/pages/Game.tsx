@@ -115,7 +115,7 @@ const Game = () => {
         <div className="absolute bottom-1/4 left-2/3 w-32 h-32 bg-cosmic-blue opacity-20 rounded-full animate-stellar-pulse" />
       </div>
 
-      <div className="relative pt-24 pb-8 px-4">
+      <div className="relative pt-2 pb-8 px-4">
         <div className="max-w-7xl mx-auto">
           {/* Game Header - Only show when battle is not active */}
           {!isBattleActive && (
