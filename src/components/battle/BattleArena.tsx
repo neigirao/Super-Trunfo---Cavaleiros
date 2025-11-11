@@ -29,7 +29,6 @@ import ThinkingIndicator from './ThinkingIndicator';
 import VictoryEffect from '../effects/VictoryEffect';
 import ParticleEffect from '../effects/ParticleEffect';
 import PlayerLevel from '../progression/PlayerLevel';
-import ComparisonTimer from './ComparisonTimer';
 import AttributeConnection from './AttributeConnection';
 import type { useBattleLogic, BattleAttribute } from '@/hooks/battle/useBattleLogic';
 import type { useBattleState } from '@/hooks/battle/useBattleState';
@@ -143,16 +142,6 @@ const BattleArena = ({ logic, state, effects, actions, onSurrender }: BattleAren
       <AnimatePresence>
         {effects.showVictoryEffect && (
           <VictoryEffect isVisible={effects.showVictoryEffect} type={effects.victoryType} />
-        )}
-        
-        {/* Timer de comparação */}
-        {state.isTimerActive && (
-          <ComparisonTimer
-            duration={10}
-            onComplete={actions.skipTimer}
-            onSkip={actions.skipTimer}
-            isActive={state.isTimerActive}
-          />
         )}
         
         {/* Conexão visual de atributos */}
