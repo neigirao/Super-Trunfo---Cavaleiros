@@ -142,7 +142,7 @@ export const useBattleOrchestrator = (
           state.setTimerActive(false);
           state.setShowAttributeConnection(false);
           showBattleResult(result);
-        }, 10000);
+        }, 5000);
       }, 2000);
 
       return () => {
@@ -188,12 +188,12 @@ export const useBattleOrchestrator = (
     state.setTimerActive(true);
     state.setShowAttributeConnection(true);
     
-    // Aguarda 10s ou até pular para mostrar resultado
+    // Aguarda 5s ou até pular para mostrar resultado
     timerRef.current = setTimeout(() => {
       state.setTimerActive(false);
       state.setShowAttributeConnection(false);
       showBattleResult(result);
-    }, 10000);
+    }, 5000);
   }, [logic, state, showBattleResult]);
 
   /**
