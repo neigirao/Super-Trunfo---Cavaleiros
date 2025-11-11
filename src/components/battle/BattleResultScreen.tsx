@@ -13,7 +13,7 @@ interface BattleResultScreenProps {
 }
 
 const BattleResultScreen = ({ result, onNextRound }: BattleResultScreenProps) => {
-  const [timeLeft, setTimeLeft] = useState(10);
+  const [timeLeft, setTimeLeft] = useState(5);
 
   useEffect(() => {
     const timer = setInterval(() => {

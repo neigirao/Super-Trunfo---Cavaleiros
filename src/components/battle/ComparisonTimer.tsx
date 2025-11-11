@@ -104,16 +104,6 @@ const ComparisonTimer = ({ duration, onComplete, onSkip, isActive }: ComparisonT
           </motion.div>
           <Clock className="w-5 h-5 text-muted-foreground mx-auto mt-1" />
         </div>
-
-        {/* Botão de pular */}
-        <motion.button
-          onClick={onSkip}
-          className="absolute -bottom-16 left-1/2 -translate-x-1/2 px-6 py-2 bg-gradient-to-r from-cosmic-gold to-cosmic-gold-light text-cosmic-dark font-semibold rounded-full shadow-lg hover:shadow-cosmic transition-all duration-300 hover:scale-105"
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-        >
-          ⚡ Pular Animação
-        </motion.button>
       </div>
 
       {/* Overlay escurecido */}
