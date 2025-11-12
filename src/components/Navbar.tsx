@@ -33,7 +33,7 @@ const Navbar = () => {
           {/* Logo and Title */}
           <Link to="/" className="flex items-center space-x-3 group">
             <div className="w-10 h-10 bg-gradient-to-br from-cosmic-gold to-cosmic-gold-light rounded-lg flex items-center justify-center shadow-lg group-hover:shadow-cosmic transition-all duration-300">
-              <span className="text-xl font-bold text-cosmic-dark">⚔️</span>
+              <span className="text-xl font-bold text-cosmic-dark-foreground dark:text-cosmic-dark">⚔️</span>
             </div>
             <div>
               <h1 className="text-xl font-bold bg-gradient-to-r from-cosmic-gold to-cosmic-gold-light bg-clip-text text-transparent">
@@ -70,7 +70,7 @@ const Navbar = () => {
               <Button variant="ghost" className="relative h-10 w-10 rounded-full">
                 <Avatar className="h-10 w-10 border-2 border-primary/20">
                   <AvatarImage src={profile?.avatar_url || ''} alt={profile?.full_name || ''} />
-                  <AvatarFallback className="bg-gradient-to-br from-cosmic-gold to-cosmic-gold-light text-cosmic-dark font-semibold">
+                  <AvatarFallback className="bg-gradient-to-br from-cosmic-gold to-cosmic-gold-light text-cosmic-dark-foreground dark:text-cosmic-dark font-semibold">
                     {profile?.full_name?.charAt(0) || user.email?.charAt(0).toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
@@ -81,7 +81,7 @@ const Navbar = () => {
               <div className="flex items-center space-x-2 p-2">
                 <Avatar className="h-8 w-8">
                   <AvatarImage src={profile?.avatar_url || ''} />
-                  <AvatarFallback className="bg-gradient-to-br from-cosmic-gold to-cosmic-gold-light text-cosmic-dark text-sm">
+                  <AvatarFallback className="bg-gradient-to-br from-cosmic-gold to-cosmic-gold-light text-cosmic-dark-foreground dark:text-cosmic-dark text-sm">
                     {profile?.full_name?.charAt(0) || user.email?.charAt(0).toUpperCase()}
                   </AvatarFallback>
                 </Avatar>

@@ -156,7 +156,7 @@ const BattleCard = ({
           {/* Super Trunfo Badge */}
           {card.is_super_trump && (
             <motion.div 
-              className="absolute top-2 right-2 bg-cosmic-gold text-cosmic-dark px-3 py-1.5 rounded-full text-xs font-bold z-10 snap-effect"
+              className="absolute top-2 right-2 bg-cosmic-gold text-cosmic-dark-foreground dark:text-cosmic-dark px-3 py-1.5 rounded-full text-xs font-bold z-10 snap-effect"
               style={{ boxShadow: 'var(--glow-intense)' }}
               animate={{ scale: [1, 1.05, 1] }}
               transition={{ duration: 2, repeat: Infinity }}
@@ -173,7 +173,7 @@ const BattleCard = ({
                 <span className="ml-1 capitalize">{card.element_type.replace('_', ' ')}</span>
               </Badge>
               <div className="bg-cosmic-dark/20 px-3 py-1 rounded-full">
-                <span className="text-lg font-bold text-cosmic-dark">{card.symbol}</span>
+                <span className="text-lg font-bold text-primary-foreground">{card.symbol}</span>
               </div>
             </div>
           </div>
@@ -192,7 +192,7 @@ const BattleCard = ({
             ) : (
               <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-cosmic-nebula/30 to-cosmic-nebula-light/30">
                 <div className={`w-16 h-16 bg-gradient-to-br from-${getRarityColor(card.rarity)} to-${getRarityColor(card.rarity)}-light rounded-full flex items-center justify-center shadow-cosmic`}>
-                  <span className="text-2xl font-bold text-cosmic-dark">
+                  <span className="text-2xl font-bold text-cosmic-dark-foreground dark:text-cosmic-dark">
                     {card.symbol}
                   </span>
                 </div>

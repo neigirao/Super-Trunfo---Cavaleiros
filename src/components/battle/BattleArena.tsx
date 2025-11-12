@@ -80,7 +80,7 @@ const BattleArena = ({ logic, state, effects, actions, onSurrender }: BattleAren
           {state.isTimerActive && (
             <motion.button
               onClick={actions.skipTimer}
-              className="px-4 py-2 bg-gradient-to-r from-cosmic-gold to-cosmic-gold-light text-cosmic-dark font-semibold rounded-full shadow-lg hover:shadow-cosmic transition-all duration-300 hover:scale-105 text-sm"
+              className="px-4 py-2 bg-gradient-to-r from-cosmic-gold to-cosmic-gold-light text-cosmic-dark-foreground dark:text-cosmic-dark font-semibold rounded-full shadow-lg hover:shadow-cosmic transition-all duration-300 hover:scale-105 text-sm"
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               initial={{ opacity: 0, scale: 0.8 }}

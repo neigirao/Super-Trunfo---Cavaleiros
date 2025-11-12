@@ -46,7 +46,8 @@ All colors MUST be HSL.
     --cosmic-blue-light: 220 70% 60%;
     --cosmic-green: 120 60% 40%;
     --cosmic-green-light: 120 60% 60%;
-    --cosmic-dark: 230 25% 4%;
+    --cosmic-dark: 230 25% 8%; /* Slightly lighter for better contrast */
+    --cosmic-dark-foreground: 45 100% 95%; /* High contrast light text */
     --cosmic-nebula: 280 40% 15%;
     --cosmic-nebula-light: 280 40% 25%;
     --space-dark: 230 25% 4%;
@@ -90,30 +91,45 @@ All colors MUST be HSL.
     --background: 230 30% 3%;
     --foreground: 45 100% 90%;
 
-    --card: 230 25% 5%;
-    --card-foreground: 45 90% 85%;
+    --card: 230 25% 8%; /* Slightly lighter for visibility */
+    --card-foreground: 45 90% 90%;
 
-    --popover: 230 20% 7%;
-    --popover-foreground: 45 85% 80%;
+    --popover: 230 20% 8%;
+    --popover-foreground: 45 85% 85%;
 
-    --primary: 45 100% 60%; /* Brighter gold in dark */
-    --primary-foreground: 230 30% 8%;
+    --primary: 45 100% 65%; /* Brighter gold in dark mode */
+    --primary-foreground: 230 30% 5%;
 
-    --secondary: 280 50% 20%;
-    --secondary-foreground: 45 90% 80%;
+    --secondary: 280 50% 22%; /* Better contrast */
+    --secondary-foreground: 45 95% 85%;
 
-    --muted: 230 20% 10%;
-    --muted-foreground: 45 40% 65%;
+    --muted: 230 20% 12%;
+    --muted-foreground: 45 40% 70%; /* More readable */
 
-    --accent: 320 70% 45%;
+    --accent: 320 70% 50%;
     --accent-foreground: 45 100% 95%;
 
-    --destructive: 0 80% 45%;
+    --destructive: 0 80% 50%;
     --destructive-foreground: 45 100% 95%;
 
-    --border: 230 25% 12%;
-    --input: 230 20% 8%;
+    --border: 230 25% 15%; /* More visible borders */
+    --input: 230 20% 10%;
     --ring: 45 100% 70%;
+    
+    /* Dark mode cosmic colors - brighter for better visibility */
+    --cosmic-gold: 45 100% 70%;
+    --cosmic-gold-light: 45 100% 80%;
+    --cosmic-purple: 280 70% 65%;
+    --cosmic-purple-light: 280 70% 75%;
+    --cosmic-blue: 220 80% 68%;
+    --cosmic-blue-light: 220 80% 78%;
+    --cosmic-green: 120 70% 65%;
+    --cosmic-green-light: 120 70% 75%;
+    --cosmic-dark: 230 30% 3%; /* Match dark background */
+    --cosmic-dark-foreground: 45 100% 95%; /* High contrast text */
+    --cosmic-nebula: 280 45% 12%;
+    --cosmic-nebula-light: 280 45% 22%;
+    
     --sidebar-background: 240 5.9% 10%;
     --sidebar-foreground: 240 4.8% 95.9%;
     --sidebar-primary: 224.3 76.3% 48%;

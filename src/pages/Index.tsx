@@ -73,7 +73,7 @@ const Index = () => {
           <div className="flex flex-wrap justify-center gap-4">
             <Button 
               size="lg" 
-              className="h-14 px-8 text-lg bg-gradient-to-r from-cosmic-gold to-cosmic-gold-light hover:from-cosmic-gold-light hover:to-cosmic-gold text-cosmic-dark font-bold shadow-lg hover:shadow-cosmic transition-all duration-300"
+              className="h-14 px-8 text-lg bg-gradient-to-r from-cosmic-gold to-cosmic-gold-light hover:from-cosmic-gold-light hover:to-cosmic-gold text-cosmic-dark-foreground dark:text-cosmic-dark font-bold shadow-lg hover:shadow-cosmic transition-all duration-300"
               onClick={() => navigate('/game')}
               disabled={!hasMinimumCards && !cardsLoading}
             >
