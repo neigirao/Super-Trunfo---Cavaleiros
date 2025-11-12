@@ -95,6 +95,18 @@ const BattleArena = ({ logic, state, effects, actions, onSurrender }: BattleAren
 
       {/* 3) CAMPO DE BATALHA COM CARTAS */}
       <section className="w-full">
+        {/* Conexão visual de atributos - aparece ACIMA das cartas */}
+        <AnimatePresence>
+          {state.showAttributeConnection && logic.battle.selectedAttribute && (
+            <AttributeConnection
+              selectedAttribute={logic.battle.selectedAttribute}
+              playerValue={logic.battle.playerCard?.[logic.battle.selectedAttribute] || 0}
+              opponentValue={logic.battle.opponentCard?.[logic.battle.selectedAttribute] || 0}
+              isVisible={state.showAttributeConnection}
+            />
+          )}
+        </AnimatePresence>
+
         <BattleField
           playerCard={logic.battle.playerCard}
           opponentCard={logic.battle.opponentCard}
@@ -142,16 +154,6 @@ const BattleArena = ({ logic, state, effects, actions, onSurrender }: BattleAren
       <AnimatePresence>
         {effects.showVictoryEffect && (
           <VictoryEffect isVisible={effects.showVictoryEffect} type={effects.victoryType} />
-        )}
-        
-        {/* Conexão visual de atributos */}
-        {state.showAttributeConnection && logic.battle.selectedAttribute && (
-          <AttributeConnection
-            selectedAttribute={logic.battle.selectedAttribute}
-            playerValue={logic.battle.playerCard?.[logic.battle.selectedAttribute] || 0}
-            opponentValue={logic.battle.opponentCard?.[logic.battle.selectedAttribute] || 0}
-            isVisible={state.showAttributeConnection}
-          />
         )}
       </AnimatePresence>
 
