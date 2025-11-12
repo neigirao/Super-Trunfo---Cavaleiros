@@ -54,7 +54,7 @@ const BattleArena = ({ logic, state, effects, actions, onSurrender }: BattleAren
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      className="container mx-auto max-w-6xl py-2 space-y-2"
+      className="relative container mx-auto max-w-6xl py-2 space-y-2"
     >
       {/* 1) MENU - Controles principais da batalha */}
       <div className="flex items-center justify-between">
