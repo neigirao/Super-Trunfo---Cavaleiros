@@ -66,32 +66,7 @@ const BattleArena = ({ logic, state, effects, actions, onSurrender }: BattleAren
         />
       </div>
 
-      {/* 2) ESTATÍSTICAS ACIMA DAS CARTAS */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        <CardCounter
-          playerCards={logic.battle.playerDeck.length}
-          opponentCards={logic.battle.opponentDeck.length}
-        />
-        <div className="flex items-center gap-2">
-          <TurnIndicator
-            whoChooses={logic.whoChooses}
-            isActive={!state.isPaused && logic.whoChooses === 'player'}
-          />
-          {state.isTimerActive && (
-            <motion.button
-              onClick={actions.skipTimer}
-              className="px-4 py-2 bg-gradient-to-r from-cosmic-gold to-cosmic-gold-light text-cosmic-dark-foreground dark:text-cosmic-dark font-semibold rounded-full shadow-lg hover:shadow-cosmic transition-all duration-300 hover:scale-105 text-sm"
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.8 }}
-            >
-              ⚡ Pular
-            </motion.button>
-          )}
-        </div>
-      </div>
+      {/* 2) ESTATÍSTICAS - movidas para baixo das cartas para aumentar área de exibição */}
 
       {/* 3) CAMPO DE BATALHA COM CARTAS */}
       <section className="w-full my-6">
@@ -130,6 +105,33 @@ const BattleArena = ({ logic, state, effects, actions, onSurrender }: BattleAren
           </div>
         )}
       </section>
+
+      {/* 3) ESTATÍSTICAS - abaixo das cartas */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2">
+        <CardCounter
+          playerCards={logic.battle.playerDeck.length}
+          opponentCards={logic.battle.opponentDeck.length}
+        />
+        <div className="flex items-center gap-2 justify-end">
+          <TurnIndicator
+            whoChooses={logic.whoChooses}
+            isActive={!state.isPaused && logic.whoChooses === 'player'}
+          />
+          {state.isTimerActive && (
+            <motion.button
+              onClick={actions.skipTimer}
+              className="px-4 py-2 bg-gradient-to-r from-cosmic-gold to-cosmic-gold-light text-cosmic-dark-foreground dark:text-cosmic-dark font-semibold rounded-full shadow-lg hover:shadow-cosmic transition-all duration-300 hover:scale-105 text-sm"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.8 }}
+            >
+              ⚡ Pular
+            </motion.button>
+          )}
+        </div>
+      </div>
 
       {/* 4) PROGRESSO E NÍVEL */}
       <section className="space-y-2 mt-4">
