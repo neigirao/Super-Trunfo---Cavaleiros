@@ -54,7 +54,7 @@ const BattleArena = ({ logic, state, effects, actions, onSurrender }: BattleAren
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      className="relative container mx-auto max-w-6xl py-2 space-y-2"
+      className="relative container mx-auto max-w-6xl pt-4 pb-2 space-y-3"
     >
       {/* 1) MENU - Controles principais da batalha */}
       <div className="flex items-center justify-between">
@@ -67,12 +67,12 @@ const BattleArena = ({ logic, state, effects, actions, onSurrender }: BattleAren
       </div>
 
       {/* 2) ESTATÍSTICAS ACIMA DAS CARTAS */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         <CardCounter
           playerCards={logic.battle.playerDeck.length}
           opponentCards={logic.battle.opponentDeck.length}
         />
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           <TurnIndicator
             whoChooses={logic.whoChooses}
             isActive={!state.isPaused && logic.whoChooses === 'player'}
@@ -94,7 +94,7 @@ const BattleArena = ({ logic, state, effects, actions, onSurrender }: BattleAren
       </div>
 
       {/* 3) CAMPO DE BATALHA COM CARTAS */}
-      <section className="w-full">
+      <section className="w-full my-6">
         {/* Conexão visual de atributos - aparece ACIMA das cartas */}
         <AnimatePresence>
           {state.showAttributeConnection && logic.battle.selectedAttribute && (
@@ -132,7 +132,7 @@ const BattleArena = ({ logic, state, effects, actions, onSurrender }: BattleAren
       </section>
 
       {/* 4) PROGRESSO E NÍVEL */}
-      <section className="space-y-3">
+      <section className="space-y-2 mt-4">
         {/* Barra de progresso */}
         <BattleProgress
           playerCards={logic.battle.playerDeck.length}
