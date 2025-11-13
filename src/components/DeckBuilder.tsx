@@ -341,7 +341,7 @@ const DeckBuilder = ({ userCards, onStartBattle, onCancel }: DeckBuilderProps) =
               >
                 <BattleCard
                   card={card}
-                  showAttributes={false}
+                  showAttributes={true}
                 />
                 
                 {isSelected(card) && (
