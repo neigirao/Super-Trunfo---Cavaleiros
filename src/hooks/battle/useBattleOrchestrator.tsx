@@ -234,9 +234,14 @@ export const useBattleOrchestrator = (
     setTimeout(() => {
       state.setTransferring(false);
       
-      if (gameOver) {
+      // Verificação adicional: encerra se algum jogador ficou sem cartas
+      const playerOutOfCards = logic.battle.playerDeck.length === 0;
+      const opponentOutOfCards = logic.battle.opponentDeck.length === 0;
+      
+      if (gameOver || playerOutOfCards || opponentOutOfCards) {
         state.setGamePhase('gameOver');
-        if (winner === 'player') {
+        const finalWinner = playerOutOfCards ? 'opponent' : (winner || 'player');
+        if (finalWinner === 'player') {
           logic.saveGameResult(true, userEmail);
         } else {
           logic.saveGameResult(false, userEmail);
