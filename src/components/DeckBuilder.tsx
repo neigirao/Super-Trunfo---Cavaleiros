@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Check, X, Save, Trash2, Play } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Check, X, Save, Trash2, Play, ArrowUpDown } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -59,6 +60,8 @@ const DeckBuilder = ({ userCards, onStartBattle, onCancel }: DeckBuilderProps) =
     deckId: '',
     deckName: ''
   });
+  const [sortBy, setSortBy] = useState<string>('none');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   
   const { validateDeckSize, validateDeckName } = useValidation();
 
@@ -204,6 +207,31 @@ const DeckBuilder = ({ userCards, onStartBattle, onCancel }: DeckBuilderProps) =
   const deckSizeValidation = validateDeckSize(selectedCards.length);
   const deckNameValidation = validateDeckName(deckName);
 
+  // Sorted cards based on selected criteria
+  const sortedCards = useMemo(() => {
+    if (sortBy === 'none') return userCards;
+
+    const cards = [...userCards];
+    
+    if (sortBy === 'rarity') {
+      const rarityOrder = { legendary: 4, epic: 3, rare: 2, common: 1 };
+      cards.sort((a, b) => {
+        const orderA = rarityOrder[a.rarity as keyof typeof rarityOrder] || 0;
+        const orderB = rarityOrder[b.rarity as keyof typeof rarityOrder] || 0;
+        return sortOrder === 'desc' ? orderB - orderA : orderA - orderB;
+      });
+    } else {
+      // Sort by attribute
+      cards.sort((a, b) => {
+        const valueA = a[sortBy as keyof ElementCard] as number || 0;
+        const valueB = b[sortBy as keyof ElementCard] as number || 0;
+        return sortOrder === 'desc' ? valueB - valueA : valueA - valueB;
+      });
+    }
+    
+    return cards;
+  }, [userCards, sortBy, sortOrder]);
+
   return (
     <div className="max-w-6xl mx-auto space-y-6">
       <div className="text-center">
@@ -300,24 +328,55 @@ const DeckBuilder = ({ userCards, onStartBattle, onCancel }: DeckBuilderProps) =
       {/* Deck Builder View */}
       {currentView === 'builder' && (
         <>
-          {/* Card Selection Status */}
+          {/* Filters and Card Selection Status */}
           <div className="space-y-4 mb-6">
-            <div className="flex justify-center items-center space-x-4">
-              <Badge variant={selectedCards.length >= 6 ? "default" : "secondary"} className="text-sm">
-                {selectedCards.length}/20 cartas selecionadas
-              </Badge>
-              
-              {selectedCards.length >= 6 ? (
-                <Badge variant="outline" className="text-cosmic-gold border-cosmic-gold">
-                  <Check className="w-3 h-3 mr-1" />
-                  Mínimo atingido
+            <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+              <div className="flex items-center space-x-4">
+                <Badge variant={selectedCards.length >= 6 ? "default" : "secondary"} className="text-sm">
+                  {selectedCards.length}/20 cartas selecionadas
                 </Badge>
-              ) : (
-                <Badge variant="outline" className="text-muted-foreground">
-                  <X className="w-3 h-3 mr-1" />
-                  Mínimo: 6 cartas
-                </Badge>
-              )}
+                
+                {selectedCards.length >= 6 ? (
+                  <Badge variant="outline" className="text-cosmic-gold border-cosmic-gold">
+                    <Check className="w-3 h-3 mr-1" />
+                    Mínimo atingido
+                  </Badge>
+                ) : (
+                  <Badge variant="outline" className="text-muted-foreground">
+                    <X className="w-3 h-3 mr-1" />
+                    Mínimo: 6 cartas
+                  </Badge>
+                )}
+              </div>
+
+              {/* Sort Controls */}
+              <div className="flex items-center gap-2">
+                <Select value={sortBy} onValueChange={setSortBy}>
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue placeholder="Ordenar por..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Sem ordenação</SelectItem>
+                    <SelectItem value="rarity">Raridade</SelectItem>
+                    <SelectItem value="atomic_number">Número Atômico</SelectItem>
+                    <SelectItem value="atomic_mass">Massa Atômica</SelectItem>
+                    <SelectItem value="density">Densidade</SelectItem>
+                    <SelectItem value="melting_point">Ponto de Fusão</SelectItem>
+                    <SelectItem value="reactivity">Reatividade</SelectItem>
+                    <SelectItem value="radioactivity">Radioatividade</SelectItem>
+                  </SelectContent>
+                </Select>
+                
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')}
+                  disabled={sortBy === 'none'}
+                  className="shrink-0"
+                >
+                  <ArrowUpDown className="w-4 h-4" />
+                </Button>
+              </div>
             </div>
 
             {/* Real-time Validation */}
@@ -331,7 +390,7 @@ const DeckBuilder = ({ userCards, onStartBattle, onCancel }: DeckBuilderProps) =
 
           {/* Card Selection Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {userCards.map(card => (
+            {sortedCards.map(card => (
               <div 
                 key={card.id} 
                 className={`relative cursor-pointer transition-all duration-200 ${
