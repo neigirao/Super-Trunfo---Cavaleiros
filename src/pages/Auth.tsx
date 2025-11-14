@@ -82,10 +82,7 @@ const Auth = () => {
           </Button>
 
           <div className="text-center text-sm text-muted-foreground">
-            <p>Apenas usuários autorizados pelo Google podem acessar</p>
-            <p className="text-xs mt-1 opacity-70">
-              neigirao@gmail.com tem privilégios de administrador
-            </p>
+            <p>Entre com sua conta Google para começar a jogar</p>
           </div>
         </CardContent>
       </Card>
