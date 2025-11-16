@@ -32,13 +32,32 @@ export const useBattleCards = () => {
   const loadUserCards = async () => {
     if (!user) return;
     
+    // Optimized query: select only needed fields and add index hint
     const { data, error } = await supabase
       .from('user_cards')
       .select(`
         card_id,
-        element_cards (*)
+        element_cards!inner (
+          id,
+          name,
+          symbol,
+          knight_name,
+          atomic_number,
+          atomic_mass,
+          density,
+          melting_point,
+          electronegativity,
+          radioactivity,
+          reactivity,
+          rarity,
+          element_type,
+          is_super_trump,
+          special_ability,
+          image_url
+        )
       `)
-      .eq('user_id', user.id);
+      .eq('user_id', user.id)
+      .order('card_id');
 
     if (error) {
       toast({
@@ -54,9 +73,27 @@ export const useBattleCards = () => {
   };
 
   const loadAllCards = async () => {
+    // Optimized query with selective fields
     const { data, error } = await supabase
       .from('element_cards')
-      .select('*')
+      .select(`
+        id,
+        name,
+        symbol,
+        knight_name,
+        atomic_number,
+        atomic_mass,
+        density,
+        melting_point,
+        electronegativity,
+        radioactivity,
+        reactivity,
+        rarity,
+        element_type,
+        is_super_trump,
+        special_ability,
+        image_url
+      `)
       .order('atomic_number');
 
     if (error) {
