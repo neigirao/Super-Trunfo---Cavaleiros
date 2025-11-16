@@ -5,11 +5,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
 import { useMinimumCards } from '@/hooks/useMinimumCards';
+import { useOnboarding } from '@/hooks/useOnboarding';
 import Navbar from '@/components/Navbar';
+import OnboardingTutorial from '@/components/onboarding/OnboardingTutorial';
+import ContextualTooltip from '@/components/onboarding/ContextualTooltip';
 
 const Index = () => {
   const { user, loading, isAdmin } = useAuth();
   const { hasMinimumCards, userCardsCount, minimumRequired, loading: cardsLoading, forceEnsureCards } = useMinimumCards();
+  const { isActive: onboardingActive, currentStep, hasCompletedOnboarding } = useOnboarding();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -37,6 +41,11 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-cosmic-nebula to-cosmic-dark">
       <Navbar />
+      
+      {/* Onboarding Tutorial */}
+      {onboardingActive && currentStep === 'welcome' && (
+        <OnboardingTutorial step="welcome" />
+      )}
       
       {/* Animated background elements */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
@@ -71,23 +80,41 @@ const Index = () => {
           )}
 
           <div className="flex flex-wrap justify-center gap-4">
-            <Button 
-              size="lg" 
-              className="h-14 px-8 text-lg bg-gradient-to-r from-cosmic-gold to-cosmic-gold-light hover:from-cosmic-gold-light hover:to-cosmic-gold text-cosmic-dark-foreground dark:text-cosmic-dark font-bold shadow-lg hover:shadow-cosmic transition-all duration-300"
-              onClick={() => navigate('/game')}
-              disabled={!hasMinimumCards && !cardsLoading}
-            >
-              ⚔️ {hasMinimumCards ? 'Iniciar Batalha' : 'Colete Cartas Primeiro'}
-            </Button>
+            <div className="relative inline-block">
+              <Button 
+                size="lg" 
+                className="h-14 px-8 text-lg bg-gradient-to-r from-cosmic-gold to-cosmic-gold-light hover:from-cosmic-gold-light hover:to-cosmic-gold text-cosmic-dark-foreground dark:text-cosmic-dark font-bold shadow-lg hover:shadow-cosmic transition-all duration-300"
+                onClick={() => navigate('/game')}
+                disabled={!hasMinimumCards && !cardsLoading}
+              >
+                ⚔️ {hasMinimumCards ? 'Iniciar Batalha' : 'Colete Cartas Primeiro'}
+              </Button>
+              {!hasMinimumCards && (
+                <div className="absolute -top-2 -right-2">
+                  <ContextualTooltip 
+                    content="Você precisa de pelo menos 6 cartas para iniciar uma batalha. Abra pacotes para conseguir mais cartas!"
+                    side="top"
+                  />
+                </div>
+              )}
+            </div>
             
-            <Button 
-              size="lg" 
-              variant="outline"
-              className="h-14 px-8 text-lg border-primary/30 hover:bg-primary/10 transition-all duration-300"
-              onClick={() => navigate('/collection')}
-            >
-              📚 Ver Coleção
-            </Button>
+            <div className="relative inline-block">
+              <Button 
+                size="lg" 
+                variant="outline"
+                className="h-14 px-8 text-lg border-primary/30 hover:bg-primary/10 transition-all duration-300"
+                onClick={() => navigate('/collection')}
+              >
+                📚 Ver Coleção
+              </Button>
+              <div className="absolute -top-2 -right-2">
+                <ContextualTooltip 
+                  content="Veja todas as cartas que você coletou e gerencie seus decks de batalha"
+                  side="top"
+                />
+              </div>
+            </div>
 
             {!hasMinimumCards && user && !cardsLoading && (
               <Button 
