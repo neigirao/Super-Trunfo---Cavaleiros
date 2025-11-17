@@ -53,6 +53,9 @@ const Navbar = () => {
             <Link to="/ranking" className="text-foreground hover:text-primary transition-colors">
               Ranking
             </Link>
+            <Link to="/support" className="text-foreground hover:text-primary transition-colors">
+              Suporte
+            </Link>
             <Link to="/settings" className="text-foreground hover:text-primary transition-colors">
               Configurações
             </Link>
