@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import { Trophy, Star } from 'lucide-react';
 import AchievementSystem from '../AchievementSystem';
@@ -30,40 +30,40 @@ describe('AchievementSystem', () => {
   ];
 
   it('renders achievement list correctly', () => {
-    render(<AchievementSystem achievements={mockAchievements} />);
+    const { getByText } = render(<AchievementSystem achievements={mockAchievements} />);
     
-    expect(screen.getByText('Conquistas')).toBeInTheDocument();
-    expect(screen.getByText('Test Achievement')).toBeInTheDocument();
-    expect(screen.getByText('Completed Achievement')).toBeInTheDocument();
+    expect(getByText('Conquistas')).toBeInTheDocument();
+    expect(getByText('Test Achievement')).toBeInTheDocument();
+    expect(getByText('Completed Achievement')).toBeInTheDocument();
   });
 
   it('displays progress correctly', () => {
-    render(<AchievementSystem achievements={mockAchievements} />);
+    const { getByText } = render(<AchievementSystem achievements={mockAchievements} />);
     
-    expect(screen.getByText('5 / 10')).toBeInTheDocument();
-    expect(screen.getByText('10 / 10')).toBeInTheDocument();
+    expect(getByText('5 / 10')).toBeInTheDocument();
+    expect(getByText('10 / 10')).toBeInTheDocument();
   });
 
   it('shows XP rewards', () => {
-    render(<AchievementSystem achievements={mockAchievements} />);
+    const { getByText } = render(<AchievementSystem achievements={mockAchievements} />);
     
-    expect(screen.getByText('+100 XP')).toBeInTheDocument();
-    expect(screen.getByText('+200 XP')).toBeInTheDocument();
+    expect(getByText('+100 XP')).toBeInTheDocument();
+    expect(getByText('+200 XP')).toBeInTheDocument();
   });
 
   it('displays claim button for completed achievements', () => {
     const onClaimReward = vi.fn();
-    render(
+    const { getAllByText } = render(
       <AchievementSystem
         achievements={mockAchievements}
         onClaimReward={onClaimReward}
       />
     );
     
-    const claimButtons = screen.getAllByText('Resgatar');
+    const claimButtons = getAllByText('Resgatar');
     expect(claimButtons).toHaveLength(1);
     
-    fireEvent.click(claimButtons[0]);
+    claimButtons[0].click();
     expect(onClaimReward).toHaveBeenCalledWith('completed-achievement');
   });
 
@@ -75,18 +75,18 @@ describe('AchievementSystem', () => {
   });
 
   it('shows descriptions', () => {
-    render(<AchievementSystem achievements={mockAchievements} />);
+    const { getByText } = render(<AchievementSystem achievements={mockAchievements} />);
     
-    expect(screen.getByText('Complete test')).toBeInTheDocument();
-    expect(screen.getByText('Already done')).toBeInTheDocument();
+    expect(getByText('Complete test')).toBeInTheDocument();
+    expect(getByText('Already done')).toBeInTheDocument();
   });
 
   it('calculates progress percentage correctly', () => {
-    render(<AchievementSystem achievements={mockAchievements} />);
+    const { getAllByRole } = render(<AchievementSystem achievements={mockAchievements} />);
     
     // First achievement: 5/10 = 50%
     // Second achievement: 10/10 = 100%
-    const progressBars = screen.getAllByRole('progressbar');
+    const progressBars = getAllByRole('progressbar');
     expect(progressBars).toHaveLength(2);
   });
 });
