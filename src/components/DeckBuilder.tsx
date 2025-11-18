@@ -62,6 +62,7 @@ const DeckBuilder = ({ userCards, onStartBattle, onCancel }: DeckBuilderProps) =
   });
   const [sortBy, setSortBy] = useState<string>('none');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [filterRarity, setFilterRarity] = useState<string>('all');
   
   const { validateDeckSize, validateDeckName } = useValidation();
 
@@ -207,30 +208,36 @@ const DeckBuilder = ({ userCards, onStartBattle, onCancel }: DeckBuilderProps) =
   const deckSizeValidation = validateDeckSize(selectedCards.length);
   const deckNameValidation = validateDeckName(deckName);
 
-  // Sorted cards based on selected criteria
+  // Sorted and filtered cards
   const sortedCards = useMemo(() => {
-    if (sortBy === 'none') return userCards;
-
-    const cards = [...userCards];
+    let filtered = [...userCards];
+    
+    // Apply rarity filter
+    if (filterRarity !== 'all') {
+      filtered = filtered.filter(card => card.rarity === filterRarity);
+    }
+    
+    // Apply sorting
+    if (sortBy === 'none') return filtered;
     
     if (sortBy === 'rarity') {
       const rarityOrder = { legendary: 4, epic: 3, rare: 2, common: 1 };
-      cards.sort((a, b) => {
+      filtered.sort((a, b) => {
         const orderA = rarityOrder[a.rarity as keyof typeof rarityOrder] || 0;
         const orderB = rarityOrder[b.rarity as keyof typeof rarityOrder] || 0;
         return sortOrder === 'desc' ? orderB - orderA : orderA - orderB;
       });
     } else {
       // Sort by attribute
-      cards.sort((a, b) => {
+      filtered.sort((a, b) => {
         const valueA = a[sortBy as keyof ElementCard] as number || 0;
         const valueB = b[sortBy as keyof ElementCard] as number || 0;
         return sortOrder === 'desc' ? valueB - valueA : valueA - valueB;
       });
     }
     
-    return cards;
-  }, [userCards, sortBy, sortOrder]);
+    return filtered;
+  }, [userCards, sortBy, sortOrder, filterRarity]);
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
@@ -349,16 +356,31 @@ const DeckBuilder = ({ userCards, onStartBattle, onCancel }: DeckBuilderProps) =
                 )}
               </div>
 
-              {/* Sort Controls */}
-              <div className="flex items-center gap-2">
+              {/* Filter and Sort Controls */}
+              <div className="flex flex-wrap items-center gap-2">
+                {/* Rarity Filter */}
+                <Select value={filterRarity} onValueChange={setFilterRarity}>
+                  <SelectTrigger className="w-[140px]">
+                    <SelectValue placeholder="Raridade" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas</SelectItem>
+                    <SelectItem value="common">Comum</SelectItem>
+                    <SelectItem value="rare">Rara</SelectItem>
+                    <SelectItem value="epic">Épica</SelectItem>
+                    <SelectItem value="legendary">Lendária</SelectItem>
+                  </SelectContent>
+                </Select>
+                
+                {/* Sort Controls */}
                 <Select value={sortBy} onValueChange={setSortBy}>
-                  <SelectTrigger className="w-[180px]">
+                  <SelectTrigger className="w-[160px]">
                     <SelectValue placeholder="Ordenar por..." />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="none">Sem ordenação</SelectItem>
                     <SelectItem value="rarity">Raridade</SelectItem>
-                    <SelectItem value="atomic_number">Número Atômico</SelectItem>
+                    <SelectItem value="atomic_number">Nº Atômico</SelectItem>
                     <SelectItem value="atomic_mass">Massa Atômica</SelectItem>
                     <SelectItem value="density">Densidade</SelectItem>
                     <SelectItem value="melting_point">Ponto de Fusão</SelectItem>
@@ -373,6 +395,7 @@ const DeckBuilder = ({ userCards, onStartBattle, onCancel }: DeckBuilderProps) =
                   onClick={() => setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')}
                   disabled={sortBy === 'none'}
                   className="shrink-0"
+                  title={sortOrder === 'desc' ? 'Decrescente' : 'Crescente'}
                 >
                   <ArrowUpDown className="w-4 h-4" />
                 </Button>
