@@ -35,32 +35,71 @@ const AttributeSelector = ({ card, onSelectAttribute, disabled, selectedAttribut
             key={attr.key}
             initial={{ x: -50, opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
-            transition={{ delay: index * 0.05 }}
+            transition={{ 
+              delay: index * 0.05,
+              duration: 0.3,
+              ease: [0.4, 0, 0.2, 1]
+            }}
+            whileHover={{ scale: disabled ? 1 : 1.02 }}
+            whileTap={{ scale: disabled ? 1 : 0.98 }}
           >
-            <Button
-              onClick={() => onSelectAttribute(attr.key)}
-              disabled={disabled || isSelected}
-              className={`w-full justify-between py-3 h-auto transition-all ${
-                isSelected 
-                  ? 'bg-gradient-to-r from-cosmic-gold to-cosmic-gold-light text-cosmic-dark ring-4 ring-cosmic-gold/60 scale-[1.03] shadow-xl' 
-                  : 'bg-card hover:bg-card/80'
-              }`}
-              variant={isSelected ? "default" : "outline"}
-              style={{
-                boxShadow: isSelected ? '0 0 25px hsl(var(--cosmic-gold) / 0.7)' : undefined
+            <motion.div
+              animate={isSelected ? {
+                boxShadow: [
+                  '0 0 20px hsl(var(--cosmic-gold) / 0.6)',
+                  '0 0 30px hsl(var(--cosmic-gold) / 0.8)',
+                  '0 0 20px hsl(var(--cosmic-gold) / 0.6)'
+                ]
+              } : {}}
+              transition={{ 
+                duration: 1.5, 
+                repeat: isSelected ? Infinity : 0,
+                ease: "easeInOut"
               }}
             >
-              <span className="flex items-center space-x-3">
-                <Icon className="w-4 h-4" />
-                <span className="text-sm font-medium">{attr.label}</span>
-              </span>
-              <Badge 
-                variant={isSelected ? "secondary" : "outline"} 
-                className={`text-sm font-semibold ${isSelected ? 'bg-cosmic-dark/20 text-cosmic-dark text-base' : ''}`}
+              <Button
+                onClick={() => onSelectAttribute(attr.key)}
+                disabled={disabled || isSelected}
+                className={`w-full justify-between py-3 h-auto transition-all duration-300 ${
+                  isSelected 
+                    ? 'bg-gradient-to-r from-cosmic-gold to-cosmic-gold-light text-cosmic-dark ring-4 ring-cosmic-gold/60 scale-[1.03] shadow-xl' 
+                    : 'bg-card hover:bg-card/80 hover:border-cosmic-gold/30'
+                }`}
+                variant={isSelected ? "default" : "outline"}
               >
-                {attr.value != null ? attr.value.toFixed(2) : '0.00'}
-              </Badge>
-            </Button>
+                <span className="flex items-center space-x-3">
+                  <motion.div
+                    animate={isSelected ? { 
+                      rotate: [0, 360],
+                      scale: [1, 1.2, 1]
+                    } : {}}
+                    transition={{ 
+                      duration: 0.6,
+                      ease: "easeOut"
+                    }}
+                  >
+                    <Icon className="w-4 h-4" />
+                  </motion.div>
+                  <span className="text-sm font-medium">{attr.label}</span>
+                </span>
+                <motion.div
+                  animate={isSelected ? { 
+                    scale: [1, 1.1, 1]
+                  } : {}}
+                  transition={{ 
+                    duration: 0.4,
+                    ease: "easeOut"
+                  }}
+                >
+                  <Badge 
+                    variant={isSelected ? "secondary" : "outline"} 
+                    className={`text-sm font-semibold ${isSelected ? 'bg-cosmic-dark/20 text-cosmic-dark text-base' : ''}`}
+                  >
+                    {attr.value != null ? attr.value.toFixed(2) : '0.00'}
+                  </Badge>
+                </motion.div>
+              </Button>
+            </motion.div>
           </motion.div>
         );
       })}

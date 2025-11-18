@@ -33,44 +33,72 @@ const BattleField = ({
       {/* Player Card */}
       <motion.div 
         className="flex justify-center items-center"
-        initial={{ x: -100, opacity: 0 }}
-        animate={{ x: 0, opacity: 1 }}
-        transition={{ duration: 0.5 }}
+        initial={{ x: -100, opacity: 0, scale: 0.9 }}
+        animate={{ x: 0, opacity: 1, scale: 1 }}
+        transition={{ 
+          duration: 0.5,
+          type: "spring",
+          stiffness: 100,
+          damping: 15
+        }}
       >
-        {playerCard && (
-          <BattleCard 
-            card={playerCard} 
-            showAttributes={showPlayerAttributes}
-            canSelectAttribute={canSelectAttribute}
-            onAttributeSelect={onAttributeSelect}
-            selectedAttribute={selectedAttribute}
-            isTransferring={isTransferring && transferDirection === 'left'}
-            transferDirection="left"
-            showOwnerLabel={true}
-            isOpponent={false}
-          />
-        )}
+        <AnimatePresence mode="wait">
+          {playerCard && (
+            <motion.div
+              key={playerCard.id}
+              initial={{ rotateY: -90, opacity: 0 }}
+              animate={{ rotateY: 0, opacity: 1 }}
+              exit={{ rotateY: 90, opacity: 0 }}
+              transition={{ duration: 0.4 }}
+            >
+              <BattleCard 
+                card={playerCard} 
+                showAttributes={showPlayerAttributes}
+                canSelectAttribute={canSelectAttribute}
+                onAttributeSelect={onAttributeSelect}
+                selectedAttribute={selectedAttribute}
+                isTransferring={isTransferring && transferDirection === 'left'}
+                transferDirection="left"
+                showOwnerLabel={true}
+                isOpponent={false}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
       </motion.div>
 
       {/* Opponent Card */}
       <motion.div 
         className="flex justify-center items-center"
-        initial={{ x: 100, opacity: 0 }}
-        animate={{ x: 0, opacity: 1 }}
-        transition={{ duration: 0.5 }}
+        initial={{ x: 100, opacity: 0, scale: 0.9 }}
+        animate={{ x: 0, opacity: 1, scale: 1 }}
+        transition={{ 
+          duration: 0.5,
+          type: "spring",
+          stiffness: 100,
+          damping: 15
+        }}
       >
         <AnimatePresence mode="wait">
           {opponentCard && (
-            <BattleCard 
-              card={opponentCard} 
-              showAttributes={isCardFlipped}
-              isOpponent={true}
-              isFlipped={!isCardFlipped}
-              isTransferring={isTransferring && transferDirection === 'right'}
-              transferDirection="right"
-              selectedAttribute={selectedAttribute}
-              showOwnerLabel={true}
-            />
+            <motion.div
+              key={opponentCard.id}
+              initial={{ rotateY: 90, opacity: 0 }}
+              animate={{ rotateY: 0, opacity: 1 }}
+              exit={{ rotateY: -90, opacity: 0 }}
+              transition={{ duration: 0.4 }}
+            >
+              <BattleCard 
+                card={opponentCard} 
+                showAttributes={isCardFlipped}
+                isOpponent={true}
+                isFlipped={!isCardFlipped}
+                isTransferring={isTransferring && transferDirection === 'right'}
+                transferDirection="right"
+                selectedAttribute={selectedAttribute}
+                showOwnerLabel={true}
+              />
+            </motion.div>
           )}
         </AnimatePresence>
       </motion.div>

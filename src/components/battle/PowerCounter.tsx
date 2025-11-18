@@ -54,11 +54,33 @@ const PowerCounter = ({
             : 'bg-card/40 border-border opacity-80'
           }
         `}
-        initial={{ scale: 0.9, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        transition={{ duration: 0.3 }}
+        initial={{ x: -50, scale: 0.9, opacity: 0 }}
+        animate={{ 
+          x: 0, 
+          scale: 1, 
+          opacity: 1,
+          boxShadow: isPlayerWinning ? [
+            '0 0 20px hsl(var(--cosmic-gold) / 0.3)',
+            '0 0 30px hsl(var(--cosmic-gold) / 0.5)',
+            '0 0 20px hsl(var(--cosmic-gold) / 0.3)'
+          ] : undefined
+        }}
+        transition={{ 
+          x: { duration: 0.5 },
+          scale: { duration: 0.3 },
+          opacity: { duration: 0.3 },
+          boxShadow: { duration: 1.5, repeat: Infinity }
+        }}
       >
-        <Crown className={`w-6 h-6 ${isPlayerWinning ? 'text-cosmic-gold' : 'text-muted-foreground'}`} />
+        <motion.div
+          animate={isPlayerWinning ? {
+            rotate: [0, -10, 10, -10, 0],
+            scale: [1, 1.1, 1]
+          } : {}}
+          transition={{ duration: 0.6 }}
+        >
+          <Crown className={`w-6 h-6 ${isPlayerWinning ? 'text-cosmic-gold' : 'text-muted-foreground'}`} />
+        </motion.div>
         <div className="flex flex-col items-center">
           <span className="text-xs text-muted-foreground font-medium mb-1">Você</span>
           <motion.span
@@ -68,6 +90,9 @@ const PowerCounter = ({
               ${showPlayerIncrease ? 'power-increase' : ''}
             `}
             key={playerPower}
+            initial={{ scale: 0.8, y: 10 }}
+            animate={{ scale: 1, y: 0 }}
+            transition={{ type: "spring", stiffness: 300, damping: 15 }}
           >
             {playerPower}
           </motion.span>
@@ -75,7 +100,20 @@ const PowerCounter = ({
       </motion.div>
 
       {/* VS Divider */}
-      <div className="text-2xl font-bold text-muted-foreground opacity-50">VS</div>
+      <motion.div 
+        className="text-2xl font-bold text-muted-foreground opacity-50"
+        animate={{ 
+          scale: [1, 1.1, 1],
+          opacity: [0.5, 0.8, 0.5]
+        }}
+        transition={{ 
+          duration: 2,
+          repeat: Infinity,
+          ease: "easeInOut"
+        }}
+      >
+        VS
+      </motion.div>
 
       {/* Opponent Power */}
       <motion.div
@@ -89,9 +127,23 @@ const PowerCounter = ({
             : 'bg-card/40 border-border opacity-80'
           }
         `}
-        initial={{ scale: 0.9, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        transition={{ duration: 0.3 }}
+        initial={{ x: 50, scale: 0.9, opacity: 0 }}
+        animate={{ 
+          x: 0, 
+          scale: 1, 
+          opacity: 1,
+          boxShadow: isOpponentWinning ? [
+            '0 0 20px hsl(var(--cosmic-purple) / 0.3)',
+            '0 0 30px hsl(var(--cosmic-purple) / 0.5)',
+            '0 0 20px hsl(var(--cosmic-purple) / 0.3)'
+          ] : undefined
+        }}
+        transition={{ 
+          x: { duration: 0.5 },
+          scale: { duration: 0.3 },
+          opacity: { duration: 0.3 },
+          boxShadow: { duration: 1.5, repeat: Infinity }
+        }}
       >
         <div className="flex flex-col items-center">
           <span className="text-xs text-muted-foreground font-medium mb-1">Oponente</span>
@@ -102,11 +154,22 @@ const PowerCounter = ({
               ${showOpponentIncrease ? 'power-increase' : ''}
             `}
             key={opponentPower}
+            initial={{ scale: 0.8, y: 10 }}
+            animate={{ scale: 1, y: 0 }}
+            transition={{ type: "spring", stiffness: 300, damping: 15 }}
           >
             {opponentPower}
           </motion.span>
         </div>
-        <Skull className={`w-6 h-6 ${isOpponentWinning ? 'text-cosmic-purple-light' : 'text-muted-foreground'}`} />
+        <motion.div
+          animate={isOpponentWinning ? {
+            rotate: [0, 10, -10, 10, 0],
+            scale: [1, 1.1, 1]
+          } : {}}
+          transition={{ duration: 0.6 }}
+        >
+          <Skull className={`w-6 h-6 ${isOpponentWinning ? 'text-cosmic-purple-light' : 'text-muted-foreground'}`} />
+        </motion.div>
       </motion.div>
     </div>
   );
