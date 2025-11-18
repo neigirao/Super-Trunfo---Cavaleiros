@@ -115,15 +115,15 @@ const Game = () => {
         <div className="absolute bottom-1/4 left-2/3 w-32 h-32 bg-cosmic-blue opacity-20 rounded-full animate-stellar-pulse" />
       </div>
 
-      <div className="relative pt-20 md:pt-24 pb-8 px-4">
+      <div className="relative pt-2 pb-8 px-4">
         <div className="max-w-7xl mx-auto">
           {/* Game Header - Only show when battle is not active */}
           {!isBattleActive && (
-            <div className="text-center mb-8">
-              <h1 className="text-4xl font-bold bg-gradient-to-r from-cosmic-gold to-cosmic-gold-light bg-clip-text text-transparent mb-4">
+            <div className="text-center mb-6">
+              <h1 className="text-4xl font-bold bg-gradient-to-r from-cosmic-gold to-cosmic-gold-light bg-clip-text text-transparent mb-3">
                 Arena dos Elementos
               </h1>
-              <div className="flex justify-center items-center space-x-8 mb-6">
+              <div className="flex justify-center items-center space-x-8 mb-4">
                 <div className="text-center">
                   <div className="text-2xl font-bold text-cosmic-gold">{score}</div>
                   <div className="text-sm text-muted-foreground">Pontuação</div>
@@ -135,7 +135,7 @@ const Game = () => {
               </div>
               
               {/* Game Mode Selector */}
-              <div className="flex justify-center space-x-4 mb-8">
+              <div className="flex justify-center space-x-4 mb-6">
                 <Button
                   variant={gameMode === 'battle' ? 'default' : 'outline'}
                   onClick={() => setGameMode('battle')}

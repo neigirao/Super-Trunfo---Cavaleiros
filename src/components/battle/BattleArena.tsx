@@ -54,10 +54,10 @@ const BattleArena = ({ logic, state, effects, actions, onSurrender }: BattleAren
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      className="relative container mx-auto max-w-6xl pt-4 pb-2 space-y-3"
+      className="relative container mx-auto max-w-6xl pt-2 pb-2 space-y-2"
     >
       {/* 1) MENU - Controles principais da batalha */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between mb-2">
         <BattleControls
           onSurrender={onSurrender}
           onPause={() => state.setPaused(true)}
@@ -66,10 +66,8 @@ const BattleArena = ({ logic, state, effects, actions, onSurrender }: BattleAren
         />
       </div>
 
-      {/* 2) ESTATÍSTICAS - movidas para baixo das cartas para aumentar área de exibição */}
-
-      {/* 3) CAMPO DE BATALHA COM CARTAS */}
-      <section className="w-full my-6">
+      {/* 2) CAMPO DE BATALHA COM CARTAS - FOCO PRINCIPAL */}
+      <section className="w-full my-3">
         {/* Conexão visual de atributos - aparece ACIMA das cartas */}
         <AnimatePresence>
           {state.showAttributeConnection && logic.battle.selectedAttribute && (
@@ -106,8 +104,8 @@ const BattleArena = ({ logic, state, effects, actions, onSurrender }: BattleAren
         )}
       </section>
 
-      {/* 3) ESTATÍSTICAS - abaixo das cartas */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2">
+      {/* 3) ESTATÍSTICAS - compactas abaixo das cartas */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-2">
         <CardCounter
           playerCards={logic.battle.playerDeck.length}
           opponentCards={logic.battle.opponentDeck.length}
@@ -120,7 +118,7 @@ const BattleArena = ({ logic, state, effects, actions, onSurrender }: BattleAren
           {state.isTimerActive && (
             <motion.button
               onClick={actions.skipTimer}
-              className="px-4 py-2 bg-gradient-to-r from-cosmic-gold to-cosmic-gold-light text-cosmic-dark-foreground dark:text-cosmic-dark font-semibold rounded-full shadow-lg hover:shadow-cosmic transition-all duration-300 hover:scale-105 text-sm"
+              className="px-3 py-1.5 bg-gradient-to-r from-cosmic-gold to-cosmic-gold-light text-cosmic-dark-foreground dark:text-cosmic-dark font-semibold rounded-full shadow-lg hover:shadow-cosmic transition-all duration-300 hover:scale-105 text-sm"
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               initial={{ opacity: 0, scale: 0.8 }}
@@ -133,8 +131,8 @@ const BattleArena = ({ logic, state, effects, actions, onSurrender }: BattleAren
         </div>
       </div>
 
-      {/* 4) PROGRESSO E NÍVEL */}
-      <section className="space-y-2 mt-4">
+      {/* 4) PROGRESSO E NÍVEL - compacto */}
+      <section className="space-y-1.5 mt-2">
         {/* Barra de progresso */}
         <BattleProgress
           playerCards={logic.battle.playerDeck.length}
