@@ -56,36 +56,84 @@ const BattleResultScreen = ({ result, onNextRound }: BattleResultScreenProps) =>
 
   return (
     <motion.div
-      initial={{ scale: 0.8, opacity: 0 }}
-      animate={{ scale: 1, opacity: 1 }}
-      exit={{ scale: 0.8, opacity: 0 }}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.2 }}
       className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm"
     >
-      <Card className="w-full max-w-md mx-4">
-        <CardHeader className="text-center">
-          <motion.div
-            initial={{ scale: 0, rotate: -180 }}
-            animate={{ scale: 1, rotate: 0 }}
-            transition={{ type: "spring", duration: 0.6 }}
-            className="flex justify-center mb-4"
-          >
-            <div className={`p-4 rounded-full bg-card ${config.color}`}>
-              <Icon className="w-12 h-12" />
-            </div>
-          </motion.div>
-          <CardTitle className={config.color}>{config.title}</CardTitle>
-          <CardDescription>{config.description}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Button 
-            onClick={onNextRound} 
-            className="w-full"
-            size="lg"
-          >
-            Próxima Rodada ({timeLeft}s)
-          </Button>
-        </CardContent>
-      </Card>
+      <motion.div
+        initial={{ scale: 0.7, opacity: 0, y: 50 }}
+        animate={{ scale: 1, opacity: 1, y: 0 }}
+        exit={{ scale: 0.7, opacity: 0, y: -50 }}
+        transition={{ 
+          type: "spring",
+          damping: 20,
+          stiffness: 300
+        }}
+      >
+        <Card className="w-full max-w-md mx-4">
+          <CardHeader className="text-center">
+            <motion.div
+              initial={{ scale: 0, rotate: -180 }}
+              animate={{ scale: 1, rotate: 0 }}
+              transition={{ 
+                type: "spring", 
+                duration: 0.8,
+                delay: 0.1
+              }}
+              className="flex justify-center mb-4"
+            >
+              <motion.div 
+                className={`p-4 rounded-full bg-card ${config.color}`}
+                animate={{
+                  boxShadow: [
+                    '0 0 0px rgba(0,0,0,0)',
+                    '0 0 20px rgba(255,215,0,0.3)',
+                    '0 0 0px rgba(0,0,0,0)'
+                  ]
+                }}
+                transition={{
+                  duration: 2,
+                  repeat: Infinity,
+                  ease: "easeInOut"
+                }}
+              >
+                <Icon className="w-12 h-12" />
+              </motion.div>
+            </motion.div>
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3 }}
+            >
+              <CardTitle className={config.color}>{config.title}</CardTitle>
+            </motion.div>
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.4 }}
+            >
+              <CardDescription>{config.description}</CardDescription>
+            </motion.div>
+          </CardHeader>
+          <CardContent>
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.5 }}
+            >
+              <Button 
+                onClick={onNextRound} 
+                className="w-full"
+                size="lg"
+              >
+                Próxima Rodada ({timeLeft}s)
+              </Button>
+            </motion.div>
+          </CardContent>
+        </Card>
+      </motion.div>
     </motion.div>
   );
 };
