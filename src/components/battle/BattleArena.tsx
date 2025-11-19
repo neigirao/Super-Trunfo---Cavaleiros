@@ -30,6 +30,7 @@ import VictoryEffect from '../effects/VictoryEffect';
 import ParticleEffect from '../effects/ParticleEffect';
 import PlayerLevel from '../progression/PlayerLevel';
 import AttributeConnection from './AttributeConnection';
+import ComparisonTimer from './ComparisonTimer';
 import type { useBattleLogic, BattleAttribute } from '@/hooks/battle/useBattleLogic';
 import type { useBattleState } from '@/hooks/battle/useBattleState';
 import type { useBattleEffects } from '@/hooks/battle/useBattleEffects';
@@ -66,7 +67,28 @@ const BattleArena = ({ logic, state, effects, actions, onSurrender }: BattleAren
         />
       </div>
 
-      {/* 2) CAMPO DE BATALHA COM CARTAS - FOCO PRINCIPAL */}
+      {/* 2) CONTADORES E TIMER - Acima das cartas */}
+      <section className="space-y-2 mb-3">
+        <CardCounter
+          playerCards={logic.battle.playerDeck.length}
+          opponentCards={logic.battle.opponentDeck.length}
+        />
+        
+        <AnimatePresence>
+          {state.isTimerActive && (
+            <div className="flex justify-center">
+              <ComparisonTimer
+                duration={5}
+                onComplete={() => {}}
+                onSkip={actions.skipTimer}
+                isActive={state.isTimerActive}
+              />
+            </div>
+          )}
+        </AnimatePresence>
+      </section>
+
+      {/* 3) CAMPO DE BATALHA COM CARTAS - FOCO PRINCIPAL */}
       <section className="w-full my-3">
         {/* Conexão visual de atributos - aparece ACIMA das cartas */}
         <AnimatePresence>
@@ -131,7 +153,7 @@ const BattleArena = ({ logic, state, effects, actions, onSurrender }: BattleAren
         </div>
       </div>
 
-      {/* 4) PROGRESSO E NÍVEL - compacto */}
+      {/* 5) PROGRESSO E NÍVEL - compacto */}
       <section className="space-y-1.5 mt-2">
         {/* Barra de progresso */}
         <BattleProgress
