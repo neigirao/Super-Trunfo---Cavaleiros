@@ -1,9 +1,9 @@
 /**
  * Componente de conexão visual entre atributos comparados
- * Mostra uma linha/seta conectando os dois atributos sendo comparados
+ * FASE 2: Visual aprimorado com linha mais grossa, animação de pulso e diferença numérica
  */
-import { motion } from 'framer-motion';
-import { ArrowRight, TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import type { BattleAttribute } from '@/hooks/battle/useBattleLogic';
 
 interface AttributeConnectionProps {
@@ -19,111 +19,160 @@ const AttributeConnection = ({
   opponentValue,
   isVisible 
 }: AttributeConnectionProps) => {
-  if (!isVisible || !selectedAttribute) return null;
+  if (!selectedAttribute) return null;
 
-  // Determinar resultado da comparação
-  const getResult = () => {
-    if (playerValue > opponentValue) return 'win';
-    if (playerValue < opponentValue) return 'lose';
-    return 'draw';
-  };
+  const playerWins = playerValue > opponentValue;
+  const isDraw = playerValue === opponentValue;
+  const difference = Math.abs(playerValue - opponentValue);
 
-  const result = getResult();
-
-  // Cores baseadas no resultado
-  const getColor = () => {
-    switch (result) {
-      case 'win': return 'from-green-500 to-emerald-400';
-      case 'lose': return 'from-red-500 to-rose-400';
-      case 'draw': return 'from-yellow-500 to-amber-400';
-    }
-  };
-
-  // Ícone baseado no resultado
-  const getIcon = () => {
-    switch (result) {
-      case 'win': return <TrendingUp className="w-6 h-6" />;
-      case 'lose': return <TrendingDown className="w-6 h-6" />;
-      case 'draw': return <Minus className="w-6 h-6" />;
-    }
-  };
-
-  // Texto do resultado
-  const getResultText = () => {
-    switch (result) {
-      case 'win': return 'VOCÊ VENCE!';
-      case 'lose': return 'ADVERSÁRIO VENCE!';
-      case 'draw': return 'EMPATE!';
-    }
-  };
-
-  const formatValue = (attribute: BattleAttribute, value: number) => {
-    switch (attribute) {
-      case 'atomic_mass':
-        return value.toFixed(3);
-      case 'density':
-        return `${value} g/cm³`;
-      case 'melting_point':
-        return `${Math.abs(value)}°C`;
-      case 'reactivity':
-      case 'radioactivity':
-        return `${value}%`;
-      default:
-        return value.toString();
-    }
-  };
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: -20 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -20 }}
-      className="mb-4 pointer-events-none"
-    >
-      {/* Banner de resultado compacto */}
-      <div className={`
-        mx-auto max-w-2xl px-6 py-4 rounded-xl
-        bg-gradient-to-r ${getColor()}
-        shadow-2xl border-2 border-white/20
-        backdrop-blur-lg
-      `}>
-        <div className="flex items-center justify-between gap-6">
-          {/* Valor do jogador */}
-          <div className="flex-1 text-center">
-            <div className="text-xs text-white/80 font-medium mb-1">Seu Valor</div>
-            <div className={`text-2xl font-bold ${
-              result === 'win' ? 'text-white' : 'text-white/60'
-            }`}>
-              {formatValue(selectedAttribute, playerValue)}
-            </div>
-          </div>
-
-          {/* Resultado central */}
-          <motion.div
-            animate={{ scale: [1, 1.1, 1] }}
-            transition={{ duration: 1, repeat: Infinity }}
-            className="flex flex-col items-center px-4"
+    <AnimatePresence>
+      {isVisible && (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.8 }}
+          className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-full max-w-4xl z-10 pointer-events-none"
+        >
+          {/* Linha conectando as cartas - mais grossa e vibrante */}
+          <svg 
+            className="w-full h-32" 
+            viewBox="0 0 800 120"
+            preserveAspectRatio="xMidYMid meet"
           >
-            <div className="text-white text-3xl mb-1">
-              {getIcon()}
-            </div>
-            <div className="text-xs font-bold text-white whitespace-nowrap">
-              {getResultText()}
+            <defs>
+              <filter id="glow">
+                <feGaussianBlur stdDeviation="6" result="coloredBlur"/>
+                <feMerge>
+                  <feMergeNode in="coloredBlur"/>
+                  <feMergeNode in="SourceGraphic"/>
+                </feMerge>
+              </filter>
+              
+              {/* Gradiente para a linha */}
+              <linearGradient id="lineGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stopColor={playerWins ? "hsl(var(--primary))" : "hsl(var(--destructive))"} />
+                <stop offset="50%" stopColor="hsl(var(--cosmic-gold))" />
+                <stop offset="100%" stopColor={playerWins ? "hsl(var(--destructive))" : "hsl(var(--primary))"} />
+              </linearGradient>
+            </defs>
+            
+            {/* Linha principal - mais grossa */}
+            <motion.line
+              x1="80"
+              y1="60"
+              x2="720"
+              y2="60"
+              stroke="url(#lineGradient)"
+              strokeWidth="6"
+              strokeLinecap="round"
+              filter="url(#glow)"
+              initial={{ pathLength: 0, opacity: 0 }}
+              animate={{ 
+                pathLength: 1, 
+                opacity: [0.6, 1, 0.6]
+              }}
+              transition={{ 
+                pathLength: { duration: 0.8, ease: "easeInOut" },
+                opacity: { duration: 2, repeat: Infinity, ease: "easeInOut" }
+              }}
+            />
+            
+            {/* Círculo central maior */}
+            <motion.circle
+              cx="400"
+              cy="60"
+              r="50"
+              fill="hsl(var(--background))"
+              stroke={isDraw ? "hsl(var(--muted))" : playerWins ? "hsl(var(--primary))" : "hsl(var(--destructive))"}
+              strokeWidth="4"
+              filter="url(#glow)"
+              initial={{ scale: 0 }}
+              animate={{ 
+                scale: 1,
+                strokeWidth: [4, 6, 4]
+              }}
+              transition={{ 
+                scale: { delay: 0.3, type: "spring", stiffness: 200, damping: 15 },
+                strokeWidth: { duration: 1.5, repeat: Infinity, ease: "easeInOut" }
+              }}
+            />
+
+            {/* Círculo de glow externo */}
+            <motion.circle
+              cx="400"
+              cy="60"
+              r="50"
+              fill="none"
+              stroke={isDraw ? "hsl(var(--muted))" : playerWins ? "hsl(var(--primary))" : "hsl(var(--destructive))"}
+              strokeWidth="2"
+              opacity="0.3"
+              initial={{ scale: 1 }}
+              animate={{ 
+                scale: [1, 1.3, 1],
+                opacity: [0.3, 0, 0.3]
+              }}
+              transition={{ 
+                duration: 2, 
+                repeat: Infinity,
+                ease: "easeOut"
+              }}
+            />
+          </svg>
+          
+          {/* Badge com informação de comparação */}
+          <motion.div
+            initial={{ opacity: 0, y: -20, scale: 0.8 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{ delay: 0.5, type: "spring" }}
+            className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2"
+          >
+            <div className={`
+              px-6 py-3 rounded-2xl backdrop-blur-md border-2
+              ${isDraw 
+                ? 'bg-muted/20 border-muted' 
+                : playerWins 
+                  ? 'bg-primary/20 border-primary' 
+                  : 'bg-destructive/20 border-destructive'
+              }
+            `}>
+              {/* Nome do atributo */}
+              <div className={`text-xs font-medium text-center mb-1 ${
+                isDraw ? 'text-muted-foreground' : playerWins ? 'text-primary' : 'text-destructive'
+              }`}>
+                {selectedAttribute.replace('_', ' ').toUpperCase()}
+              </div>
+              
+              {/* Diferença de valores */}
+              <div className="flex items-center justify-center gap-2">
+                {isDraw ? (
+                  <>
+                    <Minus className="w-5 h-5 text-muted-foreground" />
+                    <span className="text-lg font-bold text-muted-foreground">
+                      Empate
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    {playerWins ? (
+                      <TrendingUp className="w-5 h-5 text-primary" />
+                    ) : (
+                      <TrendingDown className="w-5 h-5 text-destructive" />
+                    )}
+                    <span className={`text-lg font-bold ${
+                      playerWins ? 'text-primary' : 'text-destructive'
+                    }`}>
+                      +{difference.toFixed(2)}
+                    </span>
+                  </>
+                )}
+              </div>
             </div>
           </motion.div>
-
-          {/* Valor do adversário */}
-          <div className="flex-1 text-center">
-            <div className="text-xs text-white/80 font-medium mb-1">Adversário</div>
-            <div className={`text-2xl font-bold ${
-              result === 'lose' ? 'text-white' : 'text-white/60'
-            }`}>
-              {formatValue(selectedAttribute, opponentValue)}
-            </div>
-          </div>
-        </div>
-      </div>
-    </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 };
 

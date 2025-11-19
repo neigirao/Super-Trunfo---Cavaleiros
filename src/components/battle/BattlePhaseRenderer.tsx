@@ -18,7 +18,7 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import DeckBuilder from '../DeckBuilder';
-import BattleArena from './BattleArena';
+import BattleArenaV2 from './BattleArenaV2';
 import BattleResultScreen from './BattleResultScreen';
 import GameOverScreen from './GameOverScreen';
 import TutorialModal from '../tutorial/TutorialModal';
@@ -107,8 +107,9 @@ const BattlePhaseRenderer = ({ phase, battle }: BattlePhaseRendererProps) => {
             initial="initial"
             animate="animate"
             exit="exit"
+            className="w-full h-screen"
           >
-            <BattleArena
+            <BattleArenaV2
               logic={logic}
               state={state}
               effects={effects}

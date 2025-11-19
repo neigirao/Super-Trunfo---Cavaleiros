@@ -129,7 +129,7 @@ const BattleCard = ({
       >
         <Card 
           className={`
-            w-72 h-[440px] relative overflow-hidden flex flex-col
+            w-64 h-[360px] md:w-80 md:h-[480px] relative overflow-hidden flex flex-col
             ${onClick ? 'cursor-pointer hover:scale-[1.03] transition-all duration-300 card-hover-glow' : ''} 
             ${isOpponent ? 'bg-cosmic-purple/10 border-cosmic-purple/30' : 'bg-cosmic-gold/10 border-cosmic-gold/30'} 
             backdrop-blur-lg border-2
