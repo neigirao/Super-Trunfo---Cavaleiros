@@ -59,7 +59,7 @@ const BattleArenaV2 = ({ logic, state, effects, actions, onSurrender }: BattleAr
 
   return (
     <div className="relative w-full h-screen flex flex-col overflow-hidden bg-background">
-      {/* TOP BAR - Compacto (56px) */}
+      {/* TOP BAR - Compacto e Responsivo */}
       <TopBar
         round={logic.battle.round}
         isPaused={state.isPaused}
@@ -72,7 +72,7 @@ const BattleArenaV2 = ({ logic, state, effects, actions, onSurrender }: BattleAr
       />
 
       {/* ARENA CENTRAL - 70-80% da altura (FOCO NAS CARTAS) */}
-      <div className="flex-1 relative flex items-center justify-center p-4 md:p-6">
+      <div className="flex-1 relative flex items-center justify-center p-2 md:p-4 lg:p-6 min-h-0 overflow-y-auto">
         {/* Indicador de Turno - Overlay central */}
         <EnhancedTurnIndicator
           whoChooses={logic.whoChooses}
@@ -95,12 +95,15 @@ const BattleArenaV2 = ({ logic, state, effects, actions, onSurrender }: BattleAr
           )}
         </AnimatePresence>
 
-        {/* Campo de Batalha - CARTAS */}
+        {/* Campo de Batalha - CARTAS (Mobile Optimized) */}
         <motion.div
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.5 }}
-          className="w-full max-w-6xl"
+          initial={{ opacity: 0, scale: 0.9, y: 20 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          transition={{ 
+            duration: 0.6,
+            ease: [0.4, 0, 0.2, 1]
+          }}
+          className="w-full max-w-7xl mx-auto"
         >
           <BattleField
             playerCard={logic.battle.playerCard}
@@ -119,15 +122,21 @@ const BattleArenaV2 = ({ logic, state, effects, actions, onSurrender }: BattleAr
           />
         </motion.div>
 
-        {/* Indicador de Pensamento do Oponente */}
+        {/* Indicador de Pensamento do Oponente (Mobile Optimized) */}
         {logic.whoChooses === 'opponent' && !logic.battle.selectedAttribute && (
-          <div className="absolute bottom-8 left-1/2 -translate-x-1/2">
+          <motion.div 
+            className="absolute bottom-4 md:bottom-8 left-1/2 -translate-x-1/2"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+            transition={{ duration: 0.3 }}
+          >
             <ThinkingIndicator isVisible={true} />
-          </div>
+          </motion.div>
         )}
       </div>
 
-      {/* BOTTOM BAR - Compacto (~80px) */}
+      {/* BOTTOM BAR - Compacto e Responsivo */}
       <BottomBar
         playerCards={logic.battle.playerDeck.length}
         opponentCards={logic.battle.opponentDeck.length}
