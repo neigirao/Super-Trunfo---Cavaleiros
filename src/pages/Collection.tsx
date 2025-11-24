@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Navigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,8 +8,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useMinimumCards } from '@/hooks/useMinimumCards';
-import { Package, Star, Sword, Shield, Zap, Lock, Gift } from 'lucide-react';
+import { Star, Sword, Shield, Zap, Lock, Gift } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import Navbar from '@/components/Navbar';
+import CollectionFilters from '@/components/collection/CollectionFilters';
+import CollectionStats from '@/components/collection/CollectionStats';
+import LoadingScreen from '@/components/ui/LoadingScreen';
+import { SkeletonCardGrid } from '@/components/ui/SkeletonCard';
 
 interface ElementCard {
   id: string;
@@ -37,6 +42,12 @@ const Collection = () => {
   const [userCards, setUserCards] = useState<UserCard[]>([]);
   const [allCards, setAllCards] = useState<ElementCard[]>([]);
   const [collectionLoading, setCollectionLoading] = useState(true);
+  
+  // Filter states
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedRarity, setSelectedRarity] = useState('all');
+  const [selectedElement, setSelectedElement] = useState('all');
+  const [sortBy, setSortBy] = useState('name_asc');
 
   useEffect(() => {
     if (!loading && user) {
@@ -113,12 +124,85 @@ const Collection = () => {
     return userCard?.quantity || 0;
   };
 
-  if (loading || collectionLoading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-background via-cosmic-nebula to-cosmic-dark flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-4 border-cosmic-gold border-t-transparent" />
-      </div>
+  // Filter and sort logic
+  const filteredAndSortedCards = useMemo(() => {
+    let filtered = allCards;
+
+    // Search filter
+    if (searchTerm) {
+      filtered = filtered.filter(card =>
+        card.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        card.knight_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        card.symbol.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+
+    // Rarity filter
+    if (selectedRarity !== 'all') {
+      filtered = filtered.filter(card => card.rarity === selectedRarity);
+    }
+
+    // Element type filter
+    if (selectedElement !== 'all') {
+      filtered = filtered.filter(card => card.element_type === selectedElement);
+    }
+
+    // Sorting
+    const sorted = [...filtered].sort((a, b) => {
+      switch (sortBy) {
+        case 'name_asc':
+          return a.name.localeCompare(b.name);
+        case 'name_desc':
+          return b.name.localeCompare(a.name);
+        case 'rarity_desc': {
+          const rarityOrder: { [key: string]: number } = { legendary: 4, epic: 3, rare: 2, common: 1 };
+          return (rarityOrder[b.rarity] || 0) - (rarityOrder[a.rarity] || 0);
+        }
+        case 'rarity_asc': {
+          const rarityOrder: { [key: string]: number } = { legendary: 4, epic: 3, rare: 2, common: 1 };
+          return (rarityOrder[a.rarity] || 0) - (rarityOrder[b.rarity] || 0);
+        }
+        case 'atomic_asc':
+          return a.atomic_number - b.atomic_number;
+        case 'atomic_desc':
+          return b.atomic_number - a.atomic_number;
+        default:
+          return 0;
+      }
+    });
+
+    return sorted;
+  }, [allCards, searchTerm, selectedRarity, selectedElement, sortBy]);
+
+  const filteredUserCards = useMemo(() => {
+    return userCards.filter(uc => 
+      filteredAndSortedCards.some(card => card.id === uc.card_id)
     );
+  }, [userCards, filteredAndSortedCards]);
+
+  const clearFilters = () => {
+    setSearchTerm('');
+    setSelectedRarity('all');
+    setSelectedElement('all');
+    setSortBy('name_asc');
+  };
+
+  const hasActiveFilters = Boolean(searchTerm || selectedRarity !== 'all' || selectedElement !== 'all');
+
+  // Calculate rarity breakdown
+  const rarityBreakdown = useMemo(() => {
+    const breakdown = { common: 0, rare: 0, epic: 0, legendary: 0 };
+    userCards.forEach(uc => {
+      const rarity = uc.element_cards.rarity;
+      if (rarity in breakdown) {
+        breakdown[rarity as keyof typeof breakdown] += 1;
+      }
+    });
+    return breakdown;
+  }, [userCards]);
+
+  if (loading || collectionLoading) {
+    return <LoadingScreen variant="splash" message="Carregando coleção..." />;
   }
 
   if (!user) {
@@ -143,28 +227,39 @@ const Collection = () => {
       <div className="relative pt-2 pb-8 px-4">
         <div className="max-w-7xl mx-auto">
           {/* Collection Header */}
-          <div className="text-center mb-8">
+          <motion.div 
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-center mb-8"
+          >
             <h1 className="text-4xl font-bold bg-gradient-to-r from-cosmic-gold to-cosmic-gold-light bg-clip-text text-transparent mb-4">
               Coleção de Cavaleiros
             </h1>
-            
-            <div className="flex justify-center items-center space-x-8 mb-6">
-              <div className="text-center">
-                <div className="text-2xl font-bold text-cosmic-gold">{ownedCards}</div>
-                <div className="text-sm text-muted-foreground">Cavaleiros</div>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-cosmic-blue">{completionRate}%</div>
-                <div className="text-sm text-muted-foreground">Completude</div>
-              </div>
-              {!hasMinimumCards && (
-                <div className="text-center">
-                  <div className="text-lg font-bold text-orange-500">{userCardsCount}/{minimumRequired}</div>
-                  <div className="text-xs text-muted-foreground">Mínimo p/ Jogar</div>
-                </div>
-              )}
-            </div>
-          </div>
+            <p className="text-muted-foreground mb-6">
+              Gerencie e explore seus elementos químicos
+            </p>
+          </motion.div>
+
+          {/* Collection Stats */}
+          <CollectionStats
+            ownedCards={ownedCards}
+            totalCards={totalCards}
+            rarityBreakdown={rarityBreakdown}
+          />
+
+          {/* Filters */}
+          <CollectionFilters
+            searchTerm={searchTerm}
+            onSearchChange={setSearchTerm}
+            selectedRarity={selectedRarity}
+            onRarityChange={setSelectedRarity}
+            selectedElement={selectedElement}
+            onElementChange={setSelectedElement}
+            sortBy={sortBy}
+            onSortChange={setSortBy}
+            onClearFilters={clearFilters}
+            hasActiveFilters={hasActiveFilters}
+          />
 
           <Tabs defaultValue="collection" className="w-full">
             <TabsList className="grid w-full grid-cols-2 max-w-md mx-auto mb-8">
@@ -173,7 +268,7 @@ const Collection = () => {
             </TabsList>
 
             <TabsContent value="collection" className="space-y-6">
-              {userCards.length === 0 ? (
+              {filteredUserCards.length === 0 && userCards.length === 0 ? (
                 <Card className="max-w-md mx-auto bg-card/80 backdrop-blur-lg border-primary/20">
                   <CardHeader className="text-center">
                     <Gift className="w-16 h-16 mx-auto text-cosmic-gold mb-4" />
@@ -200,10 +295,32 @@ const Collection = () => {
                     </Button>
                   </CardContent>
                 </Card>
+              ) : filteredUserCards.length === 0 ? (
+                <Card className="max-w-md mx-auto bg-card/80 backdrop-blur-lg border-primary/20">
+                  <CardHeader className="text-center">
+                    <CardTitle>Nenhum resultado</CardTitle>
+                    <CardDescription>
+                      Nenhuma carta encontrada com os filtros aplicados
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <Button variant="outline" onClick={clearFilters} className="w-full">
+                      Limpar Filtros
+                    </Button>
+                  </CardContent>
+                </Card>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                  {userCards.map((userCard) => (
-                    <Card key={userCard.id} className="bg-card/80 backdrop-blur-lg border-primary/20 shadow-lg hover:shadow-cosmic transition-shadow">
+                <AnimatePresence>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                    {filteredUserCards.map((userCard, index) => (
+                      <motion.div
+                        key={userCard.id}
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.9 }}
+                        transition={{ duration: 0.2, delay: index * 0.02 }}
+                      >
+                        <Card className="bg-card/80 backdrop-blur-lg border-primary/20 shadow-lg hover:shadow-cosmic transition-all hover:scale-105">
                       <CardHeader className="text-center pb-4">
                         <div className="flex justify-center mb-4 relative">
                           <div className={`w-16 h-16 bg-gradient-to-br from-${getRarityColor(userCard.element_cards.rarity)} to-${getRarityColor(userCard.element_cards.rarity)}-light rounded-full flex items-center justify-center shadow-cosmic`}>
@@ -236,20 +353,29 @@ const Collection = () => {
                           </Badge>
                         </div>
                       </CardHeader>
-                    </Card>
-                  ))}
-                </div>
+                        </Card>
+                      </motion.div>
+                    ))}
+                  </div>
+                </AnimatePresence>
               )}
             </TabsContent>
 
             <TabsContent value="all" className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                {allCards.map((card) => {
-                  const owned = isCardOwned(card.id);
-                  const quantity = getCardQuantity(card.id);
-                  
-                  return (
-                    <Card key={card.id} className={`bg-card/80 backdrop-blur-lg border-primary/20 shadow-lg transition-all ${owned ? 'hover:shadow-cosmic' : 'opacity-60'}`}>
+              <AnimatePresence>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                  {filteredAndSortedCards.map((card, index) => {
+                    const owned = isCardOwned(card.id);
+                    const quantity = getCardQuantity(card.id);
+                    
+                    return (
+                      <motion.div
+                        key={card.id}
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ duration: 0.2, delay: index * 0.02 }}
+                      >
+                        <Card className={`bg-card/80 backdrop-blur-lg border-primary/20 shadow-lg transition-all ${owned ? 'hover:shadow-cosmic hover:scale-105' : 'opacity-60'}`}>
                       <CardHeader className="text-center pb-4">
                         <div className="flex justify-center mb-4 relative">
                           <div className={`w-16 h-16 bg-gradient-to-br from-${getRarityColor(card.rarity)} to-${getRarityColor(card.rarity)}-light rounded-full flex items-center justify-center shadow-cosmic ${!owned ? 'grayscale' : ''}`}>
@@ -286,10 +412,12 @@ const Collection = () => {
                           </Badge>
                         </div>
                       </CardHeader>
-                    </Card>
-                  );
-                })}
-              </div>
+                        </Card>
+                      </motion.div>
+                    );
+                  })}
+                </div>
+              </AnimatePresence>
             </TabsContent>
           </Tabs>
         </div>

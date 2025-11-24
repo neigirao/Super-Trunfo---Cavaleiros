@@ -1,14 +1,19 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Navigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Trophy, Crown, Medal, Star, Sword, Shield } from 'lucide-react';
+import { Trophy, Crown, Medal, Star } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import Navbar from '@/components/Navbar';
+import RankingFilters from '@/components/ranking/RankingFilters';
+import UserRankCard from '@/components/ranking/UserRankCard';
+import LoadingScreen from '@/components/ui/LoadingScreen';
 
 interface CardGameRanking {
   id: string;
@@ -43,6 +48,12 @@ const Ranking = () => {
   const [rankings, setRankings] = useState<CardGameRanking[]>([]);
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [rankingLoading, setRankingLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 20;
+  
+  // Filter states
+  const [selectedDifficulty, setSelectedDifficulty] = useState('all');
+  const [selectedMode, setSelectedMode] = useState('all');
 
   useEffect(() => {
     if (!loading) {
@@ -121,19 +132,48 @@ const Ranking = () => {
     }
   };
 
+  // Filter and pagination logic
+  const filteredRankings = useMemo(() => {
+    let filtered = rankings;
+
+    // Difficulty filter
+    if (selectedDifficulty !== 'all') {
+      filtered = filtered.filter(r => r.difficulty_level === selectedDifficulty);
+    }
+
+    // Mode filter (if the data has this field in the future)
+    // if (selectedMode !== 'all') {
+    //   filtered = filtered.filter(r => r.game_mode === selectedMode);
+    // }
+
+    return filtered;
+  }, [rankings, selectedDifficulty]);
+
+  const paginatedRankings = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return filteredRankings.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredRankings, currentPage]);
+
+  const totalPages = Math.ceil(filteredRankings.length / itemsPerPage);
+
+  const clearFilters = () => {
+    setSelectedDifficulty('all');
+    setSelectedMode('all');
+    setCurrentPage(1);
+  };
+
+  const hasActiveFilters = Boolean(selectedDifficulty !== 'all' || selectedMode !== 'all');
+
   if (loading || rankingLoading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-background via-cosmic-nebula to-cosmic-dark flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-4 border-cosmic-gold border-t-transparent" />
-      </div>
-    );
+    return <LoadingScreen variant="splash" message="Carregando ranking..." />;
   }
 
   if (!user) {
     return <Navigate to="/auth" replace />;
   }
 
-  const currentUserRank = rankings.findIndex(r => r.user_id === user.id) + 1;
+  const currentUserRank = filteredRankings.findIndex(r => r.user_id === user.id) + 1;
+  const currentUserData = rankings.find(r => r.user_id === user.id);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-cosmic-nebula to-cosmic-dark">
@@ -149,31 +189,40 @@ const Ranking = () => {
       <div className="relative pt-2 pb-8 px-4">
         <div className="max-w-4xl mx-auto">
           {/* Ranking Header */}
-          <div className="text-center mb-8">
+          <motion.div 
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-center mb-8"
+          >
             <h1 className="text-4xl font-bold bg-gradient-to-r from-cosmic-gold to-cosmic-gold-light bg-clip-text text-transparent mb-4">
               Hall da Fama
             </h1>
             <p className="text-muted-foreground mb-6">
               Os maiores cavaleiros dos elementos da galáxia
             </p>
+          </motion.div>
             
-            {currentUserRank > 0 && (
-              <Card className="max-w-md mx-auto bg-card/80 backdrop-blur-lg border-cosmic-gold/30 mb-6">
-                <CardContent className="flex items-center justify-between p-4">
-                  <div className="text-center">
-                    <div className="text-sm text-muted-foreground">Sua Posição</div>
-                    <div className="text-2xl font-bold text-cosmic-gold">#{currentUserRank}</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-sm text-muted-foreground">Pontuação</div>
-                    <div className="text-2xl font-bold text-cosmic-blue">
-                      {rankings[currentUserRank - 1]?.total_score || 0}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-          </div>
+          {/* User Rank Card */}
+          {currentUserRank > 0 && currentUserData && (
+            <UserRankCard
+              position={currentUserRank}
+              totalScore={currentUserData.total_score}
+              gamesWon={currentUserData.games_won}
+              gamesLost={currentUserData.games_lost}
+              winRate={currentUserData.win_rate}
+              currentStreak={currentUserData.current_streak}
+            />
+          )}
+
+          {/* Filters */}
+          <RankingFilters
+            selectedDifficulty={selectedDifficulty}
+            onDifficultyChange={setSelectedDifficulty}
+            selectedMode={selectedMode}
+            onModeChange={setSelectedMode}
+            onClearFilters={clearFilters}
+            hasActiveFilters={hasActiveFilters}
+          />
 
           <Tabs defaultValue="classic" className="w-full">
             <TabsList className="grid w-full grid-cols-1 max-w-md mx-auto mb-8">
@@ -181,7 +230,7 @@ const Ranking = () => {
             </TabsList>
 
             <TabsContent value="classic" className="space-y-4">
-              {rankings.length === 0 ? (
+              {paginatedRankings.length === 0 ? (
                 <Card className="bg-card/80 backdrop-blur-lg border-primary/20">
                   <CardHeader className="text-center">
                     <Trophy className="w-16 h-16 mx-auto text-cosmic-gold mb-4" />
@@ -194,17 +243,26 @@ const Ranking = () => {
                   </CardHeader>
                 </Card>
               ) : (
-                <div className="space-y-4">
-                  {rankings.map((entry, index) => {
-                    const profile = getProfileByUserId(entry.user_id);
-                    const isCurrentUser = entry.user_id === user.id;
-                    
-                    return (
-                      <Card key={entry.id} className={`bg-card/80 backdrop-blur-lg border-primary/20 transition-all hover:shadow-cosmic ${isCurrentUser ? 'border-cosmic-gold/50 shadow-cosmic' : ''}`}>
+                <>
+                  <AnimatePresence>
+                    <div className="space-y-4">
+                      {paginatedRankings.map((entry, index) => {
+                        const profile = getProfileByUserId(entry.user_id);
+                        const isCurrentUser = entry.user_id === user.id;
+                        const globalIndex = (currentPage - 1) * itemsPerPage + index;
+                        
+                        return (
+                          <motion.div
+                            key={entry.id}
+                            initial={{ opacity: 0, x: -20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ duration: 0.3, delay: index * 0.05 }}
+                          >
+                            <Card className={`bg-card/80 backdrop-blur-lg border-primary/20 transition-all hover:shadow-cosmic ${isCurrentUser ? 'border-cosmic-gold/50 shadow-cosmic' : ''}`}>
                         <CardContent className="flex items-center justify-between p-6">
                           <div className="flex items-center space-x-4">
                             <div className="flex items-center justify-center w-12 h-12 rounded-full bg-gradient-to-br from-cosmic-gold/20 to-cosmic-gold/5">
-                              {getRankIcon(index + 1)}
+                              {getRankIcon(globalIndex + 1)}
                             </div>
                             
                             <div className="flex items-center space-x-3">
@@ -239,15 +297,45 @@ const Ranking = () => {
                                 {entry.total_score.toLocaleString()}
                               </div>
                               <div className="text-sm text-muted-foreground">
-                                #{index + 1}
+                                #{globalIndex + 1}
                               </div>
                             </div>
                           </div>
                         </CardContent>
-                      </Card>
-                    );
-                  })}
-                </div>
+                          </Card>
+                        </motion.div>
+                      );
+                    })}
+                  </div>
+                  </AnimatePresence>
+
+                  {/* Pagination */}
+                  {totalPages > 1 && (
+                    <div className="flex justify-center items-center space-x-2 mt-6">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                        disabled={currentPage === 1}
+                      >
+                        Anterior
+                      </Button>
+                      
+                      <span className="text-sm text-muted-foreground px-4">
+                        Página {currentPage} de {totalPages}
+                      </span>
+                      
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                        disabled={currentPage === totalPages}
+                      >
+                        Próxima
+                      </Button>
+                    </div>
+                  )}
+                </>
               )}
             </TabsContent>
           </Tabs>
