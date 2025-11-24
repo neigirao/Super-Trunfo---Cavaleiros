@@ -1,4 +1,5 @@
 import { Link, useNavigate } from 'react-router-dom';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { 
@@ -8,12 +9,15 @@ import {
   DropdownMenuSeparator, 
   DropdownMenuTrigger 
 } from '@/components/ui/dropdown-menu';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { useAuth } from '@/contexts/AuthContext';
 import { Badge } from '@/components/ui/badge';
+import { Menu, X } from 'lucide-react';
 
 const Navbar = () => {
   const { user, profile, isAdmin, signOut } = useAuth();
   const navigate = useNavigate();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const handleSignOut = async () => {
     try {
@@ -42,7 +46,7 @@ const Navbar = () => {
             </div>
           </Link>
 
-          {/* Navigation Links */}
+          {/* Navigation Links - Desktop */}
           <div className="hidden md:flex items-center space-x-6">
             <Link to="/game" className="text-foreground hover:text-primary transition-colors">
               Jogar
@@ -65,6 +69,69 @@ const Navbar = () => {
                 <Badge variant="secondary" className="text-xs">Admin</Badge>
               </Link>
             )}
+          </div>
+
+          {/* Mobile Menu Button */}
+          <div className="md:hidden">
+            <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+              <SheetTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-10 w-10">
+                  {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="right" className="w-[280px] sm:w-[320px]">
+                <SheetHeader>
+                  <SheetTitle className="text-left">Menu</SheetTitle>
+                </SheetHeader>
+                <nav className="flex flex-col space-y-4 mt-6">
+                  <Link 
+                    to="/game" 
+                    className="text-lg font-medium text-foreground hover:text-primary transition-colors py-2"
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    Jogar
+                  </Link>
+                  <Link 
+                    to="/collection" 
+                    className="text-lg font-medium text-foreground hover:text-primary transition-colors py-2"
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    Coleção
+                  </Link>
+                  <Link 
+                    to="/ranking" 
+                    className="text-lg font-medium text-foreground hover:text-primary transition-colors py-2"
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    Ranking
+                  </Link>
+                  <Link 
+                    to="/support" 
+                    className="text-lg font-medium text-foreground hover:text-primary transition-colors py-2"
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    Suporte
+                  </Link>
+                  <Link 
+                    to="/settings" 
+                    className="text-lg font-medium text-foreground hover:text-primary transition-colors py-2"
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    Configurações
+                  </Link>
+                  {isAdmin && (
+                    <Link 
+                      to="/admin" 
+                      className="text-lg font-medium text-foreground hover:text-primary transition-colors py-2 flex items-center space-x-2"
+                      onClick={() => setMobileMenuOpen(false)}
+                    >
+                      <span>Admin</span>
+                      <Badge variant="secondary" className="text-xs">Admin</Badge>
+                    </Link>
+                  )}
+                </nav>
+              </SheetContent>
+            </Sheet>
           </div>
 
           {/* User Menu */}
