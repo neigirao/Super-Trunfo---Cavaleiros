@@ -98,6 +98,110 @@ export type Database = {
         }
         Relationships: []
       }
+      blueprint_likes: {
+        Row: {
+          blueprint_id: string
+          created_at: string
+          user_id: string
+        }
+        Insert: {
+          blueprint_id: string
+          created_at?: string
+          user_id: string
+        }
+        Update: {
+          blueprint_id?: string
+          created_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "blueprint_likes_blueprint_id_fkey"
+            columns: ["blueprint_id"]
+            isOneToOne: false
+            referencedRelation: "blueprints"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "blueprint_likes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      blueprints: {
+        Row: {
+          adrenaline_score: number
+          best_total_score: number
+          chaos_score: number
+          closed_loop: boolean
+          created_at: string
+          creativity_score: number
+          creator_id: string
+          downloads: number
+          id: string
+          is_featured: boolean | null
+          is_public: boolean
+          likes: number
+          name: string
+          node_count: number
+          smoothness_score: number
+          survival_rate: number
+          track_data: Json
+          updated_at: string
+        }
+        Insert: {
+          adrenaline_score?: number
+          best_total_score?: number
+          chaos_score?: number
+          closed_loop?: boolean
+          created_at?: string
+          creativity_score?: number
+          creator_id: string
+          downloads?: number
+          id?: string
+          is_featured?: boolean | null
+          is_public?: boolean
+          likes?: number
+          name?: string
+          node_count?: number
+          smoothness_score?: number
+          survival_rate?: number
+          track_data: Json
+          updated_at?: string
+        }
+        Update: {
+          adrenaline_score?: number
+          best_total_score?: number
+          chaos_score?: number
+          closed_loop?: boolean
+          created_at?: string
+          creativity_score?: number
+          creator_id?: string
+          downloads?: number
+          id?: string
+          is_featured?: boolean | null
+          is_public?: boolean
+          likes?: number
+          name?: string
+          node_count?: number
+          smoothness_score?: number
+          survival_rate?: number
+          track_data?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "blueprints_creator_id_fkey"
+            columns: ["creator_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       bugs: {
         Row: {
           created_at: string
@@ -247,6 +351,132 @@ export type Database = {
           },
         ]
       }
+      cms_audit_logs: {
+        Row: {
+          action: string
+          actor_id: string | null
+          created_at: string
+          id: string
+          new_data: Json | null
+          old_data: Json | null
+          record_id: string | null
+          table_name: string
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          created_at?: string
+          id?: string
+          new_data?: Json | null
+          old_data?: Json | null
+          record_id?: string | null
+          table_name: string
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          created_at?: string
+          id?: string
+          new_data?: Json | null
+          old_data?: Json | null
+          record_id?: string | null
+          table_name?: string
+        }
+        Relationships: []
+      }
+      cms_media: {
+        Row: {
+          alt_text: string | null
+          caption: string | null
+          created_at: string
+          created_by: string
+          credit: string | null
+          file_path: string
+          height: number | null
+          id: string
+          mime_type: string | null
+          public_url: string
+          size_bytes: number | null
+          tags: string[]
+          updated_at: string
+          width: number | null
+        }
+        Insert: {
+          alt_text?: string | null
+          caption?: string | null
+          created_at?: string
+          created_by: string
+          credit?: string | null
+          file_path: string
+          height?: number | null
+          id?: string
+          mime_type?: string | null
+          public_url: string
+          size_bytes?: number | null
+          tags?: string[]
+          updated_at?: string
+          width?: number | null
+        }
+        Update: {
+          alt_text?: string | null
+          caption?: string | null
+          created_at?: string
+          created_by?: string
+          credit?: string | null
+          file_path?: string
+          height?: number | null
+          id?: string
+          mime_type?: string | null
+          public_url?: string
+          size_bytes?: number | null
+          tags?: string[]
+          updated_at?: string
+          width?: number | null
+        }
+        Relationships: []
+      }
+      cms_templates: {
+        Row: {
+          category: string | null
+          created_at: string
+          created_by: string | null
+          html_content: string
+          id: string
+          is_active: boolean
+          is_system: boolean
+          label: string
+          name: string
+          summary: string | null
+          updated_at: string
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          created_by?: string | null
+          html_content: string
+          id?: string
+          is_active?: boolean
+          is_system?: boolean
+          label: string
+          name: string
+          summary?: string | null
+          updated_at?: string
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          created_by?: string | null
+          html_content?: string
+          id?: string
+          is_active?: boolean
+          is_system?: boolean
+          label?: string
+          name?: string
+          summary?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       daily_challenges: {
         Row: {
           challenge_type: string
@@ -288,6 +518,48 @@ export type Database = {
           title?: string
         }
         Relationships: []
+      }
+      daily_picks: {
+        Row: {
+          blueprint_id: string
+          created_at: string
+          created_by: string | null
+          date: string
+          description: string
+          title: string
+        }
+        Insert: {
+          blueprint_id: string
+          created_at?: string
+          created_by?: string | null
+          date?: string
+          description?: string
+          title?: string
+        }
+        Update: {
+          blueprint_id?: string
+          created_at?: string
+          created_by?: string | null
+          date?: string
+          description?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "daily_picks_blueprint_id_fkey"
+            columns: ["blueprint_id"]
+            isOneToOne: false
+            referencedRelation: "blueprints"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "daily_picks_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       element_cards: {
         Row: {
@@ -361,6 +633,42 @@ export type Database = {
           symbol?: string
           trump_weakness?: string | null
           updated_at?: string | null
+        }
+        Relationships: []
+      }
+      funnel_events: {
+        Row: {
+          created_at: string
+          device_type: string | null
+          event_data: Json | null
+          event_type: string
+          id: string
+          page_url: string | null
+          referrer: string | null
+          session_id: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          device_type?: string | null
+          event_data?: Json | null
+          event_type: string
+          id?: string
+          page_url?: string | null
+          referrer?: string | null
+          session_id: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          device_type?: string | null
+          event_data?: Json | null
+          event_type?: string
+          id?: string
+          page_url?: string | null
+          referrer?: string | null
+          session_id?: string
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -459,6 +767,383 @@ export type Database = {
           session_id?: string | null
           started_at?: string
           user_id?: string | null
+        }
+        Relationships: []
+      }
+      image_error_reports: {
+        Row: {
+          created_at: string | null
+          device_info: Json | null
+          error_type: string
+          id: string
+          original_url: string | null
+          player_id: string | null
+          player_name: string
+          reported_at: string | null
+          resolved: boolean | null
+          resolved_at: string | null
+          resolved_url: string | null
+          retry_count: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          device_info?: Json | null
+          error_type?: string
+          id?: string
+          original_url?: string | null
+          player_id?: string | null
+          player_name: string
+          reported_at?: string | null
+          resolved?: boolean | null
+          resolved_at?: string | null
+          resolved_url?: string | null
+          retry_count?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          device_info?: Json | null
+          error_type?: string
+          id?: string
+          original_url?: string | null
+          player_id?: string | null
+          player_name?: string
+          reported_at?: string | null
+          resolved?: boolean | null
+          resolved_at?: string | null
+          resolved_url?: string | null
+          retry_count?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "image_error_reports_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      jersey_difficulty_stats: {
+        Row: {
+          created_at: string
+          device_type: string | null
+          guess_time: number
+          id: string
+          is_correct: boolean
+          jersey_id: string | null
+          session_id: string | null
+          user_id: string | null
+          year_difference: number
+        }
+        Insert: {
+          created_at?: string
+          device_type?: string | null
+          guess_time: number
+          id?: string
+          is_correct?: boolean
+          jersey_id?: string | null
+          session_id?: string | null
+          user_id?: string | null
+          year_difference: number
+        }
+        Update: {
+          created_at?: string
+          device_type?: string | null
+          guess_time?: number
+          id?: string
+          is_correct?: boolean
+          jersey_id?: string | null
+          session_id?: string | null
+          user_id?: string | null
+          year_difference?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "jersey_difficulty_stats_jersey_id_fkey"
+            columns: ["jersey_id"]
+            isOneToOne: false
+            referencedRelation: "jerseys"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      jersey_game_rankings: {
+        Row: {
+          correct_guesses: number
+          created_at: string
+          difficulty_level: string | null
+          game_duration: number | null
+          game_mode: string | null
+          id: string
+          max_streak: number
+          player_name: string
+          score: number
+          total_attempts: number
+          user_id: string | null
+        }
+        Insert: {
+          correct_guesses?: number
+          created_at?: string
+          difficulty_level?: string | null
+          game_duration?: number | null
+          game_mode?: string | null
+          id?: string
+          max_streak?: number
+          player_name: string
+          score?: number
+          total_attempts?: number
+          user_id?: string | null
+        }
+        Update: {
+          correct_guesses?: number
+          created_at?: string
+          difficulty_level?: string | null
+          game_duration?: number | null
+          game_mode?: string | null
+          id?: string
+          max_streak?: number
+          player_name?: string
+          score?: number
+          total_attempts?: number
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      jersey_game_sessions: {
+        Row: {
+          correct_guesses: number
+          difficulty_level: string | null
+          ended_at: string | null
+          final_score: number
+          game_mode: string
+          id: string
+          max_streak: number
+          metadata: Json | null
+          started_at: string
+          total_attempts: number
+          user_id: string | null
+        }
+        Insert: {
+          correct_guesses?: number
+          difficulty_level?: string | null
+          ended_at?: string | null
+          final_score?: number
+          game_mode?: string
+          id?: string
+          max_streak?: number
+          metadata?: Json | null
+          started_at?: string
+          total_attempts?: number
+          user_id?: string | null
+        }
+        Update: {
+          correct_guesses?: number
+          difficulty_level?: string | null
+          ended_at?: string | null
+          final_score?: number
+          game_mode?: string
+          id?: string
+          max_streak?: number
+          metadata?: Json | null
+          started_at?: string
+          total_attempts?: number
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      jerseys: {
+        Row: {
+          average_guess_time: number | null
+          correct_attempts: number | null
+          created_at: string
+          decades: string[] | null
+          difficulty_confidence: number | null
+          difficulty_level: string | null
+          difficulty_score: number | null
+          fun_fact: string | null
+          id: string
+          image_url: string
+          manufacturer: string | null
+          nicknames: string[] | null
+          season: string | null
+          title: string | null
+          total_attempts: number | null
+          type: string
+          years: number[]
+        }
+        Insert: {
+          average_guess_time?: number | null
+          correct_attempts?: number | null
+          created_at?: string
+          decades?: string[] | null
+          difficulty_confidence?: number | null
+          difficulty_level?: string | null
+          difficulty_score?: number | null
+          fun_fact?: string | null
+          id?: string
+          image_url: string
+          manufacturer?: string | null
+          nicknames?: string[] | null
+          season?: string | null
+          title?: string | null
+          total_attempts?: number | null
+          type?: string
+          years: number[]
+        }
+        Update: {
+          average_guess_time?: number | null
+          correct_attempts?: number | null
+          created_at?: string
+          decades?: string[] | null
+          difficulty_confidence?: number | null
+          difficulty_level?: string | null
+          difficulty_score?: number | null
+          fun_fact?: string | null
+          id?: string
+          image_url?: string
+          manufacturer?: string | null
+          nicknames?: string[] | null
+          season?: string | null
+          title?: string | null
+          total_attempts?: number | null
+          type?: string
+          years?: number[]
+        }
+        Relationships: []
+      }
+      leaderboard_entries: {
+        Row: {
+          adrenaline_score: number
+          blueprint_id: string | null
+          chaos_score: number
+          creativity_score: number
+          id: string
+          laps_completed: number
+          level_id: number | null
+          max_g_force: number
+          max_speed_kmh: number
+          season: string
+          smoothness_score: number
+          submitted_at: string
+          survival_rate: number
+          total_score: number
+          user_id: string
+        }
+        Insert: {
+          adrenaline_score?: number
+          blueprint_id?: string | null
+          chaos_score?: number
+          creativity_score?: number
+          id?: string
+          laps_completed?: number
+          level_id?: number | null
+          max_g_force?: number
+          max_speed_kmh?: number
+          season?: string
+          smoothness_score?: number
+          submitted_at?: string
+          survival_rate?: number
+          total_score: number
+          user_id: string
+        }
+        Update: {
+          adrenaline_score?: number
+          blueprint_id?: string | null
+          chaos_score?: number
+          creativity_score?: number
+          id?: string
+          laps_completed?: number
+          level_id?: number | null
+          max_g_force?: number
+          max_speed_kmh?: number
+          season?: string
+          smoothness_score?: number
+          submitted_at?: string
+          survival_rate?: number
+          total_score?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "leaderboard_entries_blueprint_id_fkey"
+            columns: ["blueprint_id"]
+            isOneToOne: false
+            referencedRelation: "blueprints"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leaderboard_entries_level_id_fkey"
+            columns: ["level_id"]
+            isOneToOne: false
+            referencedRelation: "levels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leaderboard_entries_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      levels: {
+        Row: {
+          budget: number
+          created_at: string
+          description: string | null
+          id: number
+          is_published: boolean
+          max_nodes: number
+          objectives: Json
+          order_index: number
+          reward_coins: number
+          reward_xp: number
+          scenario: string
+          star1_score: number
+          star2_score: number
+          star3_score: number
+          starter_track: Json | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          budget?: number
+          created_at?: string
+          description?: string | null
+          id?: never
+          is_published?: boolean
+          max_nodes?: number
+          objectives?: Json
+          order_index?: number
+          reward_coins?: number
+          reward_xp?: number
+          scenario?: string
+          star1_score?: number
+          star2_score?: number
+          star3_score?: number
+          starter_track?: Json | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          budget?: number
+          created_at?: string
+          description?: string | null
+          id?: never
+          is_published?: boolean
+          max_nodes?: number
+          objectives?: Json
+          order_index?: number
+          reward_coins?: number
+          reward_xp?: number
+          scenario?: string
+          star1_score?: number
+          star2_score?: number
+          star3_score?: number
+          starter_track?: Json | null
+          title?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -607,6 +1292,116 @@ export type Database = {
           id?: string
           name?: string
           slug?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      noticia_metricas_diarias: {
+        Row: {
+          ad_impressions: number
+          ad_revenue: number
+          avg_read_time_seconds: number
+          metric_date: string
+          noticia_id: string
+          pageviews: number
+          unique_visitors: number
+          updated_at: string
+        }
+        Insert: {
+          ad_impressions?: number
+          ad_revenue?: number
+          avg_read_time_seconds?: number
+          metric_date?: string
+          noticia_id: string
+          pageviews?: number
+          unique_visitors?: number
+          updated_at?: string
+        }
+        Update: {
+          ad_impressions?: number
+          ad_revenue?: number
+          avg_read_time_seconds?: number
+          metric_date?: string
+          noticia_id?: string
+          pageviews?: number
+          unique_visitors?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "noticia_metricas_diarias_noticia_id_fkey"
+            columns: ["noticia_id"]
+            isOneToOne: false
+            referencedRelation: "noticias"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      noticias: {
+        Row: {
+          author_id: string | null
+          conteudo: string | null
+          cover_image_url: string | null
+          created_at: string
+          id: string
+          meta_description: string | null
+          meta_title: string | null
+          published_at: string | null
+          resumo: string | null
+          scheduled_for: string | null
+          seo_canonical_url: string | null
+          seo_focus_keyword: string | null
+          seo_noindex: boolean
+          seo_og_image_url: string | null
+          slug: string
+          status: string
+          tag_destaque: string | null
+          tipo_evento: Database["public"]["Enums"]["tipo_evento"] | null
+          titulo: string
+          updated_at: string
+        }
+        Insert: {
+          author_id?: string | null
+          conteudo?: string | null
+          cover_image_url?: string | null
+          created_at?: string
+          id?: string
+          meta_description?: string | null
+          meta_title?: string | null
+          published_at?: string | null
+          resumo?: string | null
+          scheduled_for?: string | null
+          seo_canonical_url?: string | null
+          seo_focus_keyword?: string | null
+          seo_noindex?: boolean
+          seo_og_image_url?: string | null
+          slug: string
+          status?: string
+          tag_destaque?: string | null
+          tipo_evento?: Database["public"]["Enums"]["tipo_evento"] | null
+          titulo: string
+          updated_at?: string
+        }
+        Update: {
+          author_id?: string | null
+          conteudo?: string | null
+          cover_image_url?: string | null
+          created_at?: string
+          id?: string
+          meta_description?: string | null
+          meta_title?: string | null
+          published_at?: string | null
+          resumo?: string | null
+          scheduled_for?: string | null
+          seo_canonical_url?: string | null
+          seo_focus_keyword?: string | null
+          seo_noindex?: boolean
+          seo_og_image_url?: string | null
+          slug?: string
+          status?: string
+          tag_destaque?: string | null
+          tipo_evento?: Database["public"]["Enums"]["tipo_evento"] | null
+          titulo?: string
           updated_at?: string
         }
         Relationships: []
@@ -762,36 +1557,63 @@ export type Database = {
       profiles: {
         Row: {
           avatar_url: string | null
+          best_play_streak: number
+          coins: number
           created_at: string
           email: string | null
           experience: number | null
           full_name: string | null
           id: string
+          inventory: Json
+          is_admin: boolean
+          is_banned: boolean | null
+          last_play_date: string | null
           level: number | null
+          play_streak: number
           points: number | null
           role: string | null
+          updated_at: string
+          username: string | null
         }
         Insert: {
           avatar_url?: string | null
+          best_play_streak?: number
+          coins?: number
           created_at?: string
           email?: string | null
           experience?: number | null
           full_name?: string | null
           id: string
+          inventory?: Json
+          is_admin?: boolean
+          is_banned?: boolean | null
+          last_play_date?: string | null
           level?: number | null
+          play_streak?: number
           points?: number | null
           role?: string | null
+          updated_at?: string
+          username?: string | null
         }
         Update: {
           avatar_url?: string | null
+          best_play_streak?: number
+          coins?: number
           created_at?: string
           email?: string | null
           experience?: number | null
           full_name?: string | null
           id?: string
+          inventory?: Json
+          is_admin?: boolean
+          is_banned?: boolean | null
+          last_play_date?: string | null
           level?: number | null
+          play_streak?: number
           points?: number | null
           role?: string | null
+          updated_at?: string
+          username?: string | null
         }
         Relationships: []
       }
@@ -1451,20 +2273,78 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      funnel_summary: {
+        Row: {
+          completions: number | null
+          event_date: string | null
+          first_guesses: number | null
+          game_starts: number | null
+          home_views: number | null
+          mode_clicks: number | null
+          rankings_saved: number | null
+          shares: number | null
+        }
+        Relationships: []
+      }
+      leaderboard_with_profiles: {
+        Row: {
+          adrenaline_score: number | null
+          chaos_score: number | null
+          id: string | null
+          laps_completed: number | null
+          max_g_force: number | null
+          max_speed_kmh: number | null
+          rank: number | null
+          season: string | null
+          submitted_at: string | null
+          survival_rate: number | null
+          total_score: number | null
+          user_id: string | null
+          username: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "leaderboard_entries_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
+      award_run_rewards: {
+        Args: { p_crashed: boolean; p_stars: number; p_user_id: string }
+        Returns: Json
+      }
       can_user_open_pack: { Args: { user_uuid: string }; Returns: boolean }
       cleanup_expired_notifications: { Args: never; Returns: undefined }
       get_current_user_role: { Args: never; Returns: string }
+      get_home_stats: { Args: never; Returns: Json }
       get_next_pack_opening_date: {
         Args: { user_uuid: string }
         Returns: string
       }
+      get_user_game_stats: { Args: { p_user_id: string }; Returns: Json }
+      get_user_ranking_position: { Args: { p_user_id: string }; Returns: Json }
       is_admin: { Args: never; Returns: boolean }
+      publish_scheduled_noticias: { Args: never; Returns: number }
+      purchase_shop_item: {
+        Args: { p_item_cost: number; p_item_id: string }
+        Returns: Json
+      }
+      toggle_blueprint_like: { Args: { p_blueprint_id: string }; Returns: Json }
+      verify_admin_credentials: {
+        Args: { p_password: string; p_username: string }
+        Returns: {
+          id: string
+          username: string
+        }[]
+      }
     }
     Enums: {
-      [_ in never]: never
+      tipo_evento: "gol" | "lesao" | "contratacao" | "escalacao" | "bastidor"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1591,6 +2471,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      tipo_evento: ["gol", "lesao", "contratacao", "escalacao", "bastidor"],
+    },
   },
 } as const
