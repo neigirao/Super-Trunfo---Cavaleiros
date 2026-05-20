@@ -8,6 +8,19 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
+    /* Aurum Sanctum palette (HSL) */
+    --aurum-gold: 43 88% 62%;
+    --aurum-gold-deep: 36 53% 35%;
+    --aurum-gold-dark: 36 56% 21%;
+    --aurum-marble: 41 50% 90%;
+    --aurum-marble-mid: 38 39% 81%;
+    --aurum-marble-deep: 38 35% 72%;
+    --aurum-ink: 24 70% 6%;
+    --aurum-ink-soft: 26 55% 11%;
+    --aurum-cream: 43 80% 94%;
+    --aurum-blood: 0 64% 57%;
+    --aurum-blood-soft: 0 100% 73%;
+
     /* Cosmic Golden Theme for Cavaleiros dos Elementos */
     --background: 230 25% 6%;
     --foreground: 45 100% 85%;

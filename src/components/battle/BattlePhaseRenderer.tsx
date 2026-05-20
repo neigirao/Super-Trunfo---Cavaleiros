@@ -18,7 +18,7 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import DeckBuilder from '../DeckBuilder';
-import BattleArenaV2 from './BattleArenaV2';
+import AurumArena from './aurum/AurumArena';
 import BattleResultScreen from './BattleResultScreen';
 import GameOverScreen from './GameOverScreen';
 import TutorialModal from '../tutorial/TutorialModal';
@@ -109,7 +109,7 @@ const BattlePhaseRenderer = ({ phase, battle }: BattlePhaseRendererProps) => {
             exit="exit"
             className="w-full h-screen"
           >
-            <BattleArenaV2
+            <AurumArena
               logic={logic}
               state={state}
               effects={effects}
