@@ -323,15 +323,15 @@ const AurumWatermark = () => (
 );
 
 const AurumFormulas = () => {
-  const positions = [
-    { top: 200, left: 50, rotate: -12 },
-    { top: 280, right: 50, rotate: 8 },
-    { bottom: 340, left: 30, rotate: -4 },
-    { bottom: 280, right: 30, rotate: 6 },
-    { top: 420, left: 130, rotate: -8 },
-    { top: 360, right: 140, rotate: 10 },
-    { bottom: 200, left: 90, rotate: -6 },
-    { bottom: 240, right: 90, rotate: 4 },
+  const positions: Array<{ pos: React.CSSProperties; rot: number }> = [
+    { pos: { top: 200, left: 50 }, rot: -12 },
+    { pos: { top: 280, right: 50 }, rot: 8 },
+    { pos: { bottom: 340, left: 30 }, rot: -4 },
+    { pos: { bottom: 280, right: 30 }, rot: 6 },
+    { pos: { top: 420, left: 130 }, rot: -8 },
+    { pos: { top: 360, right: 140 }, rot: 10 },
+    { pos: { bottom: 200, left: 90 }, rot: -6 },
+    { pos: { bottom: 240, right: 90 }, rot: 4 },
   ];
   return (
     <>
@@ -340,8 +340,8 @@ const AurumFormulas = () => {
           key={i}
           className="absolute pointer-events-none font-mono-aurum hidden md:block"
           style={{
-            ...positions[i],
-            transform: `rotate(${positions[i].rotate || 0}deg)`,
+            ...positions[i].pos,
+            transform: `rotate(${positions[i].rot}deg)`,
             fontSize: 16,
             color: `${aurum.gold}1a`,
             fontWeight: 500,
