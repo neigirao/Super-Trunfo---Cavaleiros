@@ -10,6 +10,7 @@ export interface CollectionProps {
   onGoToRanking: () => void;
   onGoToCollection: () => void;
   onBack: () => void;
+  onLogout: () => void;
 }
 
 // ─── Static roster data ──────────────────────────────────────
@@ -496,7 +497,7 @@ const PeriodicView: React.FC = () => {
 };
 
 // ─── Collection (main export) ─────────────────────────────────
-const Collection: React.FC<CollectionProps> = ({ userProfile, onStartGame, onGoToRanking, onGoToCollection, onBack }) => {
+const Collection: React.FC<CollectionProps> = ({ userProfile, onStartGame, onGoToRanking, onGoToCollection, onBack, onLogout }) => {
   const [tab, setTab] = useState('mine');
   const [view, setView] = useState('grid');
   const [rarity, setRarity] = useState('all');
@@ -515,6 +516,7 @@ const Collection: React.FC<CollectionProps> = ({ userProfile, onStartGame, onGoT
           onStartGame={onStartGame}
           onGoToRanking={onGoToRanking}
           onGoToCollection={onGoToCollection}
+          onLogout={onLogout}
         />
         <CollectionHero />
         <main style={{ maxWidth: 1500, margin: '0 auto', padding: '0 36px 80px' }}>

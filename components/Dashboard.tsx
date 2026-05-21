@@ -10,6 +10,7 @@ export interface DashboardProps {
   onGoToRanking: () => void;
   onGoToAdmin: () => void;
   onGoToCollection: () => void;
+  onLogout: () => void;
 }
 
 // ─── Style tokens ───────────────────────────────────────────
@@ -46,8 +47,9 @@ export interface LoggedHeaderProps {
   onStartGame: () => void;
   onGoToRanking: () => void;
   onGoToCollection?: () => void;
+  onLogout?: () => void;
 }
-export const LoggedHeader: React.FC<LoggedHeaderProps> = ({ userProfile, onStartGame, onGoToRanking, onGoToCollection }) => {
+export const LoggedHeader: React.FC<LoggedHeaderProps> = ({ userProfile, onStartGame, onGoToRanking, onGoToCollection, onLogout }) => {
   const initials = userProfile.name.slice(0, 2).toUpperCase();
   const displayName = userProfile.name.toUpperCase();
   return (
@@ -143,6 +145,14 @@ export const LoggedHeader: React.FC<LoggedHeaderProps> = ({ userProfile, onStart
             </div>
           </div>
         </div>
+        {onLogout && (
+          <button onClick={onLogout} style={{
+            padding: '8px 14px', background: 'transparent',
+            border: '1px solid rgba(217,74,74,.4)', color: 'rgba(217,74,74,.8)',
+            fontFamily: 'Cinzel, serif', fontWeight: 700, fontSize: 9, letterSpacing: '.3em',
+            cursor: 'pointer',
+          }}>SAIR</button>
+        )}
       </div>
     </header>
   );
@@ -759,7 +769,7 @@ const FriendsRow: React.FC = () => {
 };
 
 // ─── Dashboard (main export) ─────────────────────────────────
-const Dashboard: React.FC<DashboardProps> = ({ userProfile, isAdmin, onStartGame, onGoToRanking, onGoToAdmin, onGoToCollection }) => {
+const Dashboard: React.FC<DashboardProps> = ({ userProfile, isAdmin, onStartGame, onGoToRanking, onGoToAdmin, onGoToCollection, onLogout }) => {
   const userName = userProfile.name.toUpperCase();
   return (
     <div style={{
@@ -769,7 +779,7 @@ const Dashboard: React.FC<DashboardProps> = ({ userProfile, isAdmin, onStartGame
     }}>
       <CosmicBG />
       <div style={{ position: 'relative', zIndex: 1 }}>
-        <LoggedHeader userProfile={userProfile} onStartGame={onStartGame} onGoToRanking={onGoToRanking} onGoToCollection={onGoToCollection} />
+        <LoggedHeader userProfile={userProfile} onStartGame={onStartGame} onGoToRanking={onGoToRanking} onGoToCollection={onGoToCollection} onLogout={onLogout} />
         <ContinueBanner userName={userName} onStartGame={onStartGame} />
         <main style={{ maxWidth: 1400, margin: '0 auto', padding: '24px 36px 60px' }}>
           <GreetingHero userName={userName} />
