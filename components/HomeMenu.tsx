@@ -11,7 +11,7 @@ const triggerGoogleSignIn = () => {
 };
 
 // ─── CosmicBG ───────────────────────────────────────────────
-const CosmicBG: React.FC = () => (
+export const CosmicBG: React.FC = () => (
   <>
     <div style={{
       position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none',
@@ -40,7 +40,7 @@ const CosmicBG: React.FC = () => (
 );
 
 // ─── PeriodicTile ────────────────────────────────────────────
-const PeriodicTile: React.FC<{ opacity?: number }> = ({ opacity = 0.04 }) => (
+export const PeriodicTile: React.FC<{ opacity?: number }> = ({ opacity = 0.04 }) => (
   <div style={{
     position: 'absolute', inset: 0, opacity, pointerEvents: 'none',
     display: 'grid', gridTemplateColumns: 'repeat(18,1fr)', gridTemplateRows: 'repeat(7,1fr)',
@@ -957,7 +957,7 @@ const HomeCTA: React.FC<CTAProps> = ({ userProfile, onStartGame }) => (
 );
 
 // ─── HomeFooter ──────────────────────────────────────────────
-const HomeFooter: React.FC = () => (
+export const HomeFooter: React.FC = () => (
   <footer style={{
     position: 'relative', padding: '60px 48px 40px',
     borderTop: '2px solid #f4c349',

@@ -26,6 +26,9 @@ export const ELEMENTS: Record<string, ElementData> = {
   Fe: { atomic: 26, symbol: 'Fe', name: 'Ferro',        greek: 'Φερρούμ',    mass: 55.845,  density: 7.87,      fusion: 1811,   boil: 3134,   hue: 25,  rarity: 'Common'    },
   Au: { atomic: 79, symbol: 'Au', name: 'Ouro',         greek: 'Αὐρούμ',     mass: 196.967, density: 19.32,     fusion: 1337.3, boil: 3243,   hue: 45,  rarity: 'Legendary' },
   Hg: { atomic: 80, symbol: 'Hg', name: 'Mercúrio',     greek: 'Ὑδράργυρος', mass: 200.592, density: 13.534,    fusion: 234.3,  boil: 630,    hue: 180, rarity: 'Epic'       },
+  O:  { atomic: 8,  symbol: 'O',  name: 'Oxigênio',     greek: 'Ὀξύγονος',   mass: 15.999,  density: 0.001429,  fusion: 54.36,  boil: 90.20,  hue: 200, rarity: 'Common'    },
+  C:  { atomic: 6,  symbol: 'C',  name: 'Carbono',      greek: 'Κάρβων',     mass: 12.011,  density: 2.267,     fusion: 3915,   boil: 4300,   hue: 120, rarity: 'Common'    },
+  Cu: { atomic: 29, symbol: 'Cu', name: 'Cobre',        greek: 'Κύπριος',    mass: 63.546,  density: 8.96,      fusion: 1357.8, boil: 2835,   hue: 20,  rarity: 'Rare'      },
 };
 
 export const ATTR: Record<string, AttrDef> = {
