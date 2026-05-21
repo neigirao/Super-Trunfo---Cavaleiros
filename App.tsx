@@ -293,37 +293,59 @@ const App: React.FC = () => {
         const playerCard = playerDeck[0];
         const aiCard = aiDeck[0];
         return (
-          <div className="flex flex-col items-center justify-center space-y-8 w-full">
-            <div className="flex justify-around w-full items-start">
-              <div className="flex flex-col items-center">
-                <h2 className="text-2xl font-bold mb-2">{userProfile?.name || 'Jogador'}</h2>
-                <Card 
-                  card={playerCard} 
-                  isPlayerTurn={isPlayerTurn} 
-                  onAttributeSelect={handleAttributeSelect}
-                  advantageBonus={playerAdvantage ?? undefined}
-                />
-                <p className="mt-2 font-bold text-xl">{playerDeck.length} cartas</p>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 28 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: 24, width: '100%', alignItems: 'start' }}>
+              {/* Player side */}
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  {userProfile?.picture && (
+                    <img src={userProfile.picture} alt="" style={{ width: 30, height: 30, borderRadius: '50%', border: '2px solid #f4c349' }} />
+                  )}
+                  <span style={{ fontFamily: 'Cinzel, serif', fontWeight: 900, fontSize: 15, letterSpacing: '.15em', color: '#fff8e1' }}>
+                    {(userProfile?.name || 'JOGADOR').toUpperCase()}
+                  </span>
+                </div>
+                <Card card={playerCard} isPlayerTurn={isPlayerTurn} onAttributeSelect={handleAttributeSelect} advantageBonus={playerAdvantage ?? undefined} />
+                <div style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 11, color: 'rgba(244,195,73,.7)', padding: '3px 12px', border: '1px solid rgba(244,195,73,.3)' }}>
+                  {playerDeck.length} cartas
+                </div>
               </div>
-              <div className="text-5xl font-bold font-cinzel text-slate-400 self-center px-8">VS</div>
-              <div className="flex flex-col items-center">
-                <h2 className="text-2xl font-bold mb-2">Computador</h2>
+
+              {/* Center separator */}
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, paddingTop: 72 }}>
+                <div style={{ width: 1, height: 36, background: 'linear-gradient(180deg, transparent, #f4c349)' }} />
+                <span style={{ fontFamily: 'Cinzel, serif', fontWeight: 900, fontSize: 28, color: '#f4c349' }}>⚔</span>
+                <div style={{ width: 1, height: 36, background: 'linear-gradient(180deg, #f4c349, transparent)' }} />
+              </div>
+
+              {/* AI side */}
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+                <span style={{ fontFamily: 'Cinzel, serif', fontWeight: 900, fontSize: 15, letterSpacing: '.15em', color: 'rgba(255,236,196,.6)' }}>
+                  ORÁCULO
+                </span>
                 <Card card={aiCard} isFaceDown={true} />
-                <p className="mt-2 font-bold text-xl">{aiDeck.length} cartas</p>
+                <div style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 11, color: 'rgba(244,195,73,.7)', padding: '3px 12px', border: '1px solid rgba(244,195,73,.3)' }}>
+                  {aiDeck.length} cartas
+                </div>
               </div>
             </div>
-             <div className="text-center font-semibold text-xl h-12">
-                {isPlayerTurn && playerAdvantage && (
-                    <p className="text-green-400 animate-pulse">
-                        Vantagem Elemental! Bônus em {playerAdvantage.attribute}!
-                    </p>
-                )}
-                 {isPlayerTurn && !playerAdvantage && (
-                     <p className="text-cyan-300">Sua vez! Escolha um atributo.</p>
-                 )}
-                 {!isPlayerTurn && (
-                     <p className="text-slate-400">Vez do Computador.</p>
-                 )}
+
+            {/* Status bar */}
+            <div style={{
+              padding: '13px 28px', maxWidth: 560, width: '100%', textAlign: 'center',
+              background: 'rgba(10,5,0,.65)', border: '1px solid rgba(244,195,73,.2)',
+              fontFamily: 'Cinzel, serif', fontSize: 12, letterSpacing: '.2em',
+              minHeight: 48, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              {isPlayerTurn && playerAdvantage && (
+                <span style={{ color: '#50dc78' }}>✦ VANTAGEM ELEMENTAL — BÔNUS EM {playerAdvantage.attribute.toUpperCase()} ✦</span>
+              )}
+              {isPlayerTurn && !playerAdvantage && (
+                <span style={{ color: 'rgba(255,236,196,.85)' }}>◇ SUA VEZ — ESCOLHA UM ATRIBUTO ◇</span>
+              )}
+              {!isPlayerTurn && (
+                <span style={{ color: 'rgba(244,195,73,.5)' }}>· VEZ DO ORÁCULO ·</span>
+              )}
             </div>
           </div>
         );
@@ -332,51 +354,73 @@ const App: React.FC = () => {
       case GameState.RoundResult: {
         if (!roundResult) return null;
         const { winner, attribute, playerCard, aiCard, playerValue, aiValue, playerBonus } = roundResult;
-        let resultText = '';
-        if (winner === 'player') {
-          resultText = `Você venceu! ${playerValue} contra ${aiValue} em ${attribute}.`;
-        } else if (winner === 'ai') {
-          resultText = `Você perdeu! ${playerValue} contra ${aiValue} em ${attribute}.`;
-        } else {
-          resultText = `Empate! Ninguém venceu em ${attribute}.`;
-        }
+        const resultText = winner === 'player'
+          ? `Você venceu! ${playerValue} × ${aiValue} em ${attribute}.`
+          : winner === 'ai'
+          ? `Você perdeu! ${playerValue} × ${aiValue} em ${attribute}.`
+          : `Empate! Ninguém venceu em ${attribute}.`;
+        const resultColor = winner === 'player' ? '#f4c349' : winner === 'ai' ? '#d94a4a' : 'rgba(255,236,196,.8)';
 
         return (
-          <div className="flex flex-col items-center justify-center space-y-4 w-full">
-            <div className="flex justify-around w-full items-start">
-              <div className="flex flex-col items-center">
-                <h2 className="text-2xl font-bold mb-2">{userProfile?.name || 'Jogador'}</h2>
-                <Card 
-                  card={playerCard} 
-                  highlightedAttribute={attribute} 
-                  isWinner={isRevealing && winner === 'player'}
-                  isLoser={isRevealing && winner === 'ai'}
-                />
-                <p className="mt-2 font-bold text-xl">{playerDeck.length} cartas</p>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 28 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: 24, width: '100%', alignItems: 'start' }}>
+              {/* Player */}
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+                <span style={{ fontFamily: 'Cinzel, serif', fontWeight: 900, fontSize: 15, letterSpacing: '.15em', color: '#fff8e1' }}>
+                  {(userProfile?.name || 'JOGADOR').toUpperCase()}
+                </span>
+                <Card card={playerCard} highlightedAttribute={attribute} isWinner={isRevealing && winner === 'player'} isLoser={isRevealing && winner === 'ai'} />
+                <div style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 11, color: 'rgba(244,195,73,.7)', padding: '3px 12px', border: '1px solid rgba(244,195,73,.3)' }}>
+                  {playerDeck.length} cartas
+                </div>
               </div>
-              <div className="text-5xl font-bold font-cinzel text-slate-400 self-center px-8 transition-opacity duration-500" style={{ opacity: showResultInfo ? 1 : 0 }}>VS</div>
-              <div className="flex flex-col items-center">
-                <h2 className="text-2xl font-bold mb-2">Computador</h2>
-                <Card 
-                  card={aiCard}
-                  isFaceDown={!isRevealing}
-                  highlightedAttribute={attribute}
-                  isWinner={isRevealing && winner === 'ai'}
-                  isLoser={isRevealing && winner === 'player'}
-                />
-                <p className="mt-2 font-bold text-xl">{aiDeck.length} cartas</p>
+
+              {/* Center */}
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, paddingTop: 72, transition: 'opacity 0.5s', opacity: showResultInfo ? 1 : 0 }}>
+                <div style={{ width: 1, height: 36, background: 'linear-gradient(180deg, transparent, #f4c349)' }} />
+                <span style={{ fontFamily: 'Cinzel, serif', fontWeight: 900, fontSize: 28, color: '#f4c349' }}>⚔</span>
+                <div style={{ width: 1, height: 36, background: 'linear-gradient(180deg, #f4c349, transparent)' }} />
+              </div>
+
+              {/* AI */}
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+                <span style={{ fontFamily: 'Cinzel, serif', fontWeight: 900, fontSize: 15, letterSpacing: '.15em', color: 'rgba(255,236,196,.6)' }}>
+                  ORÁCULO
+                </span>
+                <Card card={aiCard} isFaceDown={!isRevealing} highlightedAttribute={attribute} isWinner={isRevealing && winner === 'ai'} isLoser={isRevealing && winner === 'player'} />
+                <div style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 11, color: 'rgba(244,195,73,.7)', padding: '3px 12px', border: '1px solid rgba(244,195,73,.3)' }}>
+                  {aiDeck.length} cartas
+                </div>
               </div>
             </div>
-            <div className="text-center p-4 bg-slate-800/50 rounded-lg min-h-[140px] flex flex-col justify-center items-center transition-opacity duration-500" style={{ opacity: showResultInfo ? 1 : 0 }}>
+
+            {/* Result panel */}
+            <div style={{
+              padding: '22px 36px', maxWidth: 600, width: '100%', textAlign: 'center',
+              background: 'linear-gradient(180deg, rgba(20,8,10,.9), rgba(10,5,0,.7))',
+              border: '1px solid rgba(244,195,73,.3)',
+              transition: 'opacity 0.5s', opacity: showResultInfo ? 1 : 0,
+              minHeight: 130, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10,
+            }}>
               {showResultInfo && (
                 <>
-                  <p className={`text-2xl font-bold ${winner === 'player' ? 'text-green-400' : winner === 'ai' ? 'text-red-400' : 'text-yellow-400'}`}>{resultText}</p>
+                  <p style={{ fontFamily: 'Cinzel, serif', fontWeight: 900, fontSize: 20, letterSpacing: '.08em', color: resultColor, margin: 0 }}>
+                    {resultText}
+                  </p>
                   {playerBonus > 0 && winner === 'player' && (
-                    <p className="text-green-300 text-lg mt-1">Sua vantagem elemental garantiu a vitória!</p>
+                    <p style={{ fontFamily: 'Spectral, serif', fontSize: 14, color: '#50dc78', margin: 0 }}>
+                      Sua vantagem elemental garantiu a vitória!
+                    </p>
                   )}
                   {showNextRoundButton && (
-                    <button onClick={handleNextRound} className="mt-4 bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-2 px-4 rounded-lg text-lg shadow-lg transition-transform transform hover:scale-105">
-                      Próxima Rodada
+                    <button onClick={handleNextRound} style={{
+                      marginTop: 6, fontFamily: 'Cinzel, serif', fontWeight: 700, fontSize: 11, letterSpacing: '.3em',
+                      color: '#1a0e04', padding: '11px 24px', cursor: 'pointer',
+                      background: 'linear-gradient(180deg,#f4c349,#8a6a2a)',
+                      border: '1px solid #f4c349',
+                      boxShadow: '0 0 14px rgba(244,195,73,.4)',
+                    }}>
+                      PRÓXIMA RODADA →
                     </button>
                   )}
                 </>
@@ -385,19 +429,53 @@ const App: React.FC = () => {
           </div>
         );
       }
-      
+
       case GameState.GameOver: {
         const playerWon = playerDeck.length > 0;
         return (
-          <div className="text-center">
-            <h1 className="text-6xl font-bold font-cinzel mb-4">{playerWon ? '🎉 Vitória! 🎉' : 'Derrota'}</h1>
-            <p className="text-2xl mb-8">{playerWon ? 'Você coletou todas as cartas do oponente!' : 'O computador coletou todas as suas cartas.'}</p>
-            <button onClick={startGame} className="bg-green-600 hover:bg-green-500 text-white font-bold py-3 px-6 rounded-lg text-xl shadow-lg transition-transform transform hover:scale-105 mr-4">
-              Jogar Novamente
-            </button>
-            <button onClick={handleBackToMenu} className="bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-3 px-6 rounded-lg text-xl shadow-lg transition-transform transform hover:scale-105">
-              Voltar ao Menu
-            </button>
+          <div style={{ textAlign: 'center', maxWidth: 700, margin: '0 auto', padding: '60px 0' }}>
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 14, marginBottom: 20 }}>
+              <span style={{ width: 48, height: 1, background: '#f4c349', display: 'block' }} />
+              <span style={{ fontFamily: 'Cinzel, serif', fontSize: 10, letterSpacing: '.5em', color: '#f4c349' }}>
+                {playerWon ? '· VITÓRIA ·' : '· DERROTA ·'}
+              </span>
+              <span style={{ width: 48, height: 1, background: '#f4c349', display: 'block' }} />
+            </div>
+
+            <h1 style={{
+              fontFamily: 'Cinzel, serif', fontWeight: 900,
+              fontSize: 'clamp(44px,6vw,72px)', letterSpacing: '.06em',
+              color: '#fff8e1', margin: '0 0 12px',
+              textShadow: playerWon ? '0 0 30px rgba(244,195,73,.5)' : '0 0 30px rgba(217,74,74,.4)',
+            }}>
+              {playerWon ? '⚔ VITÓRIA' : '✦ DERROTA'}
+            </h1>
+
+            <div style={{ width: 80, height: 2, background: '#f4c349', margin: '0 auto 20px' }} />
+
+            <p style={{
+              fontFamily: 'Spectral, serif', fontSize: 18, lineHeight: 1.55,
+              color: 'rgba(255,236,196,.75)', margin: '0 0 40px',
+            }}>
+              {playerWon
+                ? 'Você coletou todas as cartas do oponente e conquistou o cosmos!'
+                : 'O Oráculo coletou todas as suas cartas. A batalha foi perdida.'}
+            </p>
+
+            <div style={{ display: 'flex', gap: 14, justifyContent: 'center', flexWrap: 'wrap' }}>
+              <button onClick={startGame} style={{
+                fontFamily: 'Cinzel, serif', fontWeight: 700, fontSize: 12, letterSpacing: '.3em',
+                color: '#1a0e04', padding: '14px 30px', cursor: 'pointer',
+                background: 'linear-gradient(180deg,#f4c349,#8a6a2a)',
+                border: '2px solid #f4c349',
+                boxShadow: '0 0 0 1px #1a0e04, 0 0 24px rgba(244,195,73,.5)',
+              }}>⚔ JOGAR NOVAMENTE</button>
+              <button onClick={handleBackToMenu} style={{
+                fontFamily: 'Cinzel, serif', fontWeight: 700, fontSize: 12, letterSpacing: '.3em',
+                color: '#fff8e1', padding: '14px 30px', cursor: 'pointer',
+                background: 'transparent', border: '1px solid rgba(244,195,73,.4)',
+              }}>← VOLTAR AO MENU</button>
+            </div>
           </div>
         );
       }
@@ -425,11 +503,27 @@ const App: React.FC = () => {
   }
 
   return (
-    <main className="min-h-screen bg-gradient-to-b from-slate-900 to-slate-800 flex flex-col items-center justify-center p-4">
-      <div className="w-full max-w-7xl mx-auto">
-        {renderGameState()}
+    <div style={{ minHeight: '100vh', background: 'linear-gradient(180deg, #06030a 0%, #0a0500 40%, #06030a 100%)', color: '#fff8e1', position: 'relative' }}>
+      {/* Star field */}
+      <div style={{
+        position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none',
+        backgroundImage: `
+          radial-gradient(2px 2px at 20px 30px, #f4c349, transparent),
+          radial-gradient(1px 1px at 80px 130px, #fff8e1, transparent),
+          radial-gradient(1px 1px at 150px 60px, #f4c349, transparent),
+          radial-gradient(2px 2px at 280px 180px, #fff, transparent),
+          radial-gradient(1px 1px at 340px 90px, #fff8e1, transparent),
+          radial-gradient(1px 1px at 60px 250px, #f4c349, transparent),
+          radial-gradient(2px 2px at 370px 280px, #fff8e1, transparent)
+        `,
+        backgroundSize: '400px 320px', opacity: 0.3,
+      }} />
+      <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', padding: '40px 48px' }}>
+        <div style={{ width: '100%', maxWidth: 1200 }}>
+          {renderGameState()}
+        </div>
       </div>
-    </main>
+    </div>
   );
 };
 
