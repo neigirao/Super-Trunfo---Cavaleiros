@@ -9,6 +9,8 @@ export interface DashboardProps {
   onStartGame: () => void;
   onGoToRanking: () => void;
   onGoToAdmin: () => void;
+  onGoToCollection: () => void;
+  onLogout: () => void;
 }
 
 // ─── Style tokens ───────────────────────────────────────────
@@ -40,12 +42,14 @@ const Currency: React.FC<{ icon: string; label: string; value: string }> = ({ ic
 );
 
 // ─── Header ─────────────────────────────────────────────────
-interface LoggedHeaderProps {
+export interface LoggedHeaderProps {
   userProfile: UserProfile;
   onStartGame: () => void;
   onGoToRanking: () => void;
+  onGoToCollection?: () => void;
+  onLogout?: () => void;
 }
-const LoggedHeader: React.FC<LoggedHeaderProps> = ({ userProfile, onStartGame, onGoToRanking }) => {
+export const LoggedHeader: React.FC<LoggedHeaderProps> = ({ userProfile, onStartGame, onGoToRanking, onGoToCollection, onLogout }) => {
   const initials = userProfile.name.slice(0, 2).toUpperCase();
   const displayName = userProfile.name.toUpperCase();
   return (
@@ -81,7 +85,7 @@ const LoggedHeader: React.FC<LoggedHeaderProps> = ({ userProfile, onStartGame, o
       <nav style={{ display: 'flex', justifyContent: 'center', gap: 28 }}>
         {([
           ['◇', 'JOGAR', true, onStartGame],
-          ['◈', 'COLEÇÃO', false, undefined],
+          ['◈', 'COLEÇÃO', false, onGoToCollection],
           ['♛', 'RANKING', false, onGoToRanking],
           ['◉', 'SUPORTE', false, undefined],
           ['✦', 'CONFIG', false, undefined],
@@ -141,6 +145,14 @@ const LoggedHeader: React.FC<LoggedHeaderProps> = ({ userProfile, onStartGame, o
             </div>
           </div>
         </div>
+        {onLogout && (
+          <button onClick={onLogout} style={{
+            padding: '8px 14px', background: 'transparent',
+            border: '1px solid rgba(217,74,74,.4)', color: 'rgba(217,74,74,.8)',
+            fontFamily: 'Cinzel, serif', fontWeight: 700, fontSize: 9, letterSpacing: '.3em',
+            cursor: 'pointer',
+          }}>SAIR</button>
+        )}
       </div>
     </header>
   );
@@ -248,13 +260,13 @@ const GreetingHero: React.FC<GreetingHeroProps> = ({ userName }) => (
 );
 
 // ─── Quick actions ───────────────────────────────────────────
-interface QuickActionsProps { onStartGame: () => void; }
-const QuickActions: React.FC<QuickActionsProps> = ({ onStartGame }) => {
+interface QuickActionsProps { onStartGame: () => void; onGoToCollection: () => void; }
+const QuickActions: React.FC<QuickActionsProps> = ({ onStartGame, onGoToCollection }) => {
   const items = [
     { tag: 'I',   name: 'INICIAR BATALHA',  sub: 'Ranqueada · Bronze III',    icon: '⚔', primary: true,  meta: '~8 min · 32 oponentes online', action: onStartGame },
     { tag: 'II',  name: 'TREINO SAGRADO',   sub: 'Casual contra IA ou amigos', icon: '◇', primary: false, meta: 'Sem custo de ranking',           action: onStartGame },
     { tag: 'III', name: 'TORNEIO DE SEXTA', sub: 'Bracket · 32 vagas',        icon: '♛', primary: false, meta: 'Abre em 02d 14h', locked: true,   action: undefined },
-    { tag: 'IV',  name: 'EXPLORAR COLEÇÃO', sub: '18 / 87 cavaleiros',        icon: '◈', primary: false, meta: '2 pacotes não abertos',           action: undefined },
+    { tag: 'IV',  name: 'EXPLORAR COLEÇÃO', sub: '18 / 87 cavaleiros',        icon: '◈', primary: false, meta: '2 pacotes não abertos',           action: onGoToCollection },
   ];
   return (
     <section style={{ marginTop: 24, display: 'grid', gridTemplateColumns: '1.4fr 1fr 1fr 1fr', gap: 18 }}>
@@ -757,7 +769,7 @@ const FriendsRow: React.FC = () => {
 };
 
 // ─── Dashboard (main export) ─────────────────────────────────
-const Dashboard: React.FC<DashboardProps> = ({ userProfile, isAdmin, onStartGame, onGoToRanking, onGoToAdmin }) => {
+const Dashboard: React.FC<DashboardProps> = ({ userProfile, isAdmin, onStartGame, onGoToRanking, onGoToAdmin, onGoToCollection, onLogout }) => {
   const userName = userProfile.name.toUpperCase();
   return (
     <div style={{
@@ -767,11 +779,11 @@ const Dashboard: React.FC<DashboardProps> = ({ userProfile, isAdmin, onStartGame
     }}>
       <CosmicBG />
       <div style={{ position: 'relative', zIndex: 1 }}>
-        <LoggedHeader userProfile={userProfile} onStartGame={onStartGame} onGoToRanking={onGoToRanking} />
+        <LoggedHeader userProfile={userProfile} onStartGame={onStartGame} onGoToRanking={onGoToRanking} onGoToCollection={onGoToCollection} onLogout={onLogout} />
         <ContinueBanner userName={userName} onStartGame={onStartGame} />
         <main style={{ maxWidth: 1400, margin: '0 auto', padding: '24px 36px 60px' }}>
           <GreetingHero userName={userName} />
-          <QuickActions onStartGame={onStartGame} />
+          <QuickActions onStartGame={onStartGame} onGoToCollection={onGoToCollection} />
           <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 24, marginTop: 30 }}>
             <DailyQuests />
             <RankProgress onGoToRanking={onGoToRanking} />

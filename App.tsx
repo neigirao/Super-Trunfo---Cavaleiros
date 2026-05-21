@@ -6,6 +6,7 @@ import { Ranking } from './components/Ranking';
 import { AdminPanel } from './components/AdminPanel';
 import HomeMenu from './components/HomeMenu';
 import Dashboard from './components/Dashboard';
+import Collection from './components/Collection';
 import { initialDeck } from './initialDeck';
 
 // ==================================================================
@@ -158,6 +159,38 @@ const App: React.FC = () => {
     }
   }, [gameState, roundResult]);
 
+  // ── AI turn: fires automatically when it's the AI's turn ──
+  useEffect(() => {
+    if (gameState !== GameState.Playing || isPlayerTurn) return;
+    if (playerDeck.length === 0 || aiDeck.length === 0) return;
+
+    const aiCard = aiDeck[0];
+    const playerCard = playerDeck[0];
+
+    const timer = setTimeout(() => {
+      // Pick the attribute with the highest effective value (considers elemental advantage)
+      const aiAdv = getAdvantage(aiCard, playerCard);
+      let bestAttr = Object.keys(aiCard.attributes)[0] as Attribute;
+      let bestValue = -1;
+
+      (Object.entries(aiCard.attributes) as [Attribute, number][]).forEach(([attr, val]) => {
+        let effective = val;
+        if (aiAdv && aiAdv.attribute === attr) {
+          effective += Math.round(val * ADVANTAGE_BONUS_PERCENTAGE);
+        }
+        if (effective > bestValue) {
+          bestValue = effective;
+          bestAttr = attr;
+        }
+      });
+
+      handleAiAttributeSelect(bestAttr);
+    }, 1400);
+
+    return () => clearTimeout(timer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gameState, isPlayerTurn, playerDeck, aiDeck]);
+
 
   const startGame = () => {
     if (!userProfile) return;
@@ -186,48 +219,45 @@ const App: React.FC = () => {
   }, [gameState, playerDeck, aiDeck]);
 
 
-  const handleAttributeSelect = (attribute: Attribute) => {
-    if (!isPlayerTurn || playerDeck.length === 0 || aiDeck.length === 0) return;
-
-    const playerCard = playerDeck[0];
-    const aiCard = aiDeck[0];
-    
-    let playerValue = playerCard.attributes[attribute];
-    let aiValue = aiCard.attributes[attribute];
+  const resolveRound = (attribute: Attribute, pCard: CardData, aCard: CardData) => {
+    let playerValue = pCard.attributes[attribute];
+    let aiValue = aCard.attributes[attribute];
     let playerBonus = 0;
     let aiBonus = 0;
 
-    // Checa vantagem do jogador
-    const playerAdv = getAdvantage(playerCard, aiCard);
+    const playerAdv = getAdvantage(pCard, aCard);
     if (playerAdv && playerAdv.attribute === attribute) {
       playerBonus = Math.round(playerValue * ADVANTAGE_BONUS_PERCENTAGE);
       playerValue += playerBonus;
     }
 
-    // Checa vantagem da IA (não usada na vez do jogador, mas calculada para o resultado)
-    const aiAdv = getAdvantage(aiCard, playerCard);
+    const aiAdv = getAdvantage(aCard, pCard);
     if (aiAdv && aiAdv.attribute === attribute) {
-        // A IA não ganha bônus quando se defende, mas guardamos para mostrar
+      aiBonus = Math.round(aiValue * ADVANTAGE_BONUS_PERCENTAGE);
+      aiValue += aiBonus;
     }
 
     let winner: 'player' | 'ai' | 'tie';
-
-    if (playerCard.isSuperTrunfo && !aiCard.isSuperTrunfo) {
-        winner = 'player';
-    } else if (!playerCard.isSuperTrunfo && aiCard.isSuperTrunfo) {
-        winner = 'ai';
+    if (pCard.isSuperTrunfo && !aCard.isSuperTrunfo) {
+      winner = 'player';
+    } else if (!pCard.isSuperTrunfo && aCard.isSuperTrunfo) {
+      winner = 'ai';
     } else {
-        if (playerValue > aiValue) {
-          winner = 'player';
-        } else if (aiValue > playerValue) {
-          winner = 'ai';
-        } else {
-          winner = 'tie';
-        }
+      winner = playerValue > aiValue ? 'player' : aiValue > playerValue ? 'ai' : 'tie';
     }
-    
-    setRoundResult({ winner, attribute, playerCard, aiCard, playerValue, aiValue, playerBonus, aiBonus });
+
+    setRoundResult({ winner, attribute, playerCard: pCard, aiCard: aCard, playerValue, aiValue, playerBonus, aiBonus });
     setGameState(GameState.RoundResult);
+  };
+
+  const handleAttributeSelect = (attribute: Attribute) => {
+    if (!isPlayerTurn || playerDeck.length === 0 || aiDeck.length === 0) return;
+    resolveRound(attribute, playerDeck[0], aiDeck[0]);
+  };
+
+  const handleAiAttributeSelect = (attribute: Attribute) => {
+    if (isPlayerTurn || playerDeck.length === 0 || aiDeck.length === 0) return;
+    resolveRound(attribute, playerDeck[0], aiDeck[0]);
   };
   
   const handleNextRound = () => {
@@ -263,6 +293,13 @@ const App: React.FC = () => {
     }
   };
   
+  const handleLogout = () => {
+    window.google?.accounts?.id?.disableAutoSelect?.();
+    setUserProfile(null);
+    setIsAdmin(false);
+    setGameState(GameState.Menu);
+  };
+
   const handleBackToMenu = () => {
     setGameState(GameState.Menu);
   };
@@ -499,6 +536,8 @@ const App: React.FC = () => {
           onStartGame={startGame}
           onGoToRanking={() => setGameState(GameState.Ranking)}
           onGoToAdmin={() => setGameState(GameState.Admin)}
+          onGoToCollection={() => setGameState(GameState.Collection)}
+          onLogout={handleLogout}
         />
       );
     }
@@ -510,6 +549,19 @@ const App: React.FC = () => {
         onStartGame={startGame}
         onGoToRanking={() => setGameState(GameState.Ranking)}
         onGoToAdmin={() => setGameState(GameState.Admin)}
+      />
+    );
+  }
+
+  if (gameState === GameState.Collection && userProfile) {
+    return (
+      <Collection
+        userProfile={userProfile}
+        onStartGame={startGame}
+        onGoToRanking={() => setGameState(GameState.Ranking)}
+        onGoToCollection={() => setGameState(GameState.Collection)}
+        onBack={() => setGameState(GameState.Menu)}
+        onLogout={handleLogout}
       />
     );
   }

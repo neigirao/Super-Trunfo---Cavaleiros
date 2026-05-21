@@ -6,24 +6,10 @@ Este documento lista as melhorias planejadas, agrupadas por prioridade.
 
 ## Em Andamento / Pendente (bugs e lacunas do MVP)
 
-### IA Passiva
-**Problema:** Quando `isPlayerTurn = false`, o jogo trava aguardando a próxima rodada. A IA nunca escolhe um atributo automaticamente.
-
-**Solução esperada:** Implementar `useEffect` que, quando `!isPlayerTurn`, escolhe automaticamente o melhor atributo da carta da IA (ou um aleatório para dificuldade fácil) com um pequeno delay para simular "pensamento".
-
----
-
 ### Ranking sem Persistência
 **Problema:** `<Ranking rankingData={[]} />` — a interface existe mas nunca exibe dados reais.
 
 **Solução esperada:** Integrar com um backend (Supabase, Firebase, ou API própria) para registrar vitórias e pontuação por usuário autenticado.
-
----
-
-### Gemini API não utilizada
-**Problema:** `vite.config.ts` expõe `GEMINI_API_KEY` e o README original menciona a chave, mas não há nenhum uso no código.
-
-**Possível uso:** Geração de descrições/lore para as cartas, narrativa dinâmica de batalha, ou uma IA mais avançada que usa o modelo para escolher atributos.
 
 ---
 
@@ -103,3 +89,6 @@ Configurar service worker para permitir jogar sem conexão (as imagens do picsum
 - [x] Animações de flip de carta (CSS 3D)
 - [x] Feedback visual de vitória (pulse) e derrota (shake + grayscale)
 - [x] Estilos visuais diferenciados por grupo de elemento
+- [x] IA automática (escolhe melhor atributo com vantagem elemental, delay de 1.4s)
+- [x] Logout (botão SAIR no header, revoga sessão Google)
+- [x] Design Aurum Sanctum em todas as telas (HomeMenu, Dashboard, Playing, RoundResult, GameOver, Ranking, AdminPanel, Collection)
