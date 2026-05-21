@@ -5,6 +5,7 @@ import { Card } from './components/Card';
 import { Ranking } from './components/Ranking';
 import { AdminPanel } from './components/AdminPanel';
 import HomeMenu from './components/HomeMenu';
+import Dashboard from './components/Dashboard';
 import { initialDeck } from './initialDeck';
 
 // ==================================================================
@@ -490,6 +491,17 @@ const App: React.FC = () => {
   };
 
   if (gameState === GameState.Menu) {
+    if (userProfile) {
+      return (
+        <Dashboard
+          userProfile={userProfile}
+          isAdmin={isAdmin}
+          onStartGame={startGame}
+          onGoToRanking={() => setGameState(GameState.Ranking)}
+          onGoToAdmin={() => setGameState(GameState.Admin)}
+        />
+      );
+    }
     return (
       <HomeMenu
         userProfile={userProfile}
