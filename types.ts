@@ -43,6 +43,7 @@ export enum GameState {
   GameOver,
   Ranking,
   Admin,
+  Collection,
 }
 
 export type RoundResult = {

@@ -6,6 +6,7 @@ import { Ranking } from './components/Ranking';
 import { AdminPanel } from './components/AdminPanel';
 import HomeMenu from './components/HomeMenu';
 import Dashboard from './components/Dashboard';
+import Collection from './components/Collection';
 import { initialDeck } from './initialDeck';
 
 // ==================================================================
@@ -499,6 +500,7 @@ const App: React.FC = () => {
           onStartGame={startGame}
           onGoToRanking={() => setGameState(GameState.Ranking)}
           onGoToAdmin={() => setGameState(GameState.Admin)}
+          onGoToCollection={() => setGameState(GameState.Collection)}
         />
       );
     }
@@ -510,6 +512,18 @@ const App: React.FC = () => {
         onStartGame={startGame}
         onGoToRanking={() => setGameState(GameState.Ranking)}
         onGoToAdmin={() => setGameState(GameState.Admin)}
+      />
+    );
+  }
+
+  if (gameState === GameState.Collection && userProfile) {
+    return (
+      <Collection
+        userProfile={userProfile}
+        onStartGame={startGame}
+        onGoToRanking={() => setGameState(GameState.Ranking)}
+        onGoToCollection={() => setGameState(GameState.Collection)}
+        onBack={() => setGameState(GameState.Menu)}
       />
     );
   }
