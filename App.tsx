@@ -4,6 +4,7 @@ import { CardData, GameState, Attribute, RoundResult, UserProfile, RankingEntry,
 import { Card } from './components/Card';
 import { Ranking } from './components/Ranking';
 import { AdminPanel } from './components/AdminPanel';
+import HomeMenu from './components/HomeMenu';
 import { initialDeck } from './initialDeck';
 
 // ==================================================================
@@ -407,54 +408,21 @@ const App: React.FC = () => {
       case GameState.Admin:
         return <AdminPanel cards={deck} onSave={handleSaveCard} onDelete={handleDeleteCard} onBack={handleBackToMenu} />;
 
-      case GameState.Menu:
-      default:
-        return (
-          <div className="text-center">
-            <h1 className="text-7xl font-bold font-cinzel mb-4 text-cyan-300">Super Trunfo</h1>
-            <h2 className="text-4xl font-cinzel mb-8 text-slate-300">Cavaleiros Elementais</h2>
-            
-            {userProfile ? (
-                <div className="mb-8 flex flex-col items-center">
-                    <img src={userProfile.picture} alt={userProfile.name} className="w-24 h-24 rounded-full mb-4 border-4 border-cyan-400"/>
-                    <p className="text-xl">Bem-vindo, {userProfile.name}!</p>
-                </div>
-            ) : (
-                <div className="mb-8 flex flex-col items-center space-y-4">
-                    <p className="text-lg">Faça login para jogar e entrar no ranking!</p>
-                    {isClientIdConfigured ? (
-                        <div id="google-signin-button"></div>
-                    ) : (
-                        <p className="text-red-400 bg-red-900/50 p-3 rounded-md">
-                            <strong>Aviso:</strong> O Google Client ID não está configurado. O login não funcionará.
-                            <br />
-                            Por favor, edite o arquivo <code>App.tsx</code> e adicione seu Client ID.
-                        </p>
-                    )}
-                </div>
-            )}
-            
-            <div className="flex flex-col items-center space-y-4">
-              <button 
-                onClick={startGame} 
-                disabled={!userProfile}
-                title={!userProfile ? 'Faça login para jogar' : 'Iniciar uma nova partida'}
-                className="bg-green-600 hover:bg-green-500 text-white font-bold py-4 px-8 rounded-lg text-2xl shadow-lg transition-transform transform hover:scale-105 w-64 disabled:bg-slate-600 disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none">
-                Jogar
-              </button>
-              <button onClick={() => setGameState(GameState.Ranking)} className="bg-purple-600 hover:bg-purple-500 text-white font-bold py-4 px-8 rounded-lg text-2xl shadow-lg transition-transform transform hover:scale-105 w-64">
-                Ranking
-              </button>
-              {isAdmin && (
-                 <button onClick={() => setGameState(GameState.Admin)} className="bg-yellow-600 hover:bg-yellow-500 text-white font-bold py-4 px-8 rounded-lg text-2xl shadow-lg transition-transform transform hover:scale-105 w-64">
-                    Admin
-                </button>
-              )}
-            </div>
-          </div>
-        );
     }
   };
+
+  if (gameState === GameState.Menu) {
+    return (
+      <HomeMenu
+        userProfile={userProfile}
+        isAdmin={isAdmin}
+        isClientIdConfigured={isClientIdConfigured}
+        onStartGame={startGame}
+        onGoToRanking={() => setGameState(GameState.Ranking)}
+        onGoToAdmin={() => setGameState(GameState.Admin)}
+      />
+    );
+  }
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-slate-900 to-slate-800 flex flex-col items-center justify-center p-4">
