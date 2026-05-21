@@ -68,7 +68,7 @@ export const useBattleOrchestrator = (
   const cards = useBattleCards();
 
   // Timer reference para poder cancelar
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   /**
    * Notifica mudanças no estado da batalha
