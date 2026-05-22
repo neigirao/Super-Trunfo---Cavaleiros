@@ -1,6 +1,0 @@
-{
-  "*.{ts,tsx}": [
-    "npm run lint",
-    "npm test -- --run --changed"
-  ]
-}
