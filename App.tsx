@@ -10,8 +10,12 @@ import Dashboard from './components/Dashboard';
 import Collection from './components/Collection';
 import { initialDeck } from './initialDeck';
 import { playCardFlip, playRoundWin, playRoundLose, playRoundDraw, playGameWin, playGameLose } from './utils/sounds';
-import { supabase } from './src/integrations/supabase/client';
 import { useIsMobile } from './utils/mobile';
+import {
+  supabase, signInWithGoogleToken, signOut as supabaseSignOut,
+  loadDeckFromCloud, saveDeckToCloud,
+  fetchRanking, upsertGameResult, RankingRow,
+} from './utils/supabase';
 
 // ==================================================================
 // CONFIGURAÇÕES IMPORTANTES - ATUALIZE ESTES VALORES
@@ -168,11 +172,17 @@ const App: React.FC = () => {
   const [playerAdvantage, setPlayerAdvantage] = useState<{ attribute: Attribute; bonus: number } | null>(null);
   const [p2Advantage, setP2Advantage] = useState<{ attribute: Attribute; bonus: number } | null>(null);
   const [timeLeft, setTimeLeft] = useState<number>(TURN_TIMER_SECONDS);
-  
+
   // States for round result animation orchestration
   const [isRevealing, setIsRevealing] = useState(false);
   const [showResultInfo, setShowResultInfo] = useState(false);
   const [showNextRoundButton, setShowNextRoundButton] = useState(false);
+
+  // Card transfer animation: 'none' | 'player-wins' | 'ai-wins'
+  const [transferAnim, setTransferAnim] = useState<'none' | 'player-wins' | 'ai-wins'>('none');
+
+  // Ranking data (loaded from Supabase)
+  const [rankingData, setRankingData] = useState<RankingEntry[]>([]);
 
 
   // Mantido apenas para compatibilidade de props; sempre true ao usar Supabase OAuth.
@@ -181,6 +191,34 @@ const App: React.FC = () => {
   useEffect(() => {
     localStorage.setItem('superTrunfoDeck', JSON.stringify(deck));
   }, [deck]);
+
+  // Sync deck to Supabase whenever it changes (debounced via the state cycle)
+  useEffect(() => {
+    if (!userProfile) return;
+    saveDeckToCloud(deck);
+  }, [deck, userProfile]);
+
+  const handleCredentialResponse = useCallback(async (response: any) => {
+    // 1. Decodificar o JWT do Google para UI imediata
+    const base64Url = response.credential.split('.')[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(
+      atob(base64).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join('')
+    );
+    const profile = JSON.parse(jsonPayload);
+    const user: UserProfile = { name: profile.name, email: profile.email, picture: profile.picture };
+    setUserProfile(user);
+    if (user.email === ADMIN_EMAIL) setIsAdmin(true);
+
+    // 2. Autenticar no Supabase com o token do Google (JWT server-side)
+    await signInWithGoogleToken(response.credential);
+
+    // 3. Carregar baralho da nuvem (se existir)
+    const cloudDeck = await loadDeckFromCloud();
+    if (cloudDeck && cloudDeck.length > 0) {
+      setDeck(cloudDeck);
+    }
+  }, []);
 
   // Hidrata o perfil a partir da sessão Supabase
   useEffect(() => {
@@ -376,6 +414,17 @@ const App: React.FC = () => {
     resolveRound(attribute, playerDeck[0], aiDeck[0]);
   };
 
+  // Wraps handleNextRound with a card-transfer animation
+  const handleNextRoundAnimated = () => {
+    if (!roundResult || transferAnim !== 'none') return;
+    const anim = roundResult.winner === 'player' ? 'player-wins'
+               : roundResult.winner === 'ai'     ? 'ai-wins'
+               : 'none';
+    if (anim === 'none') { handleNextRound(); return; }
+    setTransferAnim(anim);
+    setTimeout(() => { setTransferAnim('none'); handleNextRound(); }, 700);
+  };
+
   const handleNextRound = () => {
     if (!roundResult) return;
 
@@ -402,10 +451,18 @@ const App: React.FC = () => {
     setAiDeck(newAiDeck);
 
     if (newPlayerDeck.length === 0 || newAiDeck.length === 0) {
-      if (newPlayerDeck.length > 0) playGameWin(); else playGameLose();
       const playerWon = newPlayerDeck.length > 0;
-      const remaining = playerWon ? newPlayerDeck.length : newAiDeck.length;
-      saveRanking(playerWon, remaining);
+      if (playerWon) playGameWin(); else playGameLose();
+      // Persistir resultado no ranking (sem bloquear a UI)
+      if (userProfile) {
+        upsertGameResult({
+          playerName: userProfile.name,
+          won: playerWon,
+          playerCardsLeft: newPlayerDeck.length,
+          totalCards: deck.length,
+          difficulty: difficulty,
+        });
+      }
       setGameState(GameState.GameOver);
     } else {
       setRoundResult(null);
@@ -414,7 +471,8 @@ const App: React.FC = () => {
   };
   
   const handleLogout = async () => {
-    await supabase.auth.signOut();
+    window.google?.accounts?.id?.disableAutoSelect?.();
+    await supabaseSignOut();
     setUserProfile(null);
     setIsAdmin(false);
     setGameState(GameState.Menu);
@@ -422,6 +480,18 @@ const App: React.FC = () => {
 
   const handleBackToMenu = () => {
     setGameState(GameState.Menu);
+  };
+
+  const handleGoToRanking = async () => {
+    setGameState(GameState.Ranking);
+    const rows: RankingRow[] = await fetchRanking(20);
+    const entries: RankingEntry[] = rows.map((r, i) => ({
+      rank: i + 1,
+      user: { name: r.player_name, picture: `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(r.player_name)}` },
+      wins: r.games_won,
+      score: r.total_score,
+    }));
+    setRankingData(entries);
   };
   
   const handleSaveCard = (cardToSave: CardData) => {
@@ -603,7 +673,12 @@ const App: React.FC = () => {
                 {/* Opponent top */}
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
                   <span style={{ fontFamily: 'Cinzel, serif', fontWeight: 900, fontSize: 11, letterSpacing: '.15em', color: 'rgba(255,236,196,.6)' }}>{opponentLabelResult}</span>
-                  <Card card={aiCard} isFaceDown={!isRevealing} highlightedAttribute={attribute} isWinner={isRevealing && winner === 'ai'} isLoser={isRevealing && winner === 'player'} />
+                  <div className={
+                    transferAnim === 'player-wins' ? 'card-transfer-fly-up' :
+                    transferAnim === 'ai-wins' ? 'card-winner-glow' : ''
+                  }>
+                    <Card card={aiCard} isFaceDown={!isRevealing} highlightedAttribute={attribute} isWinner={isRevealing && winner === 'ai'} isLoser={isRevealing && winner === 'player'} />
+                  </div>
                   <div style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 10, color: 'rgba(244,195,73,.7)', padding: '2px 10px', border: '1px solid rgba(244,195,73,.3)' }}>{aiDeck.length} cartas</div>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', justifyContent: 'center', transition: 'opacity 0.5s', opacity: showResultInfo ? 1 : 0 }}>
@@ -614,7 +689,12 @@ const App: React.FC = () => {
                 {/* Player bottom */}
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
                   <span style={{ fontFamily: 'Cinzel, serif', fontWeight: 900, fontSize: 11, letterSpacing: '.15em', color: '#fff8e1' }}>{p1Label}</span>
-                  <Card card={playerCard} highlightedAttribute={attribute} isWinner={isRevealing && winner === 'player'} isLoser={isRevealing && winner === 'ai'} />
+                  <div className={
+                    transferAnim === 'ai-wins' ? 'card-transfer-fly-down' :
+                    transferAnim === 'player-wins' ? 'card-winner-glow' : ''
+                  }>
+                    <Card card={playerCard} highlightedAttribute={attribute} isWinner={isRevealing && winner === 'player'} isLoser={isRevealing && winner === 'ai'} />
+                  </div>
                   <div style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 10, color: 'rgba(244,195,73,.7)', padding: '2px 10px', border: '1px solid rgba(244,195,73,.3)' }}>{playerDeck.length} cartas</div>
                 </div>
               </div>
@@ -625,7 +705,12 @@ const App: React.FC = () => {
                 <span style={{ fontFamily: 'Cinzel, serif', fontWeight: 900, fontSize: 15, letterSpacing: '.15em', color: '#fff8e1' }}>
                   {p1Label}
                 </span>
-                <Card card={playerCard} highlightedAttribute={attribute} isWinner={isRevealing && winner === 'player'} isLoser={isRevealing && winner === 'ai'} />
+                <div className={
+                  transferAnim === 'ai-wins' ? 'card-transfer-fly-left' :
+                  transferAnim === 'player-wins' ? 'card-winner-glow' : ''
+                }>
+                  <Card card={playerCard} highlightedAttribute={attribute} isWinner={isRevealing && winner === 'player'} isLoser={isRevealing && winner === 'ai'} />
+                </div>
                 <div style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 11, color: 'rgba(244,195,73,.7)', padding: '3px 12px', border: '1px solid rgba(244,195,73,.3)' }}>
                   {playerDeck.length} cartas
                 </div>
@@ -643,7 +728,12 @@ const App: React.FC = () => {
                 <span style={{ fontFamily: 'Cinzel, serif', fontWeight: 900, fontSize: 15, letterSpacing: '.15em', color: 'rgba(255,236,196,.6)' }}>
                   {opponentLabelResult}
                 </span>
-                <Card card={aiCard} isFaceDown={!isRevealing} highlightedAttribute={attribute} isWinner={isRevealing && winner === 'ai'} isLoser={isRevealing && winner === 'player'} />
+                <div className={
+                  transferAnim === 'player-wins' ? 'card-transfer-fly-right' :
+                  transferAnim === 'ai-wins' ? 'card-winner-glow' : ''
+                }>
+                  <Card card={aiCard} isFaceDown={!isRevealing} highlightedAttribute={attribute} isWinner={isRevealing && winner === 'ai'} isLoser={isRevealing && winner === 'player'} />
+                </div>
                 <div style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 11, color: 'rgba(244,195,73,.7)', padding: '3px 12px', border: '1px solid rgba(244,195,73,.3)' }}>
                   {aiDeck.length} cartas
                 </div>
@@ -675,7 +765,7 @@ const App: React.FC = () => {
                     </p>
                   )}
                   {showNextRoundButton && (
-                    <button onClick={handleNextRound} style={{
+                    <button onClick={handleNextRoundAnimated} style={{
                       marginTop: 6, fontFamily: 'Cinzel, serif', fontWeight: 700, fontSize: 11, letterSpacing: '.3em',
                       color: '#1a0e04', padding: '11px 24px', cursor: 'pointer',
                       background: 'linear-gradient(180deg,#f4c349,#8a6a2a)',
@@ -761,7 +851,7 @@ const App: React.FC = () => {
           onStartGame={startGame}
           onStartMultiplayer={() => startGame(true)}
           onSetDifficulty={setDifficulty}
-          onGoToRanking={() => { loadRanking(); setGameState(GameState.Ranking); }}
+          onGoToRanking={handleGoToRanking}
           onGoToAdmin={() => setGameState(GameState.Admin)}
           onGoToCollection={() => setGameState(GameState.Collection)}
           onGoToRules={() => setGameState(GameState.Rules)}
@@ -775,7 +865,7 @@ const App: React.FC = () => {
         isAdmin={isAdmin}
         isClientIdConfigured={isClientIdConfigured}
         onStartGame={startGame}
-        onGoToRanking={() => { loadRanking(); setGameState(GameState.Ranking); }}
+        onGoToRanking={handleGoToRanking}
         onGoToAdmin={() => setGameState(GameState.Admin)}
         onGoToRules={() => setGameState(GameState.Rules)}
       />
@@ -794,7 +884,7 @@ const App: React.FC = () => {
           isAdmin={false}
           isClientIdConfigured={isClientIdConfigured}
           onStartGame={startGame}
-          onGoToRanking={() => { loadRanking(); setGameState(GameState.Ranking); }}
+          onGoToRanking={handleGoToRanking}
           onGoToAdmin={() => setGameState(GameState.Admin)}
           onGoToRules={() => setGameState(GameState.Rules)}
         />
@@ -804,7 +894,7 @@ const App: React.FC = () => {
       <Collection
         userProfile={userProfile}
         onStartGame={startGame}
-        onGoToRanking={() => { loadRanking(); setGameState(GameState.Ranking); }}
+        onGoToRanking={handleGoToRanking}
         onGoToCollection={() => setGameState(GameState.Collection)}
         onBack={() => setGameState(GameState.Menu)}
         onLogout={handleLogout}

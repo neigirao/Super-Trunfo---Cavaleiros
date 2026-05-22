@@ -53,6 +53,37 @@
         from { opacity: 1; transform: scale(1); }
         to   { opacity: 0.6; transform: scale(1.18); }
       }
+      /* Card transfer animations */
+      @keyframes card-fly-right {
+        0%   { transform: translateX(0) scale(1);   opacity: 1; }
+        60%  { transform: translateX(80px) scale(.7); opacity: .7; }
+        100% { transform: translateX(140px) scale(.25); opacity: 0; }
+      }
+      @keyframes card-fly-left {
+        0%   { transform: translateX(0) scale(1);    opacity: 1; }
+        60%  { transform: translateX(-80px) scale(.7); opacity: .7; }
+        100% { transform: translateX(-140px) scale(.25); opacity: 0; }
+      }
+      @keyframes card-fly-up {
+        0%   { transform: translateY(0) scale(1);    opacity: 1; }
+        60%  { transform: translateY(-60px) scale(.7); opacity: .7; }
+        100% { transform: translateY(-120px) scale(.25); opacity: 0; }
+      }
+      @keyframes card-fly-down {
+        0%   { transform: translateY(0) scale(1);   opacity: 1; }
+        60%  { transform: translateY(60px) scale(.7); opacity: .7; }
+        100% { transform: translateY(120px) scale(.25); opacity: 0; }
+      }
+      @keyframes winner-glow {
+        0%   { filter: brightness(1); }
+        40%  { filter: brightness(1.25) drop-shadow(0 0 18px #f4c349); }
+        100% { filter: brightness(1); }
+      }
+      .card-transfer-fly-right { animation: card-fly-right 0.65s ease-in forwards; }
+      .card-transfer-fly-left  { animation: card-fly-left  0.65s ease-in forwards; }
+      .card-transfer-fly-up    { animation: card-fly-up    0.65s ease-in forwards; }
+      .card-transfer-fly-down  { animation: card-fly-down  0.65s ease-in forwards; }
+      .card-winner-glow        { animation: winner-glow    0.75s ease-out forwards; }
     </style>
   <script type="importmap">
 {
