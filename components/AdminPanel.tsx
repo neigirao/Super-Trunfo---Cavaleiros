@@ -161,7 +161,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ cards, onSave, onDelete,
             display: 'flex', flexDirection: 'column', gap: 6,
           }}>
             <div style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 9, color: 'rgba(244,195,73,.6)', letterSpacing: '.15em' }}>
-              {card.id.padStart(3, '0')}{card.isSuperTrunfo ? ' · ST' : ''}
+              {card.isSuperTrunfo ? 'SUPER TRUNFO' : card.id.padStart(3, '0')}
             </div>
             <div style={{ fontFamily: 'Cinzel, serif', fontWeight: 700, fontSize: 12, color: '#fff8e1', letterSpacing: '.05em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {card.name}
