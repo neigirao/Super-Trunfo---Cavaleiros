@@ -108,9 +108,10 @@ interface HeaderProps {
   onStartGame: () => void;
   onGoToRanking: () => void;
   onGoToAdmin: () => void;
+  onGoToRules?: () => void;
 }
 
-const HomeHeader: React.FC<HeaderProps> = ({ userProfile, isAdmin, onStartGame, onGoToRanking, onGoToAdmin }) => (
+const HomeHeader: React.FC<HeaderProps> = ({ userProfile, isAdmin, onStartGame, onGoToRanking, onGoToAdmin, onGoToRules }) => (
   <header style={{
     position: 'sticky', top: 0, zIndex: 50,
     display: 'grid', gridTemplateColumns: '1fr 2fr 1fr', alignItems: 'center',
@@ -145,14 +146,15 @@ const HomeHeader: React.FC<HeaderProps> = ({ userProfile, isAdmin, onStartGame, 
     {/* Nav */}
     <nav style={{ display: 'flex', justifyContent: 'center', gap: 26 }}>
       {([
-        ['JOGAR',         '◇', onStartGame,    !!userProfile],
-        ['RANKING',       '♛', onGoToRanking,  true         ],
-        ['ADMIN',         '✦', onGoToAdmin,    isAdmin      ],
-      ] as [string, string, () => void, boolean][])
+        ['JOGAR',   '◇', onStartGame,   !!userProfile],
+        ['RANKING', '♛', onGoToRanking, true         ],
+        ['REGRAS',  '?', onGoToRules,   true         ],
+        ['ADMIN',   '✦', onGoToAdmin,   isAdmin      ],
+      ] as [string, string, (() => void) | undefined, boolean][])
         .filter(([,,,show]) => show !== false || true)
         .map(([n, g, cb, visible], i) => (
           visible === false ? null : (
-            <button key={n} onClick={cb} style={{
+            <button key={n} onClick={cb ?? undefined} style={{
               background: 'none', border: 'none', cursor: 'pointer', padding: 0,
               fontFamily: 'Cinzel, serif',
               fontWeight: i === 0 ? 700 : 400,
@@ -1031,10 +1033,11 @@ export interface HomeMenuProps {
   onStartGame: () => void;
   onGoToRanking: () => void;
   onGoToAdmin: () => void;
+  onGoToRules?: () => void;
 }
 
 const HomeMenu: React.FC<HomeMenuProps> = ({
-  userProfile, isAdmin, onStartGame, onGoToRanking, onGoToAdmin,
+  userProfile, isAdmin, onStartGame, onGoToRanking, onGoToAdmin, onGoToRules,
 }) => (
   <div style={{
     position: 'relative', minHeight: '100vh',
@@ -1049,6 +1052,7 @@ const HomeMenu: React.FC<HomeMenuProps> = ({
         onStartGame={onStartGame}
         onGoToRanking={onGoToRanking}
         onGoToAdmin={onGoToAdmin}
+        onGoToRules={onGoToRules}
       />
       <HomeHero userProfile={userProfile} onStartGame={onStartGame} />
       <HomeGameplay />

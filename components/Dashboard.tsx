@@ -1,15 +1,19 @@
 import React from 'react';
-import { UserProfile } from '../types';
+import { UserProfile, Difficulty } from '../types';
 import { ELEMENTS } from '../shared';
 import { CosmicBG, PeriodicTile, HomeFooter } from './HomeMenu';
 
 export interface DashboardProps {
   userProfile: UserProfile;
   isAdmin: boolean;
+  difficulty: Difficulty;
   onStartGame: () => void;
+  onStartMultiplayer: () => void;
+  onSetDifficulty: (d: Difficulty) => void;
   onGoToRanking: () => void;
   onGoToAdmin: () => void;
   onGoToCollection: () => void;
+  onGoToRules: () => void;
   onLogout: () => void;
 }
 
@@ -47,9 +51,10 @@ export interface LoggedHeaderProps {
   onStartGame: () => void;
   onGoToRanking: () => void;
   onGoToCollection?: () => void;
+  onGoToRules?: () => void;
   onLogout?: () => void;
 }
-export const LoggedHeader: React.FC<LoggedHeaderProps> = ({ userProfile, onStartGame, onGoToRanking, onGoToCollection, onLogout }) => {
+export const LoggedHeader: React.FC<LoggedHeaderProps> = ({ userProfile, onStartGame, onGoToRanking, onGoToCollection, onGoToRules, onLogout }) => {
   const initials = userProfile.name.slice(0, 2).toUpperCase();
   const displayName = userProfile.name.toUpperCase();
   return (
@@ -84,11 +89,11 @@ export const LoggedHeader: React.FC<LoggedHeaderProps> = ({ userProfile, onStart
 
       <nav style={{ display: 'flex', justifyContent: 'center', gap: 28 }}>
         {([
-          ['◇', 'JOGAR', true, onStartGame],
+          ['◇', 'JOGAR',   true,  onStartGame],
           ['◈', 'COLEÇÃO', false, onGoToCollection],
           ['♛', 'RANKING', false, onGoToRanking],
-          ['◉', 'SUPORTE', false, undefined],
-          ['✦', 'CONFIG', false, undefined],
+          ['?', 'REGRAS',  false, onGoToRules],
+          ['✦', 'CONFIG',  false, undefined],
         ] as [string, string, boolean, (() => void) | undefined][]).map(([g, n, active, action]) => (
           <a key={n} href="#" onClick={(e) => { e.preventDefault(); action?.(); }} style={{
             display: 'flex', alignItems: 'center', gap: 8, textDecoration: 'none',
@@ -259,17 +264,50 @@ const GreetingHero: React.FC<GreetingHeroProps> = ({ userName }) => (
   </section>
 );
 
+// ─── Difficulty selector ─────────────────────────────────────
+interface DifficultySelectorProps { difficulty: Difficulty; onSetDifficulty: (d: Difficulty) => void; }
+const DifficultySelector: React.FC<DifficultySelectorProps> = ({ difficulty, onSetDifficulty }) => (
+  <div style={{
+    display: 'flex', alignItems: 'center', gap: 16, padding: '10px 14px',
+    background: 'rgba(244,195,73,.04)', border: '1px solid rgba(244,195,73,.18)',
+    marginBottom: 16,
+  }}>
+    <span style={{ fontFamily: 'Cinzel, serif', fontSize: 9, letterSpacing: '.4em', color: 'rgba(244,195,73,.65)', whiteSpace: 'nowrap' }}>
+      · DIFICULDADE ·
+    </span>
+    <div style={{ display: 'flex', gap: 4 }}>
+      {([Difficulty.Easy, Difficulty.Normal, Difficulty.Hard] as const).map(d => (
+        <button key={d} onClick={() => onSetDifficulty(d)} style={{
+          padding: '5px 12px', cursor: 'pointer',
+          fontFamily: 'Cinzel, serif', fontWeight: 700, fontSize: 9, letterSpacing: '.22em',
+          background: difficulty === d ? 'linear-gradient(180deg,#f4c349,#8a6a2a)' : 'transparent',
+          color: difficulty === d ? '#1a0e04' : 'rgba(244,195,73,.55)',
+          border: difficulty === d ? '1px solid #f4c349' : '1px solid rgba(244,195,73,.2)',
+          boxShadow: difficulty === d ? '0 0 8px rgba(244,195,73,.3)' : 'none',
+        }}>{d.toUpperCase()}</button>
+      ))}
+    </div>
+    <span style={{ fontFamily: 'Spectral, serif', fontSize: 12, color: 'rgba(255,236,196,.5)', marginLeft: 4 }}>
+      {difficulty === Difficulty.Easy && 'IA escolhe atributo aleatório'}
+      {difficulty === Difficulty.Normal && 'IA escolhe maior atributo bruto'}
+      {difficulty === Difficulty.Hard && 'IA considera vantagem elemental'}
+    </span>
+  </div>
+);
+
 // ─── Quick actions ───────────────────────────────────────────
-interface QuickActionsProps { onStartGame: () => void; onGoToCollection: () => void; }
-const QuickActions: React.FC<QuickActionsProps> = ({ onStartGame, onGoToCollection }) => {
+interface QuickActionsProps { onStartGame: () => void; onStartMultiplayer: () => void; onGoToCollection: () => void; difficulty: Difficulty; onSetDifficulty: (d: Difficulty) => void; }
+const QuickActions: React.FC<QuickActionsProps> = ({ onStartGame, onStartMultiplayer, onGoToCollection, difficulty, onSetDifficulty }) => {
   const items = [
-    { tag: 'I',   name: 'INICIAR BATALHA',  sub: 'Ranqueada · Bronze III',    icon: '⚔', primary: true,  meta: '~8 min · 32 oponentes online', action: onStartGame },
-    { tag: 'II',  name: 'TREINO SAGRADO',   sub: 'Casual contra IA ou amigos', icon: '◇', primary: false, meta: 'Sem custo de ranking',           action: onStartGame },
-    { tag: 'III', name: 'TORNEIO DE SEXTA', sub: 'Bracket · 32 vagas',        icon: '♛', primary: false, meta: 'Abre em 02d 14h', locked: true,   action: undefined },
-    { tag: 'IV',  name: 'EXPLORAR COLEÇÃO', sub: '18 / 87 cavaleiros',        icon: '◈', primary: false, meta: '2 pacotes não abertos',           action: onGoToCollection },
+    { tag: 'I',   name: 'BATALHA vs IA',    sub: 'Solo · vs Oráculo',          icon: '⚔', primary: true,  meta: 'Jogue contra a IA',                 action: onStartGame },
+    { tag: 'II',  name: 'TREINO LOCAL',     sub: '2 Jogadores · mesma tela',   icon: '◇', primary: false, meta: 'Multiplayer local sem ranking',      action: onStartMultiplayer },
+    { tag: 'III', name: 'TORNEIO DE SEXTA', sub: 'Bracket · 32 vagas',         icon: '♛', primary: false, meta: 'Abre em 02d 14h', locked: true,       action: undefined },
+    { tag: 'IV',  name: 'EXPLORAR COLEÇÃO', sub: '18 / 87 cavaleiros',         icon: '◈', primary: false, meta: '2 pacotes não abertos',              action: onGoToCollection },
   ];
   return (
-    <section style={{ marginTop: 24, display: 'grid', gridTemplateColumns: '1.4fr 1fr 1fr 1fr', gap: 18 }}>
+    <section style={{ marginTop: 24 }}>
+      <DifficultySelector difficulty={difficulty} onSetDifficulty={onSetDifficulty} />
+      <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr 1fr 1fr', gap: 18 }}>
       {items.map(a => (
         <a key={a.name} href="#" onClick={(e) => { e.preventDefault(); if (!a.locked) a.action?.(); }} style={{
           position: 'relative', padding: '24px 22px', textDecoration: 'none',
@@ -315,6 +353,7 @@ const QuickActions: React.FC<QuickActionsProps> = ({ onStartGame, onGoToCollecti
           </div>
         </a>
       ))}
+      </div>
     </section>
   );
 };
@@ -769,7 +808,7 @@ const FriendsRow: React.FC = () => {
 };
 
 // ─── Dashboard (main export) ─────────────────────────────────
-const Dashboard: React.FC<DashboardProps> = ({ userProfile, isAdmin, onStartGame, onGoToRanking, onGoToAdmin, onGoToCollection, onLogout }) => {
+const Dashboard: React.FC<DashboardProps> = ({ userProfile, isAdmin, difficulty, onStartGame, onStartMultiplayer, onSetDifficulty, onGoToRanking, onGoToAdmin, onGoToCollection, onGoToRules, onLogout }) => {
   const userName = userProfile.name.toUpperCase();
   return (
     <div style={{
@@ -779,11 +818,11 @@ const Dashboard: React.FC<DashboardProps> = ({ userProfile, isAdmin, onStartGame
     }}>
       <CosmicBG />
       <div style={{ position: 'relative', zIndex: 1 }}>
-        <LoggedHeader userProfile={userProfile} onStartGame={onStartGame} onGoToRanking={onGoToRanking} onGoToCollection={onGoToCollection} onLogout={onLogout} />
+        <LoggedHeader userProfile={userProfile} onStartGame={onStartGame} onGoToRanking={onGoToRanking} onGoToCollection={onGoToCollection} onGoToRules={onGoToRules} onLogout={onLogout} />
         <ContinueBanner userName={userName} onStartGame={onStartGame} />
         <main style={{ maxWidth: 1400, margin: '0 auto', padding: '24px 36px 60px' }}>
           <GreetingHero userName={userName} />
-          <QuickActions onStartGame={onStartGame} onGoToCollection={onGoToCollection} />
+          <QuickActions onStartGame={onStartGame} onStartMultiplayer={onStartMultiplayer} onGoToCollection={onGoToCollection} difficulty={difficulty} onSetDifficulty={onSetDifficulty} />
           <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 24, marginTop: 30 }}>
             <DailyQuests />
             <RankProgress onGoToRanking={onGoToRanking} />

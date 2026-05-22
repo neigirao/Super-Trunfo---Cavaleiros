@@ -1,4 +1,10 @@
 
+export enum Difficulty {
+  Easy = 'Fácil',
+  Normal = 'Normal',
+  Hard = 'Difícil',
+}
+
 export enum ElementType {
   NobleGas = 'Gás Nobre',
   Halogen = 'Halogênio',
@@ -44,6 +50,7 @@ export enum GameState {
   Ranking,
   Admin,
   Collection,
+  Rules,
 }
 
 export type RoundResult = {
