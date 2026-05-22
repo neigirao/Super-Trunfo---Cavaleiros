@@ -27,6 +27,7 @@ const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID ?? '';
 // ==================================================================
 
 const ADVANTAGE_BONUS_PERCENTAGE = 0.20; // 20% de bônus
+const TURN_TIMER_SECONDS = 30;
 
 // Mapa de vantagens: [Atacante, Defensor]: Atributo que recebe o bônus
 const advantageMap: { [key: string]: Attribute } = {
@@ -59,6 +60,37 @@ declare global {
   }
 }
 
+const TimerRing: React.FC<{ timeLeft: number; total: number }> = ({ timeLeft, total }) => {
+  const r = 18;
+  const circ = 2 * Math.PI * r;
+  const progress = Math.max(0, timeLeft / total);
+  const color = timeLeft > total * 0.5 ? '#50dc78' : timeLeft > total * 0.25 ? '#f4c349' : '#d94a4a';
+  const urgent = timeLeft <= 7;
+  return (
+    <div style={{ position: 'relative', width: 50, height: 50, flexShrink: 0 }}>
+      <svg width="50" height="50" style={{ position: 'absolute', inset: 0 }}>
+        <circle cx="25" cy="25" r={r} fill="none" stroke="rgba(255,255,255,.1)" strokeWidth="2.5" />
+        <circle
+          cx="25" cy="25" r={r} fill="none" stroke={color} strokeWidth="2.5"
+          strokeDasharray={circ} strokeDashoffset={circ * (1 - progress)}
+          strokeLinecap="round"
+          style={{
+            transform: 'rotate(-90deg)', transformOrigin: '25px 25px',
+            transition: 'stroke-dashoffset 0.9s linear, stroke 0.4s',
+          }}
+        />
+      </svg>
+      <div style={{
+        position: 'absolute', inset: 0,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        fontFamily: 'IBM Plex Mono, monospace', fontWeight: 700, fontSize: 14, color,
+        transition: 'color 0.4s',
+        animation: urgent ? 'pulse 0.6s ease-in-out infinite alternate' : 'none',
+      }}>{timeLeft}</div>
+    </div>
+  );
+};
+
 const App: React.FC = () => {
   const [gameState, setGameState] = useState<GameState>(GameState.Menu);
   const [deck, setDeck] = useState<CardData[]>(() => {
@@ -88,6 +120,7 @@ const App: React.FC = () => {
   const [isMultiplayer, setIsMultiplayer] = useState(false);
   const [playerAdvantage, setPlayerAdvantage] = useState<{ attribute: Attribute; bonus: number } | null>(null);
   const [p2Advantage, setP2Advantage] = useState<{ attribute: Attribute; bonus: number } | null>(null);
+  const [timeLeft, setTimeLeft] = useState<number>(TURN_TIMER_SECONDS);
   
   // States for round result animation orchestration
   const [isRevealing, setIsRevealing] = useState(false);
@@ -172,6 +205,32 @@ const App: React.FC = () => {
     else if (roundResult.winner === 'ai') playRoundLose();
     else playRoundDraw();
   }, [roundResult]);
+
+  // ── Timer: reset at the start of each human turn ──────────
+  useEffect(() => {
+    if (gameState !== GameState.Playing) return;
+    if (isPlayerTurn || isMultiplayer) setTimeLeft(TURN_TIMER_SECONDS);
+  }, [isPlayerTurn, gameState, isMultiplayer]);
+
+  // ── Timer: countdown + auto-select on expire ────────────
+  useEffect(() => {
+    if (gameState !== GameState.Playing) return;
+    const humanTurn = isPlayerTurn || (isMultiplayer && !isPlayerTurn);
+    if (!humanTurn) return;
+
+    if (timeLeft <= 0) {
+      if (playerDeck.length === 0 || aiDeck.length === 0) return;
+      const deck = isPlayerTurn ? playerDeck : aiDeck;
+      const attrs = Object.keys(deck[0].attributes) as Attribute[];
+      const randomAttr = attrs[Math.floor(Math.random() * attrs.length)];
+      playCardFlip();
+      resolveRound(randomAttr, playerDeck[0], aiDeck[0]);
+      return;
+    }
+
+    const interval = setInterval(() => setTimeLeft(prev => prev - 1), 1000);
+    return () => clearInterval(interval);
+  }, [gameState, isPlayerTurn, isMultiplayer, timeLeft, playerDeck, aiDeck, resolveRound]);
 
   // ── AI turn: fires automatically when it's the AI's turn ──
   useEffect(() => {
@@ -407,25 +466,31 @@ const App: React.FC = () => {
 
             {/* Status bar */}
             <div style={{
-              padding: '13px 28px', maxWidth: 560, width: '100%', textAlign: 'center',
+              padding: '10px 20px', maxWidth: 560, width: '100%',
               background: 'rgba(10,5,0,.65)', border: '1px solid rgba(244,195,73,.2)',
               fontFamily: 'Cinzel, serif', fontSize: 12, letterSpacing: '.2em',
-              minHeight: 48, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              minHeight: 52, display: 'flex', alignItems: 'center',
+              justifyContent: (isPlayerTurn || p2Turn) ? 'space-between' : 'center', gap: 14,
             }}>
-              {isPlayerTurn && playerAdvantage && (
-                <span style={{ color: '#50dc78' }}>✦ VANTAGEM ELEMENTAL — BÔNUS EM {playerAdvantage.attribute.toUpperCase()} ✦</span>
-              )}
-              {isPlayerTurn && !playerAdvantage && (
-                <span style={{ color: 'rgba(255,236,196,.85)' }}>◇ {isMultiplayer ? 'VEZ DO JOGADOR 1' : 'SUA VEZ'} — ESCOLHA UM ATRIBUTO ◇</span>
-              )}
-              {p2Turn && p2Advantage && (
-                <span style={{ color: '#50dc78' }}>✦ VANTAGEM DO JOGADOR 2 — BÔNUS EM {p2Advantage.attribute.toUpperCase()} ✦</span>
-              )}
-              {p2Turn && !p2Advantage && (
-                <span style={{ color: 'rgba(255,236,196,.85)' }}>◇ VEZ DO JOGADOR 2 — ESCOLHA UM ATRIBUTO ◇</span>
-              )}
-              {!isPlayerTurn && !isMultiplayer && (
-                <span style={{ color: 'rgba(244,195,73,.5)' }}>· VEZ DO ORÁCULO ·</span>
+              <div style={{ flex: 1, textAlign: 'center' }}>
+                {isPlayerTurn && playerAdvantage && (
+                  <span style={{ color: '#50dc78' }}>✦ VANTAGEM ELEMENTAL — BÔNUS EM {playerAdvantage.attribute.toUpperCase()} ✦</span>
+                )}
+                {isPlayerTurn && !playerAdvantage && (
+                  <span style={{ color: 'rgba(255,236,196,.85)' }}>◇ {isMultiplayer ? 'VEZ DO JOGADOR 1' : 'SUA VEZ'} — ESCOLHA UM ATRIBUTO ◇</span>
+                )}
+                {p2Turn && p2Advantage && (
+                  <span style={{ color: '#50dc78' }}>✦ VANTAGEM DO JOGADOR 2 — BÔNUS EM {p2Advantage.attribute.toUpperCase()} ✦</span>
+                )}
+                {p2Turn && !p2Advantage && (
+                  <span style={{ color: 'rgba(255,236,196,.85)' }}>◇ VEZ DO JOGADOR 2 — ESCOLHA UM ATRIBUTO ◇</span>
+                )}
+                {!isPlayerTurn && !isMultiplayer && (
+                  <span style={{ color: 'rgba(244,195,73,.5)' }}>· VEZ DO ORÁCULO ·</span>
+                )}
+              </div>
+              {(isPlayerTurn || p2Turn) && (
+                <TimerRing timeLeft={timeLeft} total={TURN_TIMER_SECONDS} />
               )}
             </div>
 
