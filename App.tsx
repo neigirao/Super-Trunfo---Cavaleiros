@@ -168,7 +168,6 @@ const App: React.FC = () => {
     const playerCard = playerDeck[0];
 
     const timer = setTimeout(() => {
-      // Pick the attribute with the highest effective value (considers elemental advantage)
       const aiAdv = getAdvantage(aiCard, playerCard);
       let bestAttr = Object.keys(aiCard.attributes)[0] as Attribute;
       let bestValue = -1;
@@ -184,18 +183,17 @@ const App: React.FC = () => {
         }
       });
 
-      handleAiAttributeSelect(bestAttr);
+      resolveRound(bestAttr, playerCard, aiCard);
     }, 1400);
 
     return () => clearTimeout(timer);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gameState, isPlayerTurn, playerDeck, aiDeck]);
+  }, [gameState, isPlayerTurn, playerDeck, aiDeck, resolveRound]);
 
 
   const startGame = () => {
-    if (!userProfile) return;
+    if (!userProfile || deck.length < 2) return;
     const shuffled = shuffleDeck(deck);
-    const middleIndex = Math.ceil(shuffled.length / 2);
+    const middleIndex = Math.floor(shuffled.length / 2);
     setPlayerDeck(shuffled.slice(0, middleIndex));
     setAiDeck(shuffled.slice(middleIndex));
     setIsPlayerTurn(true);
@@ -219,7 +217,7 @@ const App: React.FC = () => {
   }, [gameState, playerDeck, aiDeck]);
 
 
-  const resolveRound = (attribute: Attribute, pCard: CardData, aCard: CardData) => {
+  const resolveRound = useCallback((attribute: Attribute, pCard: CardData, aCard: CardData) => {
     let playerValue = pCard.attributes[attribute];
     let aiValue = aCard.attributes[attribute];
     let playerBonus = 0;
@@ -248,18 +246,13 @@ const App: React.FC = () => {
 
     setRoundResult({ winner, attribute, playerCard: pCard, aiCard: aCard, playerValue, aiValue, playerBonus, aiBonus });
     setGameState(GameState.RoundResult);
-  };
+  }, []);
 
   const handleAttributeSelect = (attribute: Attribute) => {
     if (!isPlayerTurn || playerDeck.length === 0 || aiDeck.length === 0) return;
     resolveRound(attribute, playerDeck[0], aiDeck[0]);
   };
 
-  const handleAiAttributeSelect = (attribute: Attribute) => {
-    if (isPlayerTurn || playerDeck.length === 0 || aiDeck.length === 0) return;
-    resolveRound(attribute, playerDeck[0], aiDeck[0]);
-  };
-  
   const handleNextRound = () => {
     if (!roundResult) return;
 
@@ -276,7 +269,7 @@ const App: React.FC = () => {
             newAiDeck.push(aiCard, playerCard);
             setIsPlayerTurn(false);
         } else {
-            // Empate: as cartas voltam para o fundo do baralho de cada um
+            // Empate: cartas voltam para o fundo; turno permanece inalterado
             newPlayerDeck.push(playerCard);
             newAiDeck.push(aiCard);
         }
@@ -391,7 +384,7 @@ const App: React.FC = () => {
 
       case GameState.RoundResult: {
         if (!roundResult) return null;
-        const { winner, attribute, playerCard, aiCard, playerValue, aiValue, playerBonus } = roundResult;
+        const { winner, attribute, playerCard, aiCard, playerValue, aiValue, playerBonus, aiBonus } = roundResult;
         const resultText = winner === 'player'
           ? `Você venceu! ${playerValue} × ${aiValue} em ${attribute}.`
           : winner === 'ai'
@@ -448,6 +441,11 @@ const App: React.FC = () => {
                   {playerBonus > 0 && winner === 'player' && (
                     <p style={{ fontFamily: 'Spectral, serif', fontSize: 14, color: '#50dc78', margin: 0 }}>
                       Sua vantagem elemental garantiu a vitória!
+                    </p>
+                  )}
+                  {aiBonus > 0 && winner === 'ai' && (
+                    <p style={{ fontFamily: 'Spectral, serif', fontSize: 14, color: '#d94a4a', margin: 0 }}>
+                      O Oráculo teve vantagem elemental!
                     </p>
                   )}
                   {showNextRoundButton && (
@@ -553,7 +551,19 @@ const App: React.FC = () => {
     );
   }
 
-  if (gameState === GameState.Collection && userProfile) {
+  if (gameState === GameState.Collection) {
+    if (!userProfile) {
+      return (
+        <HomeMenu
+          userProfile={null}
+          isAdmin={false}
+          isClientIdConfigured={isClientIdConfigured}
+          onStartGame={startGame}
+          onGoToRanking={() => setGameState(GameState.Ranking)}
+          onGoToAdmin={() => setGameState(GameState.Admin)}
+        />
+      );
+    }
     return (
       <Collection
         userProfile={userProfile}
