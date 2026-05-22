@@ -1,235 +1,139 @@
-# Card Battle Game - Super Trunfo dos Elementos
+<div align="center">
+<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
+</div>
 
-Um jogo de cartas estratégico baseado nas regras clássicas do Super Trunfo, onde cavaleiros dos elementos batalham usando suas características únicas.
+# Super Trunfo: Cavaleiros Elementais
 
-## 🎮 Como Jogar
+Jogo de cartas no estilo **Super Trunfo** (Top Trumps) com tema de Cavaleiros Elementais baseados nos 118 elementos da Tabela Periódica. Desenvolvido em React 19, TypeScript e Vite, com Tailwind CSS.
 
-### Regras Básicas (Super Trunfo)
+## Funcionalidades
 
-1. **Início da Partida**
-   - Cada jogador monta um baralho com no mínimo 6 cartas
-   - Os baralhos são embaralhados automaticamente
-   - O jogador sempre começa escolhendo o primeiro atributo
+- 118 cartas representando todos os elementos da Tabela Periódica
+- 5 atributos por carta: Reatividade, Massa Atômica, Radioatividade, Condutividade e Dureza
+- Sistema de **Vantagem Elemental** com bônus de 20% em atributos específicos
+- Carta **Super Trunfo** (Oganesson) que vence qualquer outra
+- Login com **Google OAuth 2.0**
+- **Painel de Administrador** para criar, editar e excluir cartas
+- Ranking de jogadores (interface pronta, persistência em desenvolvimento)
+- Animações de flip de carta e feedback visual de vitória/derrota
+- Baralho persistido via `localStorage`
 
-2. **Durante a Rodada**
-   - Ambos jogadores revelam uma carta do topo do baralho
-   - O jogador da vez escolhe um atributo para comparação
-   - Os atributos disponíveis são:
-     - **Número Atômico** (atomic_number)
-     - **Massa Atômica** (atomic_mass)
-     - **Densidade** (density)
-     - **Ponto de Fusão** (melting_point)
-     - **Reatividade** (reactivity)
-     - **Radioatividade** (radioactivity)
+## Stack Tecnológica
 
-3. **Resultado da Rodada**
-   - **Vitória**: O jogador com maior valor no atributo escolhido vence
-   - **Empate**: Cartas vão para uma pilha de descarte
-   - O vencedor leva **AMBAS** as cartas (sua carta + carta do oponente)
-   - Em caso de empate subsequente, o próximo vencedor leva todas as cartas do descarte
+| Camada | Tecnologia |
+|---|---|
+| UI | React 19 + TypeScript 5.8 |
+| Build | Vite 6 |
+| Estilo | Tailwind CSS (CDN) |
+| Fontes | Cinzel + Roboto (Google Fonts) |
+| Auth | Google Identity Services (GSI) |
 
-4. **Fim de Jogo**
-   - O jogo termina quando um jogador **fica sem cartas**
-   - Quem tem cartas restantes é o vencedor
-   - Pontuação e estatísticas são salvas no ranking
-
-### Super Trunfo Especial
-Algumas cartas possuem a habilidade **Super Trunfo**:
-- Vencem automaticamente contra cartas normais
-- Possuem uma fraqueza específica (outro elemento)
-- Se enfrentar sua fraqueza, perde automaticamente
-
-## 🚀 Tecnologias
-
-- **React 18** - Framework UI
-- **TypeScript** - Tipagem estática
-- **Tailwind CSS** - Estilização
-- **Framer Motion** - Animações
-- **Supabase** - Backend (Database + Auth + Storage)
-- **React Query** - Cache de dados
-- **Vite** - Build tool
-
-## 📁 Estrutura do Projeto
+## Estrutura do Projeto
 
 ```
-src/
-├── components/          # Componentes React
-│   ├── Battle.tsx      # 🎯 Componente principal da batalha
-│   ├── BattleCard.tsx  # Carta individual
-│   ├── DeckBuilder.tsx # Construtor de baralho
-│   ├── battle/         # Componentes da batalha
-│   ├── effects/        # Efeitos visuais
-│   ├── progression/    # Sistema de XP e conquistas
-│   └── ui/            # Componentes UI (shadcn)
-├── pages/             # Páginas
-│   ├── Game.tsx       # Página do jogo
-│   ├── Collection.tsx # Coleção de cartas
-│   ├── Ranking.tsx    # Ranking de jogadores
-│   └── Auth.tsx       # Autenticação
-├── contexts/          # Contextos React
-├── hooks/            # Custom hooks
-└── integrations/     # Integrações (Supabase)
+/
+├── index.html           # Ponto de entrada HTML
+├── index.tsx            # Bootstrap React
+├── App.tsx              # Componente raiz — lógica de jogo e estado global
+├── types.ts             # Enums e interfaces TypeScript
+├── constants.tsx        # Ícones SVG dos atributos
+├── initialDeck.ts       # Baralho inicial (118 cartas)
+├── vite.config.ts       # Configuração do Vite
+├── package.json
+├── tsconfig.json
+└── components/
+    ├── Card.tsx         # Componente de carta (frente/verso, animações)
+    ├── AdminPanel.tsx   # CRUD de cartas para administrador
+    └── Ranking.tsx      # Tabela de ranking de jogadores
 ```
 
-## 🎨 Sistema de Design
+## Regras do Jogo
 
-O projeto utiliza um design system baseado em **tokens semânticos**:
+1. O baralho é embaralhado e dividido igualmente entre o jogador e o computador.
+2. Na sua vez, você escolhe um dos 5 atributos da sua carta do topo.
+3. O atributo escolhido é comparado com a carta do topo do oponente. Quem tiver o maior valor vence a rodada e fica com as duas cartas.
+4. Em caso de empate, cada carta volta para o fundo do seu respectivo baralho.
+5. Quem colecionar todas as cartas vence o jogo.
 
-- **Cores**: Definidas em HSL no `src/index.css`
-- **Componentes**: shadcn/ui customizados
-- **Temas**: Suporte a dark/light mode
-- **Animações**: Framer Motion + Tailwind Animate
+### Super Trunfo
+A carta **Titã de Oganesson** é o Super Trunfo: vence qualquer rodada independentemente do atributo escolhido, a menos que o oponente também jogue um Super Trunfo (empate).
 
-### Paleta de Cores
-- `--cosmic-gold`: Cor primária (dourado cósmico)
-- `--space-dark`: Fundo escuro espacial
-- `--cosmic-nebula`: Cor de destaque (nebulosa)
+## Sistema de Vantagem Elemental
 
-## 🗄️ Database Schema
+Quando a carta do jogador tem vantagem sobre a do oponente, o valor do atributo correspondente recebe **+20% de bônus** antes da comparação.
 
-### Principais Tabelas
+| Atacante | Defensor | Atributo Bônus |
+|---|---|---|
+| Halogênio | Metal Alcalino | Reatividade |
+| Metal Alcalino | Metal de Transição | Dureza |
+| Metal de Transição | Actinídeo | Radioatividade |
+| Actinídeo | Gás Nobre | Massa Atômica |
+| Gás Nobre | Halogênio | Reatividade |
 
-#### `element_cards`
-Cartas disponíveis no jogo
-```sql
-- id: uuid
-- name: text (ex: "Hidrogênio")
-- knight_name: text (ex: "Sir Hydrogen")
-- symbol: text (ex: "H")
-- atomic_number: integer
-- atomic_mass: decimal
-- density: decimal
-- melting_point: decimal
-- reactivity: integer
-- radioactivity: integer
-- rarity: text (common, rare, epic, legendary)
-- is_super_trump: boolean
-- image_url: text
-```
+## Grupos de Elementos e Estilos Visuais
 
-#### `user_cards`
-Cartas da coleção do usuário
-```sql
-- user_id: uuid (FK)
-- card_id: uuid (FK -> element_cards)
-- quantity: integer
-```
+| Grupo | Cor da Borda | Gradiente |
+|---|---|---|
+| Metal Alcalino | Vermelho | `from-red-900` |
+| Halogênio | Roxo | `from-purple-900` |
+| Actinídeo | Verde-limão | `from-lime-900` |
+| Metal de Transição | Ardósia | `from-slate-700` |
+| Gás Nobre | Ciano | `from-cyan-800` |
+| Metal Alcalinoterroso | Laranja | `from-orange-900` |
+| Lantanídeo | Índigo | `from-indigo-900` |
+| Metal Pós-Transição | Cinza | `from-gray-600` |
+| Metaloide | Verde | `from-green-900` |
+| Não Metal Reativo | Amarelo | `from-yellow-800` |
 
-#### `card_game_rankings`
-Estatísticas e ranking dos jogadores
-```sql
-- user_id: uuid (FK)
-- player_name: text
-- total_score: integer
-- games_won: integer
-- games_lost: integer
-- win_rate: decimal
-- current_streak: integer
-- last_played_at: timestamp
-```
+## Como Rodar Localmente
 
-## 🔐 Autenticação
+**Pré-requisitos:** Node.js 18+
 
-- **Provider**: Google OAuth (Supabase Auth)
-- **Perfis**: Tabela `profiles` com informações adicionais
-- **Roles**: `user` (padrão) ou `admin`
-
-## 🧪 Desenvolvimento
-
-### Pré-requisitos
-```bash
-Node.js 18+
-npm ou bun
-Conta Supabase
-```
-
-### Instalação
 ```bash
 # Instalar dependências
 npm install
 
-# Configurar variáveis de ambiente
-# (já configurado via Supabase integration)
-
-# Rodar em desenvolvimento
+# Iniciar em modo de desenvolvimento
 npm run dev
-```
 
-### Comandos Úteis
-```bash
 # Build para produção
 npm run build
-
-# Preview da build
-npm run preview
-
-# Linter
-npm run lint
 ```
 
-## 📖 Documentação Adicional
+## Configuração
 
-- **[ARCHITECTURE.md](./ARCHITECTURE.md)** - Arquitetura técnica detalhada
-- **[DEVELOPMENT.md](./DEVELOPMENT.md)** - Guia de desenvolvimento e padrões
+### Google Client ID (obrigatório para login)
 
-## 🎯 Features
+Edite `App.tsx` e substitua o valor da constante:
 
-### Implementadas
-- ✅ Sistema de batalha completo (Super Trunfo)
-- ✅ Autenticação com Google
-- ✅ Coleção de cartas
-- ✅ Construtor de baralho
-- ✅ Sistema de ranking
-- ✅ Pack opening (1 pack a cada 7 dias)
-- ✅ Sistema de XP e níveis
-- ✅ Conquistas
-- ✅ Tutorial interativo
-- ✅ Efeitos visuais e animações
+```typescript
+const GOOGLE_CLIENT_ID = 'SEU_CLIENT_ID.apps.googleusercontent.com';
+```
 
-### Planejadas
-- 🔄 Modo multijogador
-- 🔄 Torneios
-- 🔄 Chat entre jogadores
-- 🔄 Mais tipos de cartas
-- 🔄 Modo história
+Para obter um Client ID, acesse o [Google Cloud Console](https://console.cloud.google.com/) e crie credenciais OAuth 2.0 para aplicação web.
 
-## 🐛 Troubleshooting
+### E-mail do Administrador
 
-### Problemas Comuns
+Para ter acesso ao Painel de Admin, configure o e-mail em `App.tsx`:
 
-**"Você precisa de cartas para batalhar"**
-- Verifique se o usuário tem cartas na tabela `user_cards`
-- Execute a edge function `ensure-minimum-cards` se necessário
+```typescript
+const ADMIN_EMAIL = 'seu-email@gmail.com';
+```
 
-**"Falha ao carregar cartas"**
-- Verifique RLS policies na tabela `user_cards`
-- Confirme que o usuário está autenticado
+## Administração de Cartas
 
-**Batalha não funciona corretamente**
-- Revise `ARCHITECTURE.md` seção "Regras do Jogo"
-- Verifique console para erros
-- Confirme que ambos baralhos têm cartas
+O Painel de Admin (acessível via login com o e-mail administrador) permite:
 
-## 📝 Licença
+- Visualizar todas as cartas do baralho atual
+- **Criar** novas cartas com nome, imagem, grupo químico e atributos
+- **Editar** cartas existentes
+- **Excluir** cartas do baralho
+- Marcar uma carta como Super Trunfo
 
-Este projeto é de código aberto para fins educacionais.
+As alterações são persistidas automaticamente no `localStorage` do navegador.
 
-## 🤝 Contribuindo
+## Limitações Conhecidas
 
-1. Leia `DEVELOPMENT.md` para padrões de código
-2. Crie uma branch descritiva
-3. Faça commits atômicos
-4. Teste suas mudanças
-5. Abra um Pull Request
-
-## 📞 Suporte
-
-Para bugs e sugestões, abra uma issue no repositório.
-
----
-
-## Lovable Project Info
-
-**URL**: https://lovable.dev/projects/5803ff2a-8d1b-4519-a44c-a9249c4a6d30
-
-**Desenvolvido com ❤️ usando Lovable e Supabase**
+- **Ranking sem backend**: a tela de ranking exibe a interface mas não persiste dados entre sessões.
+- **IA passiva**: quando é a vez do computador (`isPlayerTurn = false`), o jogo aguarda a próxima rodada sem que a IA execute uma jogada automaticamente.
+- **Imagens via Picsum**: as imagens das cartas são geradas pelo serviço externo `picsum.photos` com seed baseado no nome da carta.
