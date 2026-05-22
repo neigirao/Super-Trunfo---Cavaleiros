@@ -11,6 +11,7 @@ import Collection from './components/Collection';
 import { initialDeck } from './initialDeck';
 import { playCardFlip, playRoundWin, playRoundLose, playRoundDraw, playGameWin, playGameLose } from './utils/sounds';
 import { supabase } from './src/integrations/supabase/client';
+import { useIsMobile } from './utils/mobile';
 
 // ==================================================================
 // CONFIGURAÇÕES IMPORTANTES - ATUALIZE ESTES VALORES
@@ -88,6 +89,7 @@ const TimerRing: React.FC<{ timeLeft: number; total: number }> = ({ timeLeft, to
 };
 
 const App: React.FC = () => {
+  const isMobile = useIsMobile();
   const [gameState, setGameState] = useState<GameState>(GameState.Menu);
   const [deck, setDeck] = useState<CardData[]>(() => {
     try {
@@ -451,56 +453,78 @@ const App: React.FC = () => {
         const p2Turn = !isPlayerTurn && isMultiplayer;
         const opponentLabel = isMultiplayer ? 'JOGADOR 2' : 'ORÁCULO';
         return (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 28 }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: 24, width: '100%', alignItems: 'start' }}>
-              {/* Player side */}
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  {userProfile?.picture && (
-                    <img src={userProfile.picture} alt="" style={{ width: 30, height: 30, borderRadius: '50%', border: '2px solid #f4c349' }} />
-                  )}
-                  <span style={{ fontFamily: 'Cinzel, serif', fontWeight: 900, fontSize: 15, letterSpacing: '.15em', color: '#fff8e1' }}>
-                    {(userProfile?.name || 'JOGADOR 1').toUpperCase()}
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: isMobile ? 16 : 28 }}>
+            {isMobile ? (
+              /* Mobile: stack vertically */
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, width: '100%' }}>
+                {/* Opponent top */}
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+                  <span style={{ fontFamily: 'Cinzel, serif', fontWeight: 900, fontSize: 11, letterSpacing: '.15em', color: p2Turn ? '#fff8e1' : 'rgba(255,236,196,.6)' }}>
+                    {opponentLabel}
                   </span>
+                  <Card card={aiCard} isFaceDown={!p2Turn} isPlayerTurn={p2Turn} onAttributeSelect={p2Turn ? handleP2AttributeSelect : undefined} advantageBonus={p2Turn && p2Advantage ? p2Advantage : undefined} />
+                  <div style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 10, color: 'rgba(244,195,73,.7)', padding: '2px 10px', border: '1px solid rgba(244,195,73,.3)' }}>{aiDeck.length} cartas</div>
                 </div>
-                <Card card={playerCard} isPlayerTurn={isPlayerTurn} onAttributeSelect={handleAttributeSelect} advantageBonus={playerAdvantage ?? undefined} />
-                <div style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 11, color: 'rgba(244,195,73,.7)', padding: '3px 12px', border: '1px solid rgba(244,195,73,.3)' }}>
-                  {playerDeck.length} cartas
+                {/* Divider */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', justifyContent: 'center' }}>
+                  <div style={{ flex: 1, height: 1, background: 'linear-gradient(90deg, transparent, #f4c349)' }} />
+                  <span style={{ fontFamily: 'Cinzel, serif', fontWeight: 900, fontSize: 20, color: '#f4c349' }}>⚔</span>
+                  <div style={{ flex: 1, height: 1, background: 'linear-gradient(90deg, #f4c349, transparent)' }} />
                 </div>
-              </div>
-
-              {/* Center separator */}
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, paddingTop: 72 }}>
-                <div style={{ width: 1, height: 36, background: 'linear-gradient(180deg, transparent, #f4c349)' }} />
-                <span style={{ fontFamily: 'Cinzel, serif', fontWeight: 900, fontSize: 28, color: '#f4c349' }}>⚔</span>
-                <div style={{ width: 1, height: 36, background: 'linear-gradient(180deg, #f4c349, transparent)' }} />
-              </div>
-
-              {/* Opponent side */}
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
-                <span style={{ fontFamily: 'Cinzel, serif', fontWeight: 900, fontSize: 15, letterSpacing: '.15em', color: p2Turn ? '#fff8e1' : 'rgba(255,236,196,.6)' }}>
-                  {opponentLabel}
-                </span>
-                <Card
-                  card={aiCard}
-                  isFaceDown={!p2Turn}
-                  isPlayerTurn={p2Turn}
-                  onAttributeSelect={p2Turn ? handleP2AttributeSelect : undefined}
-                  advantageBonus={p2Turn && p2Advantage ? p2Advantage : undefined}
-                />
-                <div style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 11, color: 'rgba(244,195,73,.7)', padding: '3px 12px', border: '1px solid rgba(244,195,73,.3)' }}>
-                  {aiDeck.length} cartas
+                {/* Player bottom */}
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    {userProfile?.picture && <img src={userProfile.picture} alt="" style={{ width: 24, height: 24, borderRadius: '50%', border: '2px solid #f4c349' }} />}
+                    <span style={{ fontFamily: 'Cinzel, serif', fontWeight: 900, fontSize: 11, letterSpacing: '.15em', color: '#fff8e1' }}>{(userProfile?.name || 'JOGADOR 1').toUpperCase()}</span>
+                  </div>
+                  <Card card={playerCard} isPlayerTurn={isPlayerTurn} onAttributeSelect={handleAttributeSelect} advantageBonus={playerAdvantage ?? undefined} />
+                  <div style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 10, color: 'rgba(244,195,73,.7)', padding: '2px 10px', border: '1px solid rgba(244,195,73,.3)' }}>{playerDeck.length} cartas</div>
                 </div>
               </div>
-            </div>
+            ) : (
+              /* Desktop: side-by-side grid */
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: 24, width: '100%', alignItems: 'start' }}>
+                {/* Player side */}
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    {userProfile?.picture && (
+                      <img src={userProfile.picture} alt="" style={{ width: 30, height: 30, borderRadius: '50%', border: '2px solid #f4c349' }} />
+                    )}
+                    <span style={{ fontFamily: 'Cinzel, serif', fontWeight: 900, fontSize: 15, letterSpacing: '.15em', color: '#fff8e1' }}>
+                      {(userProfile?.name || 'JOGADOR 1').toUpperCase()}
+                    </span>
+                  </div>
+                  <Card card={playerCard} isPlayerTurn={isPlayerTurn} onAttributeSelect={handleAttributeSelect} advantageBonus={playerAdvantage ?? undefined} />
+                  <div style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 11, color: 'rgba(244,195,73,.7)', padding: '3px 12px', border: '1px solid rgba(244,195,73,.3)' }}>
+                    {playerDeck.length} cartas
+                  </div>
+                </div>
+                {/* Center separator */}
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, paddingTop: 72 }}>
+                  <div style={{ width: 1, height: 36, background: 'linear-gradient(180deg, transparent, #f4c349)' }} />
+                  <span style={{ fontFamily: 'Cinzel, serif', fontWeight: 900, fontSize: 28, color: '#f4c349' }}>⚔</span>
+                  <div style={{ width: 1, height: 36, background: 'linear-gradient(180deg, #f4c349, transparent)' }} />
+                </div>
+                {/* Opponent side */}
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+                  <span style={{ fontFamily: 'Cinzel, serif', fontWeight: 900, fontSize: 15, letterSpacing: '.15em', color: p2Turn ? '#fff8e1' : 'rgba(255,236,196,.6)' }}>
+                    {opponentLabel}
+                  </span>
+                  <Card card={aiCard} isFaceDown={!p2Turn} isPlayerTurn={p2Turn} onAttributeSelect={p2Turn ? handleP2AttributeSelect : undefined} advantageBonus={p2Turn && p2Advantage ? p2Advantage : undefined} />
+                  <div style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 11, color: 'rgba(244,195,73,.7)', padding: '3px 12px', border: '1px solid rgba(244,195,73,.3)' }}>
+                    {aiDeck.length} cartas
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Status bar */}
             <div style={{
-              padding: '10px 20px', maxWidth: 560, width: '100%',
+              padding: isMobile ? '8px 12px' : '10px 20px', maxWidth: 560, width: '100%',
               background: 'rgba(10,5,0,.65)', border: '1px solid rgba(244,195,73,.2)',
-              fontFamily: 'Cinzel, serif', fontSize: 12, letterSpacing: '.2em',
-              minHeight: 52, display: 'flex', alignItems: 'center',
-              justifyContent: (isPlayerTurn || p2Turn) ? 'space-between' : 'center', gap: 14,
+              fontFamily: 'Cinzel, serif', fontSize: isMobile ? 9 : 12, letterSpacing: isMobile ? '.1em' : '.2em',
+              minHeight: isMobile ? 44 : 52, display: 'flex', alignItems: 'center',
+              justifyContent: (isPlayerTurn || p2Turn) ? 'space-between' : 'center', gap: 10,
             }}>
               <div style={{ flex: 1, textAlign: 'center' }}>
                 {isPlayerTurn && playerAdvantage && (
@@ -545,8 +569,8 @@ const App: React.FC = () => {
                         color: '#1a0e04', display: 'flex', alignItems: 'center', justifyContent: 'center',
                         fontFamily: 'Cinzel, serif', fontWeight: 900, fontSize: 10,
                       }}>{h.winner === 'player' ? 'V' : h.winner === 'ai' ? 'D' : '='}</div>
-                      <div style={{ fontFamily: 'Cinzel, serif', fontSize: 9, letterSpacing: '.15em', color: 'rgba(255,236,196,.7)' }}>
-                        {h.attribute.toUpperCase()} · {h.playerCard.name} vs {h.aiCard.name}
+                      <div style={{ fontFamily: 'Cinzel, serif', fontSize: 9, letterSpacing: '.1em', color: 'rgba(255,236,196,.7)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {h.attribute.toUpperCase()} · {isMobile ? h.playerCard.name.split(' ')[0] : h.playerCard.name} vs {isMobile ? h.aiCard.name.split(' ')[0] : h.aiCard.name}
                       </div>
                       <div style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 10, color: 'rgba(244,195,73,.6)' }}>
                         {h.playerValue} × {h.aiValue}
@@ -573,8 +597,29 @@ const App: React.FC = () => {
         const resultColor = winner === 'player' ? '#f4c349' : winner === 'ai' ? '#d94a4a' : 'rgba(255,236,196,.8)';
 
         return (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 28 }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: 24, width: '100%', alignItems: 'start' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: isMobile ? 14 : 28 }}>
+            {isMobile ? (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, width: '100%' }}>
+                {/* Opponent top */}
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+                  <span style={{ fontFamily: 'Cinzel, serif', fontWeight: 900, fontSize: 11, letterSpacing: '.15em', color: 'rgba(255,236,196,.6)' }}>{opponentLabelResult}</span>
+                  <Card card={aiCard} isFaceDown={!isRevealing} highlightedAttribute={attribute} isWinner={isRevealing && winner === 'ai'} isLoser={isRevealing && winner === 'player'} />
+                  <div style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 10, color: 'rgba(244,195,73,.7)', padding: '2px 10px', border: '1px solid rgba(244,195,73,.3)' }}>{aiDeck.length} cartas</div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', justifyContent: 'center', transition: 'opacity 0.5s', opacity: showResultInfo ? 1 : 0 }}>
+                  <div style={{ flex: 1, height: 1, background: 'linear-gradient(90deg, transparent, #f4c349)' }} />
+                  <span style={{ fontFamily: 'Cinzel, serif', fontWeight: 900, fontSize: 20, color: '#f4c349' }}>⚔</span>
+                  <div style={{ flex: 1, height: 1, background: 'linear-gradient(90deg, #f4c349, transparent)' }} />
+                </div>
+                {/* Player bottom */}
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+                  <span style={{ fontFamily: 'Cinzel, serif', fontWeight: 900, fontSize: 11, letterSpacing: '.15em', color: '#fff8e1' }}>{p1Label}</span>
+                  <Card card={playerCard} highlightedAttribute={attribute} isWinner={isRevealing && winner === 'player'} isLoser={isRevealing && winner === 'ai'} />
+                  <div style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 10, color: 'rgba(244,195,73,.7)', padding: '2px 10px', border: '1px solid rgba(244,195,73,.3)' }}>{playerDeck.length} cartas</div>
+                </div>
+              </div>
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: 24, width: '100%', alignItems: 'start' }}>
               {/* Player */}
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
                 <span style={{ fontFamily: 'Cinzel, serif', fontWeight: 900, fontSize: 15, letterSpacing: '.15em', color: '#fff8e1' }}>
@@ -604,10 +649,11 @@ const App: React.FC = () => {
                 </div>
               </div>
             </div>
+            )}
 
             {/* Result panel */}
             <div style={{
-              padding: '22px 36px', maxWidth: 600, width: '100%', textAlign: 'center',
+              padding: isMobile ? '16px 16px' : '22px 36px', maxWidth: 600, width: '100%', textAlign: 'center',
               background: 'linear-gradient(180deg, rgba(20,8,10,.9), rgba(10,5,0,.7))',
               border: '1px solid rgba(244,195,73,.3)',
               transition: 'opacity 0.5s', opacity: showResultInfo ? 1 : 0,
@@ -615,7 +661,7 @@ const App: React.FC = () => {
             }}>
               {showResultInfo && (
                 <>
-                  <p style={{ fontFamily: 'Cinzel, serif', fontWeight: 900, fontSize: 20, letterSpacing: '.08em', color: resultColor, margin: 0 }}>
+                  <p style={{ fontFamily: 'Cinzel, serif', fontWeight: 900, fontSize: isMobile ? 15 : 20, letterSpacing: '.08em', color: resultColor, margin: 0 }}>
                     {resultText}
                   </p>
                   {playerBonus > 0 && winner === 'player' && (
@@ -649,7 +695,7 @@ const App: React.FC = () => {
       case GameState.GameOver: {
         const playerWon = playerDeck.length > 0;
         return (
-          <div style={{ textAlign: 'center', maxWidth: 700, margin: '0 auto', padding: '60px 0' }}>
+          <div style={{ textAlign: 'center', maxWidth: 700, margin: '0 auto', padding: isMobile ? '30px 0' : '60px 0' }}>
             <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 14, marginBottom: 20 }}>
               <span style={{ width: 48, height: 1, background: '#f4c349', display: 'block' }} />
               <span style={{ fontFamily: 'Cinzel, serif', fontSize: 10, letterSpacing: '.5em', color: '#f4c349' }}>
@@ -782,7 +828,7 @@ const App: React.FC = () => {
         `,
         backgroundSize: '400px 320px', opacity: 0.3,
       }} />
-      <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', padding: '40px 48px' }}>
+      <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', padding: isMobile ? '20px 16px' : '40px 48px' }}>
         <div style={{ width: '100%', maxWidth: 1200 }}>
           {renderGameState()}
         </div>

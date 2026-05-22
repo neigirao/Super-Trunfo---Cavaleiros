@@ -1,6 +1,7 @@
 
 import React, { useState } from 'react';
 import { CardData, Attribute, ElementType } from '../types';
+import { useIsMobile } from '../utils/mobile';
 
 interface AdminPanelProps {
   cards: CardData[];
@@ -70,6 +71,7 @@ const btnDanger: React.CSSProperties = {
 };
 
 export const AdminPanel: React.FC<AdminPanelProps> = ({ cards, onSave, onDelete, onBack }) => {
+  const isMobile = useIsMobile();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCard, setEditingCard] = useState<CardData | Omit<CardData, 'id'>>({ ...emptyCard });
   const [isNew, setIsNew] = useState(true);
@@ -118,7 +120,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ cards, onSave, onDelete,
       width: '100%', maxWidth: 1100,
       background: 'linear-gradient(180deg, rgba(20,8,10,.9), rgba(10,5,0,.75))',
       border: '1px solid rgba(244,195,73,.3)',
-      padding: '36px 40px',
+      padding: isMobile ? '20px 14px' : '36px 40px',
     }}>
       {/* Header */}
       <div style={{ textAlign: 'center', marginBottom: 28 }}>
@@ -148,7 +150,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ cards, onSave, onDelete,
 
       {/* Card grid */}
       <div style={{
-        display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
+        display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))',
         gap: 10, maxHeight: '55vh', overflowY: 'auto',
         padding: '14px', background: 'rgba(6,3,10,.5)',
         border: '1px solid rgba(244,195,73,.15)',
@@ -189,7 +191,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ cards, onSave, onDelete,
               background: 'linear-gradient(180deg, rgba(20,8,10,.98), rgba(10,5,0,.95))',
               border: '1px solid rgba(244,195,73,.4)',
               boxShadow: '0 0 60px rgba(244,195,73,.15)',
-              padding: '32px 36px', width: '100%', maxWidth: 440,
+              padding: isMobile ? '20px 16px' : '32px 36px', width: '100%', maxWidth: 'min(440px, 95vw)',
               maxHeight: '90vh', overflowY: 'auto',
             }}
             onClick={e => e.stopPropagation()}
