@@ -206,6 +206,40 @@ const App: React.FC = () => {
     else playRoundDraw();
   }, [roundResult]);
 
+  // ── resolveRound must be declared before any useEffect that references it ──
+  const resolveRound = useCallback((attribute: Attribute, pCard: CardData, aCard: CardData) => {
+    let playerValue = pCard.attributes[attribute];
+    let aiValue = aCard.attributes[attribute];
+    let playerBonus = 0;
+    let aiBonus = 0;
+
+    const playerAdv = getAdvantage(pCard, aCard);
+    if (playerAdv && playerAdv.attribute === attribute) {
+      playerBonus = Math.round(playerValue * ADVANTAGE_BONUS_PERCENTAGE);
+      playerValue += playerBonus;
+    }
+
+    const aiAdv = getAdvantage(aCard, pCard);
+    if (aiAdv && aiAdv.attribute === attribute) {
+      aiBonus = Math.round(aiValue * ADVANTAGE_BONUS_PERCENTAGE);
+      aiValue += aiBonus;
+    }
+
+    let winner: 'player' | 'ai' | 'tie';
+    if (pCard.isSuperTrunfo && !aCard.isSuperTrunfo) {
+      winner = 'player';
+    } else if (!pCard.isSuperTrunfo && aCard.isSuperTrunfo) {
+      winner = 'ai';
+    } else {
+      winner = playerValue > aiValue ? 'player' : aiValue > playerValue ? 'ai' : 'tie';
+    }
+
+    const result: RoundResult = { winner, attribute, playerCard: pCard, aiCard: aCard, playerValue, aiValue, playerBonus, aiBonus };
+    setRoundResult(result);
+    setMatchHistory(prev => [result, ...prev].slice(0, 10));
+    setGameState(GameState.RoundResult);
+  }, []);
+
   // ── Timer: reset at the start of each human turn ──────────
   useEffect(() => {
     if (gameState !== GameState.Playing) return;
@@ -300,40 +334,6 @@ const App: React.FC = () => {
       setP2Advantage(null);
     }
   }, [gameState, playerDeck, aiDeck]);
-
-
-  const resolveRound = useCallback((attribute: Attribute, pCard: CardData, aCard: CardData) => {
-    let playerValue = pCard.attributes[attribute];
-    let aiValue = aCard.attributes[attribute];
-    let playerBonus = 0;
-    let aiBonus = 0;
-
-    const playerAdv = getAdvantage(pCard, aCard);
-    if (playerAdv && playerAdv.attribute === attribute) {
-      playerBonus = Math.round(playerValue * ADVANTAGE_BONUS_PERCENTAGE);
-      playerValue += playerBonus;
-    }
-
-    const aiAdv = getAdvantage(aCard, pCard);
-    if (aiAdv && aiAdv.attribute === attribute) {
-      aiBonus = Math.round(aiValue * ADVANTAGE_BONUS_PERCENTAGE);
-      aiValue += aiBonus;
-    }
-
-    let winner: 'player' | 'ai' | 'tie';
-    if (pCard.isSuperTrunfo && !aCard.isSuperTrunfo) {
-      winner = 'player';
-    } else if (!pCard.isSuperTrunfo && aCard.isSuperTrunfo) {
-      winner = 'ai';
-    } else {
-      winner = playerValue > aiValue ? 'player' : aiValue > playerValue ? 'ai' : 'tie';
-    }
-
-    const result: RoundResult = { winner, attribute, playerCard: pCard, aiCard: aCard, playerValue, aiValue, playerBonus, aiBonus };
-    setRoundResult(result);
-    setMatchHistory(prev => [result, ...prev].slice(0, 10));
-    setGameState(GameState.RoundResult);
-  }, []);
 
   const handleAttributeSelect = (attribute: Attribute) => {
     if (!isPlayerTurn || playerDeck.length === 0 || aiDeck.length === 0) return;
