@@ -10,6 +10,7 @@ import Dashboard from './components/Dashboard';
 import Collection from './components/Collection';
 import { initialDeck } from './initialDeck';
 import { playCardFlip, playRoundWin, playRoundLose, playRoundDraw, playGameWin, playGameLose } from './utils/sounds';
+import { supabase } from './src/integrations/supabase/client';
 
 // ==================================================================
 // CONFIGURAÇÕES IMPORTANTES - ATUALIZE ESTES VALORES
@@ -118,6 +119,55 @@ const App: React.FC = () => {
   const [difficulty, setDifficulty] = useState<Difficulty>(Difficulty.Normal);
   const [matchHistory, setMatchHistory] = useState<RoundResult[]>([]);
   const [isMultiplayer, setIsMultiplayer] = useState(false);
+  const [rankingData, setRankingData] = useState<RankingEntry[]>([]);
+
+  const saveRanking = useCallback(async (playerWon: boolean, remainingCards: number) => {
+    if (isMultiplayer || !userProfile) return;
+    const diffMultiplier = difficulty === Difficulty.Hard ? 3 : difficulty === Difficulty.Normal ? 2 : 1;
+    const score = (playerWon ? 100 : 0) + remainingCards * 10 * diffMultiplier;
+    try {
+      await supabase.from('rankings').insert({
+        player_name: userProfile.name,
+        score,
+        games_played: 1,
+        game_mode: 'classic',
+        difficulty_level: difficulty,
+      });
+    } catch (err) {
+      console.error('[ranking] insert falhou', err);
+    }
+  }, [isMultiplayer, userProfile, difficulty]);
+
+  const loadRanking = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from('rankings')
+        .select('player_name, score, user_id')
+        .order('score', { ascending: false })
+        .limit(200);
+      if (error) throw error;
+      const agg = new Map<string, { name: string; wins: number; score: number }>();
+      (data ?? []).forEach((row: any) => {
+        const key = row.user_id || row.player_name;
+        const cur = agg.get(key) ?? { name: row.player_name, wins: 0, score: 0 };
+        cur.score += row.score ?? 0;
+        if ((row.score ?? 0) >= 100) cur.wins += 1;
+        agg.set(key, cur);
+      });
+      const sorted = Array.from(agg.values())
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 50)
+        .map((entry, idx) => ({
+          rank: idx + 1,
+          user: { name: entry.name, picture: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(entry.name)}` },
+          wins: entry.wins,
+          score: entry.score,
+        }));
+      setRankingData(sorted);
+    } catch (err) {
+      console.error('[ranking] load falhou', err);
+    }
+  }, []);
   const [playerAdvantage, setPlayerAdvantage] = useState<{ attribute: Attribute; bonus: number } | null>(null);
   const [p2Advantage, setP2Advantage] = useState<{ attribute: Attribute; bonus: number } | null>(null);
   const [timeLeft, setTimeLeft] = useState<number>(TURN_TIMER_SECONDS);
@@ -374,6 +424,9 @@ const App: React.FC = () => {
 
     if (newPlayerDeck.length === 0 || newAiDeck.length === 0) {
       if (newPlayerDeck.length > 0) playGameWin(); else playGameLose();
+      const playerWon = newPlayerDeck.length > 0;
+      const remaining = playerWon ? newPlayerDeck.length : newAiDeck.length;
+      saveRanking(playerWon, remaining);
       setGameState(GameState.GameOver);
     } else {
       setRoundResult(null);
@@ -667,7 +720,7 @@ const App: React.FC = () => {
       }
 
       case GameState.Ranking:
-        return <Ranking rankingData={[]} onBack={handleBackToMenu} />;
+        return <Ranking rankingData={rankingData} onBack={handleBackToMenu} />;
 
       case GameState.Admin:
         return <AdminPanel cards={deck} onSave={handleSaveCard} onDelete={handleDeleteCard} onBack={handleBackToMenu} />;
@@ -685,7 +738,7 @@ const App: React.FC = () => {
           onStartGame={startGame}
           onStartMultiplayer={() => startGame(true)}
           onSetDifficulty={setDifficulty}
-          onGoToRanking={() => setGameState(GameState.Ranking)}
+          onGoToRanking={() => { loadRanking(); setGameState(GameState.Ranking); }}
           onGoToAdmin={() => setGameState(GameState.Admin)}
           onGoToCollection={() => setGameState(GameState.Collection)}
           onGoToRules={() => setGameState(GameState.Rules)}
@@ -699,7 +752,7 @@ const App: React.FC = () => {
         isAdmin={isAdmin}
         isClientIdConfigured={isClientIdConfigured}
         onStartGame={startGame}
-        onGoToRanking={() => setGameState(GameState.Ranking)}
+        onGoToRanking={() => { loadRanking(); setGameState(GameState.Ranking); }}
         onGoToAdmin={() => setGameState(GameState.Admin)}
         onGoToRules={() => setGameState(GameState.Rules)}
       />
@@ -718,7 +771,7 @@ const App: React.FC = () => {
           isAdmin={false}
           isClientIdConfigured={isClientIdConfigured}
           onStartGame={startGame}
-          onGoToRanking={() => setGameState(GameState.Ranking)}
+          onGoToRanking={() => { loadRanking(); setGameState(GameState.Ranking); }}
           onGoToAdmin={() => setGameState(GameState.Admin)}
           onGoToRules={() => setGameState(GameState.Rules)}
         />
@@ -728,7 +781,7 @@ const App: React.FC = () => {
       <Collection
         userProfile={userProfile}
         onStartGame={startGame}
-        onGoToRanking={() => setGameState(GameState.Ranking)}
+        onGoToRanking={() => { loadRanking(); setGameState(GameState.Ranking); }}
         onGoToCollection={() => setGameState(GameState.Collection)}
         onBack={() => setGameState(GameState.Menu)}
         onLogout={handleLogout}
