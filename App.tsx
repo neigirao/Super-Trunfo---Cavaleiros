@@ -424,6 +424,9 @@ const App: React.FC = () => {
 
     if (newPlayerDeck.length === 0 || newAiDeck.length === 0) {
       if (newPlayerDeck.length > 0) playGameWin(); else playGameLose();
+      const playerWon = newPlayerDeck.length > 0;
+      const remaining = playerWon ? newPlayerDeck.length : newAiDeck.length;
+      saveRanking(playerWon, remaining);
       setGameState(GameState.GameOver);
     } else {
       setRoundResult(null);
@@ -717,7 +720,7 @@ const App: React.FC = () => {
       }
 
       case GameState.Ranking:
-        return <Ranking rankingData={[]} onBack={handleBackToMenu} />;
+        return <Ranking rankingData={rankingData} onBack={handleBackToMenu} />;
 
       case GameState.Admin:
         return <AdminPanel cards={deck} onSave={handleSaveCard} onDelete={handleDeleteCard} onBack={handleBackToMenu} />;
