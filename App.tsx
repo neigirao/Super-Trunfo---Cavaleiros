@@ -738,7 +738,7 @@ const App: React.FC = () => {
           onStartGame={startGame}
           onStartMultiplayer={() => startGame(true)}
           onSetDifficulty={setDifficulty}
-          onGoToRanking={() => setGameState(GameState.Ranking)}
+          onGoToRanking={() => { loadRanking(); setGameState(GameState.Ranking); }}
           onGoToAdmin={() => setGameState(GameState.Admin)}
           onGoToCollection={() => setGameState(GameState.Collection)}
           onGoToRules={() => setGameState(GameState.Rules)}
@@ -752,7 +752,7 @@ const App: React.FC = () => {
         isAdmin={isAdmin}
         isClientIdConfigured={isClientIdConfigured}
         onStartGame={startGame}
-        onGoToRanking={() => setGameState(GameState.Ranking)}
+        onGoToRanking={() => { loadRanking(); setGameState(GameState.Ranking); }}
         onGoToAdmin={() => setGameState(GameState.Admin)}
         onGoToRules={() => setGameState(GameState.Rules)}
       />
@@ -771,7 +771,7 @@ const App: React.FC = () => {
           isAdmin={false}
           isClientIdConfigured={isClientIdConfigured}
           onStartGame={startGame}
-          onGoToRanking={() => setGameState(GameState.Ranking)}
+          onGoToRanking={() => { loadRanking(); setGameState(GameState.Ranking); }}
           onGoToAdmin={() => setGameState(GameState.Admin)}
           onGoToRules={() => setGameState(GameState.Rules)}
         />
@@ -781,7 +781,7 @@ const App: React.FC = () => {
       <Collection
         userProfile={userProfile}
         onStartGame={startGame}
-        onGoToRanking={() => setGameState(GameState.Ranking)}
+        onGoToRanking={() => { loadRanking(); setGameState(GameState.Ranking); }}
         onGoToCollection={() => setGameState(GameState.Collection)}
         onBack={() => setGameState(GameState.Menu)}
         onLogout={handleLogout}
