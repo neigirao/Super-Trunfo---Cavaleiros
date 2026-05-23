@@ -649,7 +649,7 @@ const App: React.FC = () => {
             </p>
 
             <div style={{ display: 'flex', gap: 14, justifyContent: 'center', flexWrap: 'wrap' }}>
-              <button onClick={startGame} style={{
+              <button onClick={() => startGame()} style={{
                 fontFamily: 'Cinzel, serif', fontWeight: 700, fontSize: 12, letterSpacing: '.3em',
                 color: '#1a0e04', padding: '14px 30px', cursor: 'pointer',
                 background: 'linear-gradient(180deg,#f4c349,#8a6a2a)',
