@@ -1,18 +1,21 @@
 import React from 'react';
 import { RankingEntry } from '../types';
+import { useIsMobile } from '../utils/mobile';
 
 interface RankingProps {
   rankingData: RankingEntry[];
   onBack: () => void;
 }
 
-export const Ranking: React.FC<RankingProps> = ({ rankingData, onBack }) => (
+export const Ranking: React.FC<RankingProps> = ({ rankingData, onBack }) => {
+  const isMobile = useIsMobile();
+  return (
   <div style={{
     width: '100%', maxWidth: 900,
     background: 'linear-gradient(180deg, rgba(20,8,10,.9), rgba(10,5,0,.75))',
     border: '1px solid rgba(244,195,73,.3)',
     boxShadow: '0 0 40px rgba(244,195,73,.08)',
-    padding: '40px 48px',
+    padding: isMobile ? '24px 16px' : '40px 48px',
   }}>
     {/* Header */}
     <div style={{ textAlign: 'center', marginBottom: 36 }}>
@@ -99,4 +102,5 @@ export const Ranking: React.FC<RankingProps> = ({ rankingData, onBack }) => (
       </button>
     </div>
   </div>
-);
+  );
+};

@@ -9,7 +9,14 @@ import HomeMenu from './components/HomeMenu';
 import Dashboard from './components/Dashboard';
 import Collection from './components/Collection';
 import { initialDeck } from './initialDeck';
-import { playCardFlip, playRoundWin, playRoundLose, playRoundDraw, playGameWin, playGameLose } from './utils/sounds';
+import { playCardFlip, playRoundWin, playRoundLose, playRoundDraw, playGameWin, playGameLose, setMuted as setMutedFn } from './utils/sounds';
+import { useIsMobile } from './utils/mobile';
+import { QUESTS, loadQuestProgress, incrementQuest } from './utils/quests';
+import {
+  supabase, signInWithGoogleToken, signOut as supabaseSignOut,
+  loadDeckFromCloud, saveDeckToCloud,
+  fetchRanking, upsertGameResult, fetchPlayerCurrency, RankingRow, PlayerCurrency,
+} from './utils/supabase';
 
 // ==================================================================
 // CONFIGURAÇÕES IMPORTANTES - ATUALIZE ESTES VALORES
@@ -92,6 +99,7 @@ const TimerRing: React.FC<{ timeLeft: number; total: number }> = ({ timeLeft, to
 };
 
 const App: React.FC = () => {
+  const isMobile = useIsMobile();
   const [gameState, setGameState] = useState<GameState>(GameState.Menu);
   const [deck, setDeck] = useState<CardData[]>(() => {
     try {
@@ -121,11 +129,37 @@ const App: React.FC = () => {
   const [playerAdvantage, setPlayerAdvantage] = useState<{ attribute: Attribute; bonus: number } | null>(null);
   const [p2Advantage, setP2Advantage] = useState<{ attribute: Attribute; bonus: number } | null>(null);
   const [timeLeft, setTimeLeft] = useState<number>(TURN_TIMER_SECONDS);
-  
+
   // States for round result animation orchestration
   const [isRevealing, setIsRevealing] = useState(false);
   const [showResultInfo, setShowResultInfo] = useState(false);
   const [showNextRoundButton, setShowNextRoundButton] = useState(false);
+
+  // Card transfer animation: 'none' | 'player-wins' | 'ai-wins'
+  const [transferAnim, setTransferAnim] = useState<'none' | 'player-wins' | 'ai-wins'>('none');
+
+  // Ranking data (loaded from Supabase)
+  const [rankingData, setRankingData] = useState<RankingEntry[]>([]);
+
+  // Mute preference (persisted in localStorage)
+  const [muted, setMuted] = useState(() => localStorage.getItem('muted') === '1');
+  useEffect(() => {
+    setMutedFn(muted);
+    localStorage.setItem('muted', muted ? '1' : '0');
+  }, [muted]);
+
+  // Daily quests progress (reloaded from localStorage after each relevant action)
+  const [questProgress, setQuestProgress] = useState<Record<string, number>>(() => loadQuestProgress());
+  const refreshQuests = () => setQuestProgress(loadQuestProgress());
+
+  // Player currency (loaded from Supabase after login)
+  const [currency, setCurrency] = useState<PlayerCurrency>({ cosmo: 0, po: 0 });
+
+  // Saved game snapshot (for Continue Banner)
+  const [hasSavedGame, setHasSavedGame] = useState(() => !!localStorage.getItem('savedGame'));
+  const [savedGameInfo, setSavedGameInfo] = useState<{ round: number; isMultiplayer: boolean } | null>(() => {
+    try { const s = localStorage.getItem('savedGame'); return s ? JSON.parse(s).info ?? null : null; } catch { return null; }
+  });
 
 
   const isClientIdConfigured = !!GOOGLE_CLIENT_ID;
@@ -133,26 +167,37 @@ const App: React.FC = () => {
   useEffect(() => {
     localStorage.setItem('superTrunfoDeck', JSON.stringify(deck));
   }, [deck]);
+
+  // Sync deck to Supabase whenever it changes (debounced via the state cycle)
+  useEffect(() => {
+    if (!userProfile) return;
+    saveDeckToCloud(deck);
+  }, [deck, userProfile]);
   
-  const handleCredentialResponse = useCallback((response: any) => {
-    // Decodificar o JWT para obter as informações do perfil
+  const handleCredentialResponse = useCallback(async (response: any) => {
+    // 1. Decodificar o JWT do Google para UI imediata
     const base64Url = response.credential.split('.')[1];
     const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-    const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
-        return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-    }).join(''));
-
+    const jsonPayload = decodeURIComponent(
+      atob(base64).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join('')
+    );
     const profile = JSON.parse(jsonPayload);
-    const user: UserProfile = {
-        name: profile.name,
-        email: profile.email,
-        picture: profile.picture,
-    };
-    
+    const user: UserProfile = { name: profile.name, email: profile.email, picture: profile.picture };
     setUserProfile(user);
-    if (user.email === ADMIN_EMAIL) {
-        setIsAdmin(true);
+    if (user.email === ADMIN_EMAIL) setIsAdmin(true);
+
+    // 2. Autenticar no Supabase com o token do Google (JWT server-side)
+    await signInWithGoogleToken(response.credential);
+
+    // 3. Carregar baralho da nuvem (se existir)
+    const cloudDeck = await loadDeckFromCloud();
+    if (cloudDeck && cloudDeck.length > 0) {
+      setDeck(cloudDeck);
     }
+
+    // 4. Carregar moedas do jogador
+    const cur = await fetchPlayerCurrency();
+    setCurrency(cur);
   }, []);
 
   useEffect(() => {
@@ -205,6 +250,40 @@ const App: React.FC = () => {
     else if (roundResult.winner === 'ai') playRoundLose();
     else playRoundDraw();
   }, [roundResult]);
+
+  // ── resolveRound must be declared before any useEffect that references it ──
+  const resolveRound = useCallback((attribute: Attribute, pCard: CardData, aCard: CardData) => {
+    let playerValue = pCard.attributes[attribute];
+    let aiValue = aCard.attributes[attribute];
+    let playerBonus = 0;
+    let aiBonus = 0;
+
+    const playerAdv = getAdvantage(pCard, aCard);
+    if (playerAdv && playerAdv.attribute === attribute) {
+      playerBonus = Math.round(playerValue * ADVANTAGE_BONUS_PERCENTAGE);
+      playerValue += playerBonus;
+    }
+
+    const aiAdv = getAdvantage(aCard, pCard);
+    if (aiAdv && aiAdv.attribute === attribute) {
+      aiBonus = Math.round(aiValue * ADVANTAGE_BONUS_PERCENTAGE);
+      aiValue += aiBonus;
+    }
+
+    let winner: 'player' | 'ai' | 'tie';
+    if (pCard.isSuperTrunfo && !aCard.isSuperTrunfo) {
+      winner = 'player';
+    } else if (!pCard.isSuperTrunfo && aCard.isSuperTrunfo) {
+      winner = 'ai';
+    } else {
+      winner = playerValue > aiValue ? 'player' : aiValue > playerValue ? 'ai' : 'tie';
+    }
+
+    const result: RoundResult = { winner, attribute, playerCard: pCard, aiCard: aCard, playerValue, aiValue, playerBonus, aiBonus };
+    setRoundResult(result);
+    setMatchHistory(prev => [result, ...prev].slice(0, 10));
+    setGameState(GameState.RoundResult);
+  }, []);
 
   // ── Timer: reset at the start of each human turn ──────────
   useEffect(() => {
@@ -301,43 +380,13 @@ const App: React.FC = () => {
     }
   }, [gameState, playerDeck, aiDeck]);
 
-
-  const resolveRound = useCallback((attribute: Attribute, pCard: CardData, aCard: CardData) => {
-    let playerValue = pCard.attributes[attribute];
-    let aiValue = aCard.attributes[attribute];
-    let playerBonus = 0;
-    let aiBonus = 0;
-
-    const playerAdv = getAdvantage(pCard, aCard);
-    if (playerAdv && playerAdv.attribute === attribute) {
-      playerBonus = Math.round(playerValue * ADVANTAGE_BONUS_PERCENTAGE);
-      playerValue += playerBonus;
-    }
-
-    const aiAdv = getAdvantage(aCard, pCard);
-    if (aiAdv && aiAdv.attribute === attribute) {
-      aiBonus = Math.round(aiValue * ADVANTAGE_BONUS_PERCENTAGE);
-      aiValue += aiBonus;
-    }
-
-    let winner: 'player' | 'ai' | 'tie';
-    if (pCard.isSuperTrunfo && !aCard.isSuperTrunfo) {
-      winner = 'player';
-    } else if (!pCard.isSuperTrunfo && aCard.isSuperTrunfo) {
-      winner = 'ai';
-    } else {
-      winner = playerValue > aiValue ? 'player' : aiValue > playerValue ? 'ai' : 'tie';
-    }
-
-    const result: RoundResult = { winner, attribute, playerCard: pCard, aiCard: aCard, playerValue, aiValue, playerBonus, aiBonus };
-    setRoundResult(result);
-    setMatchHistory(prev => [result, ...prev].slice(0, 10));
-    setGameState(GameState.RoundResult);
-  }, []);
-
   const handleAttributeSelect = (attribute: Attribute) => {
     if (!isPlayerTurn || playerDeck.length === 0 || aiDeck.length === 0) return;
     playCardFlip();
+    // Quest: aposte em Condutividade 5×
+    if (attribute === Attribute.Condutividade) { incrementQuest('cond5'); refreshQuests(); }
+    // Quest: jogue um Cavaleiro do grupo 1 (Metal Alcalino)
+    if (playerDeck[0].element === ElementType.AlkaliMetal) { incrementQuest('grp1'); refreshQuests(); }
     resolveRound(attribute, playerDeck[0], aiDeck[0]);
   };
 
@@ -345,6 +394,17 @@ const App: React.FC = () => {
     if (isPlayerTurn || !isMultiplayer || playerDeck.length === 0 || aiDeck.length === 0) return;
     playCardFlip();
     resolveRound(attribute, playerDeck[0], aiDeck[0]);
+  };
+
+  // Wraps handleNextRound with a card-transfer animation
+  const handleNextRoundAnimated = () => {
+    if (!roundResult || transferAnim !== 'none') return;
+    const anim = roundResult.winner === 'player' ? 'player-wins'
+               : roundResult.winner === 'ai'     ? 'ai-wins'
+               : 'none';
+    if (anim === 'none') { handleNextRound(); return; }
+    setTransferAnim(anim);
+    setTimeout(() => { setTransferAnim('none'); handleNextRound(); }, 700);
   };
 
   const handleNextRound = () => {
@@ -373,7 +433,25 @@ const App: React.FC = () => {
     setAiDeck(newAiDeck);
 
     if (newPlayerDeck.length === 0 || newAiDeck.length === 0) {
-      if (newPlayerDeck.length > 0) playGameWin(); else playGameLose();
+      const playerWon = newPlayerDeck.length > 0;
+      if (playerWon) playGameWin(); else playGameLose();
+      // Quest: vença 3 duelos
+      if (playerWon) { incrementQuest('win3'); refreshQuests(); }
+      // Quest: vença com Legendary (card no topo do deck antes de ser removida)
+      if (playerWon && playerCard) {
+        const isLegendary = playerCard.isSuperTrunfo;
+        if (isLegendary) { incrementQuest('legwin'); refreshQuests(); }
+      }
+      // Persistir resultado no ranking e atualizar moedas
+      if (userProfile) {
+        upsertGameResult({
+          playerName: userProfile.name,
+          won: playerWon,
+          playerCardsLeft: newPlayerDeck.length,
+          totalCards: deck.length,
+          difficulty: difficulty,
+        }).then(newCurrency => setCurrency(newCurrency));
+      }
       setGameState(GameState.GameOver);
     } else {
       setRoundResult(null);
@@ -381,15 +459,61 @@ const App: React.FC = () => {
     }
   };
   
-  const handleLogout = () => {
+  const handleLogout = async () => {
     window.google?.accounts?.id?.disableAutoSelect?.();
+    await supabaseSignOut();
     setUserProfile(null);
     setIsAdmin(false);
     setGameState(GameState.Menu);
   };
 
+  // Persist/clear game snapshot for Continue Banner
+  useEffect(() => {
+    if (gameState === GameState.Playing || gameState === GameState.RoundResult) {
+      const round = (playerDeck.length || 0) + (aiDeck.length || 0) > 0
+        ? Math.abs(playerDeck.length - aiDeck.length) + 1
+        : 1;
+      const info = { round, isMultiplayer };
+      localStorage.setItem('savedGame', JSON.stringify({ playerDeck, aiDeck, isPlayerTurn, matchHistory, isMultiplayer, difficulty, roundResult, info }));
+      setHasSavedGame(true);
+      setSavedGameInfo(info);
+    } else if (gameState === GameState.GameOver || gameState === GameState.Menu) {
+      localStorage.removeItem('savedGame');
+      setHasSavedGame(false);
+      setSavedGameInfo(null);
+    }
+  }, [gameState, playerDeck, aiDeck]);
+
+  const handleContinueGame = () => {
+    try {
+      const raw = localStorage.getItem('savedGame');
+      if (!raw) return;
+      const saved = JSON.parse(raw);
+      setPlayerDeck(saved.playerDeck ?? []);
+      setAiDeck(saved.aiDeck ?? []);
+      setIsPlayerTurn(saved.isPlayerTurn ?? true);
+      setMatchHistory(saved.matchHistory ?? []);
+      setIsMultiplayer(saved.isMultiplayer ?? false);
+      setDifficulty(saved.difficulty ?? Difficulty.Normal);
+      setRoundResult(saved.roundResult ?? null);
+      setGameState(saved.roundResult ? GameState.RoundResult : GameState.Playing);
+    } catch { /* corrupted save, ignore */ }
+  };
+
   const handleBackToMenu = () => {
     setGameState(GameState.Menu);
+  };
+
+  const handleGoToRanking = async () => {
+    setGameState(GameState.Ranking);
+    const rows: RankingRow[] = await fetchRanking(20);
+    const entries: RankingEntry[] = rows.map((r, i) => ({
+      rank: i + 1,
+      user: { name: r.player_name, picture: `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(r.player_name)}` },
+      wins: r.games_won,
+      score: r.total_score,
+    }));
+    setRankingData(entries);
   };
   
   const handleSaveCard = (cardToSave: CardData) => {
@@ -421,56 +545,78 @@ const App: React.FC = () => {
         const p2Turn = !isPlayerTurn && isMultiplayer;
         const opponentLabel = isMultiplayer ? 'JOGADOR 2' : 'ORÁCULO';
         return (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 28 }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: 24, width: '100%', alignItems: 'start' }}>
-              {/* Player side */}
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  {userProfile?.picture && (
-                    <img src={userProfile.picture} alt="" style={{ width: 30, height: 30, borderRadius: '50%', border: '2px solid #f4c349' }} />
-                  )}
-                  <span style={{ fontFamily: 'Cinzel, serif', fontWeight: 900, fontSize: 15, letterSpacing: '.15em', color: '#fff8e1' }}>
-                    {(userProfile?.name || 'JOGADOR 1').toUpperCase()}
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: isMobile ? 16 : 28 }}>
+            {isMobile ? (
+              /* Mobile: stack vertically */
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, width: '100%' }}>
+                {/* Opponent top */}
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+                  <span style={{ fontFamily: 'Cinzel, serif', fontWeight: 900, fontSize: 11, letterSpacing: '.15em', color: p2Turn ? '#fff8e1' : 'rgba(255,236,196,.6)' }}>
+                    {opponentLabel}
                   </span>
+                  <Card card={aiCard} isFaceDown={!p2Turn} isPlayerTurn={p2Turn} onAttributeSelect={p2Turn ? handleP2AttributeSelect : undefined} advantageBonus={p2Turn && p2Advantage ? p2Advantage : undefined} />
+                  <div style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 10, color: 'rgba(244,195,73,.7)', padding: '2px 10px', border: '1px solid rgba(244,195,73,.3)' }}>{aiDeck.length} cartas</div>
                 </div>
-                <Card card={playerCard} isPlayerTurn={isPlayerTurn} onAttributeSelect={handleAttributeSelect} advantageBonus={playerAdvantage ?? undefined} />
-                <div style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 11, color: 'rgba(244,195,73,.7)', padding: '3px 12px', border: '1px solid rgba(244,195,73,.3)' }}>
-                  {playerDeck.length} cartas
+                {/* Divider */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', justifyContent: 'center' }}>
+                  <div style={{ flex: 1, height: 1, background: 'linear-gradient(90deg, transparent, #f4c349)' }} />
+                  <span style={{ fontFamily: 'Cinzel, serif', fontWeight: 900, fontSize: 20, color: '#f4c349' }}>⚔</span>
+                  <div style={{ flex: 1, height: 1, background: 'linear-gradient(90deg, #f4c349, transparent)' }} />
                 </div>
-              </div>
-
-              {/* Center separator */}
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, paddingTop: 72 }}>
-                <div style={{ width: 1, height: 36, background: 'linear-gradient(180deg, transparent, #f4c349)' }} />
-                <span style={{ fontFamily: 'Cinzel, serif', fontWeight: 900, fontSize: 28, color: '#f4c349' }}>⚔</span>
-                <div style={{ width: 1, height: 36, background: 'linear-gradient(180deg, #f4c349, transparent)' }} />
-              </div>
-
-              {/* Opponent side */}
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
-                <span style={{ fontFamily: 'Cinzel, serif', fontWeight: 900, fontSize: 15, letterSpacing: '.15em', color: p2Turn ? '#fff8e1' : 'rgba(255,236,196,.6)' }}>
-                  {opponentLabel}
-                </span>
-                <Card
-                  card={aiCard}
-                  isFaceDown={!p2Turn}
-                  isPlayerTurn={p2Turn}
-                  onAttributeSelect={p2Turn ? handleP2AttributeSelect : undefined}
-                  advantageBonus={p2Turn && p2Advantage ? p2Advantage : undefined}
-                />
-                <div style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 11, color: 'rgba(244,195,73,.7)', padding: '3px 12px', border: '1px solid rgba(244,195,73,.3)' }}>
-                  {aiDeck.length} cartas
+                {/* Player bottom */}
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    {userProfile?.picture && <img src={userProfile.picture} alt="" style={{ width: 24, height: 24, borderRadius: '50%', border: '2px solid #f4c349' }} />}
+                    <span style={{ fontFamily: 'Cinzel, serif', fontWeight: 900, fontSize: 11, letterSpacing: '.15em', color: '#fff8e1' }}>{(userProfile?.name || 'JOGADOR 1').toUpperCase()}</span>
+                  </div>
+                  <Card card={playerCard} isPlayerTurn={isPlayerTurn} onAttributeSelect={handleAttributeSelect} advantageBonus={playerAdvantage ?? undefined} />
+                  <div style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 10, color: 'rgba(244,195,73,.7)', padding: '2px 10px', border: '1px solid rgba(244,195,73,.3)' }}>{playerDeck.length} cartas</div>
                 </div>
               </div>
-            </div>
+            ) : (
+              /* Desktop: side-by-side grid */
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: 24, width: '100%', alignItems: 'start' }}>
+                {/* Player side */}
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    {userProfile?.picture && (
+                      <img src={userProfile.picture} alt="" style={{ width: 30, height: 30, borderRadius: '50%', border: '2px solid #f4c349' }} />
+                    )}
+                    <span style={{ fontFamily: 'Cinzel, serif', fontWeight: 900, fontSize: 15, letterSpacing: '.15em', color: '#fff8e1' }}>
+                      {(userProfile?.name || 'JOGADOR 1').toUpperCase()}
+                    </span>
+                  </div>
+                  <Card card={playerCard} isPlayerTurn={isPlayerTurn} onAttributeSelect={handleAttributeSelect} advantageBonus={playerAdvantage ?? undefined} />
+                  <div style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 11, color: 'rgba(244,195,73,.7)', padding: '3px 12px', border: '1px solid rgba(244,195,73,.3)' }}>
+                    {playerDeck.length} cartas
+                  </div>
+                </div>
+                {/* Center separator */}
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, paddingTop: 72 }}>
+                  <div style={{ width: 1, height: 36, background: 'linear-gradient(180deg, transparent, #f4c349)' }} />
+                  <span style={{ fontFamily: 'Cinzel, serif', fontWeight: 900, fontSize: 28, color: '#f4c349' }}>⚔</span>
+                  <div style={{ width: 1, height: 36, background: 'linear-gradient(180deg, #f4c349, transparent)' }} />
+                </div>
+                {/* Opponent side */}
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+                  <span style={{ fontFamily: 'Cinzel, serif', fontWeight: 900, fontSize: 15, letterSpacing: '.15em', color: p2Turn ? '#fff8e1' : 'rgba(255,236,196,.6)' }}>
+                    {opponentLabel}
+                  </span>
+                  <Card card={aiCard} isFaceDown={!p2Turn} isPlayerTurn={p2Turn} onAttributeSelect={p2Turn ? handleP2AttributeSelect : undefined} advantageBonus={p2Turn && p2Advantage ? p2Advantage : undefined} />
+                  <div style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 11, color: 'rgba(244,195,73,.7)', padding: '3px 12px', border: '1px solid rgba(244,195,73,.3)' }}>
+                    {aiDeck.length} cartas
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Status bar */}
             <div style={{
-              padding: '10px 20px', maxWidth: 560, width: '100%',
+              padding: isMobile ? '8px 12px' : '10px 20px', maxWidth: 560, width: '100%',
               background: 'rgba(10,5,0,.65)', border: '1px solid rgba(244,195,73,.2)',
-              fontFamily: 'Cinzel, serif', fontSize: 12, letterSpacing: '.2em',
-              minHeight: 52, display: 'flex', alignItems: 'center',
-              justifyContent: (isPlayerTurn || p2Turn) ? 'space-between' : 'center', gap: 14,
+              fontFamily: 'Cinzel, serif', fontSize: isMobile ? 9 : 12, letterSpacing: isMobile ? '.1em' : '.2em',
+              minHeight: isMobile ? 44 : 52, display: 'flex', alignItems: 'center',
+              justifyContent: (isPlayerTurn || p2Turn) ? 'space-between' : 'center', gap: 10,
             }}>
               <div style={{ flex: 1, textAlign: 'center' }}>
                 {isPlayerTurn && playerAdvantage && (
@@ -515,8 +661,8 @@ const App: React.FC = () => {
                         color: '#1a0e04', display: 'flex', alignItems: 'center', justifyContent: 'center',
                         fontFamily: 'Cinzel, serif', fontWeight: 900, fontSize: 10,
                       }}>{h.winner === 'player' ? 'V' : h.winner === 'ai' ? 'D' : '='}</div>
-                      <div style={{ fontFamily: 'Cinzel, serif', fontSize: 9, letterSpacing: '.15em', color: 'rgba(255,236,196,.7)' }}>
-                        {h.attribute.toUpperCase()} · {h.playerCard.name} vs {h.aiCard.name}
+                      <div style={{ fontFamily: 'Cinzel, serif', fontSize: 9, letterSpacing: '.1em', color: 'rgba(255,236,196,.7)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {h.attribute.toUpperCase()} · {isMobile ? h.playerCard.name.split(' ')[0] : h.playerCard.name} vs {isMobile ? h.aiCard.name.split(' ')[0] : h.aiCard.name}
                       </div>
                       <div style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 10, color: 'rgba(244,195,73,.6)' }}>
                         {h.playerValue} × {h.aiValue}
@@ -543,14 +689,50 @@ const App: React.FC = () => {
         const resultColor = winner === 'player' ? '#f4c349' : winner === 'ai' ? '#d94a4a' : 'rgba(255,236,196,.8)';
 
         return (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 28 }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: 24, width: '100%', alignItems: 'start' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: isMobile ? 14 : 28 }}>
+            {isMobile ? (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, width: '100%' }}>
+                {/* Opponent top */}
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+                  <span style={{ fontFamily: 'Cinzel, serif', fontWeight: 900, fontSize: 11, letterSpacing: '.15em', color: 'rgba(255,236,196,.6)' }}>{opponentLabelResult}</span>
+                  <div className={
+                    transferAnim === 'player-wins' ? 'card-transfer-fly-up' :
+                    transferAnim === 'ai-wins' ? 'card-winner-glow' : ''
+                  }>
+                    <Card card={aiCard} isFaceDown={!isRevealing} highlightedAttribute={attribute} isWinner={isRevealing && winner === 'ai'} isLoser={isRevealing && winner === 'player'} />
+                  </div>
+                  <div style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 10, color: 'rgba(244,195,73,.7)', padding: '2px 10px', border: '1px solid rgba(244,195,73,.3)' }}>{aiDeck.length} cartas</div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', justifyContent: 'center', transition: 'opacity 0.5s', opacity: showResultInfo ? 1 : 0 }}>
+                  <div style={{ flex: 1, height: 1, background: 'linear-gradient(90deg, transparent, #f4c349)' }} />
+                  <span style={{ fontFamily: 'Cinzel, serif', fontWeight: 900, fontSize: 20, color: '#f4c349' }}>⚔</span>
+                  <div style={{ flex: 1, height: 1, background: 'linear-gradient(90deg, #f4c349, transparent)' }} />
+                </div>
+                {/* Player bottom */}
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+                  <span style={{ fontFamily: 'Cinzel, serif', fontWeight: 900, fontSize: 11, letterSpacing: '.15em', color: '#fff8e1' }}>{p1Label}</span>
+                  <div className={
+                    transferAnim === 'ai-wins' ? 'card-transfer-fly-down' :
+                    transferAnim === 'player-wins' ? 'card-winner-glow' : ''
+                  }>
+                    <Card card={playerCard} highlightedAttribute={attribute} isWinner={isRevealing && winner === 'player'} isLoser={isRevealing && winner === 'ai'} />
+                  </div>
+                  <div style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 10, color: 'rgba(244,195,73,.7)', padding: '2px 10px', border: '1px solid rgba(244,195,73,.3)' }}>{playerDeck.length} cartas</div>
+                </div>
+              </div>
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: 24, width: '100%', alignItems: 'start' }}>
               {/* Player */}
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
                 <span style={{ fontFamily: 'Cinzel, serif', fontWeight: 900, fontSize: 15, letterSpacing: '.15em', color: '#fff8e1' }}>
                   {p1Label}
                 </span>
-                <Card card={playerCard} highlightedAttribute={attribute} isWinner={isRevealing && winner === 'player'} isLoser={isRevealing && winner === 'ai'} />
+                <div className={
+                  transferAnim === 'ai-wins' ? 'card-transfer-fly-left' :
+                  transferAnim === 'player-wins' ? 'card-winner-glow' : ''
+                }>
+                  <Card card={playerCard} highlightedAttribute={attribute} isWinner={isRevealing && winner === 'player'} isLoser={isRevealing && winner === 'ai'} />
+                </div>
                 <div style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 11, color: 'rgba(244,195,73,.7)', padding: '3px 12px', border: '1px solid rgba(244,195,73,.3)' }}>
                   {playerDeck.length} cartas
                 </div>
@@ -568,16 +750,22 @@ const App: React.FC = () => {
                 <span style={{ fontFamily: 'Cinzel, serif', fontWeight: 900, fontSize: 15, letterSpacing: '.15em', color: 'rgba(255,236,196,.6)' }}>
                   {opponentLabelResult}
                 </span>
-                <Card card={aiCard} isFaceDown={!isRevealing} highlightedAttribute={attribute} isWinner={isRevealing && winner === 'ai'} isLoser={isRevealing && winner === 'player'} />
+                <div className={
+                  transferAnim === 'player-wins' ? 'card-transfer-fly-right' :
+                  transferAnim === 'ai-wins' ? 'card-winner-glow' : ''
+                }>
+                  <Card card={aiCard} isFaceDown={!isRevealing} highlightedAttribute={attribute} isWinner={isRevealing && winner === 'ai'} isLoser={isRevealing && winner === 'player'} />
+                </div>
                 <div style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 11, color: 'rgba(244,195,73,.7)', padding: '3px 12px', border: '1px solid rgba(244,195,73,.3)' }}>
                   {aiDeck.length} cartas
                 </div>
               </div>
             </div>
+            )}
 
             {/* Result panel */}
             <div style={{
-              padding: '22px 36px', maxWidth: 600, width: '100%', textAlign: 'center',
+              padding: isMobile ? '16px 16px' : '22px 36px', maxWidth: 600, width: '100%', textAlign: 'center',
               background: 'linear-gradient(180deg, rgba(20,8,10,.9), rgba(10,5,0,.7))',
               border: '1px solid rgba(244,195,73,.3)',
               transition: 'opacity 0.5s', opacity: showResultInfo ? 1 : 0,
@@ -585,7 +773,7 @@ const App: React.FC = () => {
             }}>
               {showResultInfo && (
                 <>
-                  <p style={{ fontFamily: 'Cinzel, serif', fontWeight: 900, fontSize: 20, letterSpacing: '.08em', color: resultColor, margin: 0 }}>
+                  <p style={{ fontFamily: 'Cinzel, serif', fontWeight: 900, fontSize: isMobile ? 15 : 20, letterSpacing: '.08em', color: resultColor, margin: 0 }}>
                     {resultText}
                   </p>
                   {playerBonus > 0 && winner === 'player' && (
@@ -599,7 +787,7 @@ const App: React.FC = () => {
                     </p>
                   )}
                   {showNextRoundButton && (
-                    <button onClick={handleNextRound} style={{
+                    <button onClick={handleNextRoundAnimated} style={{
                       marginTop: 6, fontFamily: 'Cinzel, serif', fontWeight: 700, fontSize: 11, letterSpacing: '.3em',
                       color: '#1a0e04', padding: '11px 24px', cursor: 'pointer',
                       background: 'linear-gradient(180deg,#f4c349,#8a6a2a)',
@@ -619,7 +807,7 @@ const App: React.FC = () => {
       case GameState.GameOver: {
         const playerWon = playerDeck.length > 0;
         return (
-          <div style={{ textAlign: 'center', maxWidth: 700, margin: '0 auto', padding: '60px 0' }}>
+          <div style={{ textAlign: 'center', maxWidth: 700, margin: '0 auto', padding: isMobile ? '30px 0' : '60px 0' }}>
             <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 14, marginBottom: 20 }}>
               <span style={{ width: 48, height: 1, background: '#f4c349', display: 'block' }} />
               <span style={{ fontFamily: 'Cinzel, serif', fontSize: 10, letterSpacing: '.5em', color: '#f4c349' }}>
@@ -667,7 +855,7 @@ const App: React.FC = () => {
       }
 
       case GameState.Ranking:
-        return <Ranking rankingData={[]} onBack={handleBackToMenu} />;
+        return <Ranking rankingData={rankingData} onBack={handleBackToMenu} />;
 
       case GameState.Admin:
         return <AdminPanel cards={deck} onSave={handleSaveCard} onDelete={handleDeleteCard} onBack={handleBackToMenu} />;
@@ -682,14 +870,21 @@ const App: React.FC = () => {
           userProfile={userProfile}
           isAdmin={isAdmin}
           difficulty={difficulty}
+          muted={muted}
+          hasSavedGame={hasSavedGame}
+          savedGameInfo={savedGameInfo}
+          questProgress={questProgress}
+          currency={currency}
           onStartGame={startGame}
           onStartMultiplayer={() => startGame(true)}
+          onContinueGame={handleContinueGame}
           onSetDifficulty={setDifficulty}
-          onGoToRanking={() => setGameState(GameState.Ranking)}
+          onGoToRanking={handleGoToRanking}
           onGoToAdmin={() => setGameState(GameState.Admin)}
           onGoToCollection={() => setGameState(GameState.Collection)}
           onGoToRules={() => setGameState(GameState.Rules)}
           onLogout={handleLogout}
+          onToggleMute={() => setMuted(p => !p)}
         />
       );
     }
@@ -699,7 +894,7 @@ const App: React.FC = () => {
         isAdmin={isAdmin}
         isClientIdConfigured={isClientIdConfigured}
         onStartGame={startGame}
-        onGoToRanking={() => setGameState(GameState.Ranking)}
+        onGoToRanking={handleGoToRanking}
         onGoToAdmin={() => setGameState(GameState.Admin)}
         onGoToRules={() => setGameState(GameState.Rules)}
       />
@@ -718,7 +913,7 @@ const App: React.FC = () => {
           isAdmin={false}
           isClientIdConfigured={isClientIdConfigured}
           onStartGame={startGame}
-          onGoToRanking={() => setGameState(GameState.Ranking)}
+          onGoToRanking={handleGoToRanking}
           onGoToAdmin={() => setGameState(GameState.Admin)}
           onGoToRules={() => setGameState(GameState.Rules)}
         />
@@ -728,7 +923,7 @@ const App: React.FC = () => {
       <Collection
         userProfile={userProfile}
         onStartGame={startGame}
-        onGoToRanking={() => setGameState(GameState.Ranking)}
+        onGoToRanking={handleGoToRanking}
         onGoToCollection={() => setGameState(GameState.Collection)}
         onBack={() => setGameState(GameState.Menu)}
         onLogout={handleLogout}
@@ -752,7 +947,7 @@ const App: React.FC = () => {
         `,
         backgroundSize: '400px 320px', opacity: 0.3,
       }} />
-      <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', padding: '40px 48px' }}>
+      <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', padding: isMobile ? '20px 16px' : '40px 48px' }}>
         <div style={{ width: '100%', maxWidth: 1200 }}>
           {renderGameState()}
         </div>

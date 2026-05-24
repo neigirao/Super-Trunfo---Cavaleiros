@@ -1,4 +1,8 @@
 let ctx: AudioContext | null = null;
+let _muted = false;
+
+export const setMuted = (v: boolean) => { _muted = v; };
+export const isSoundMuted = () => _muted;
 
 const getCtx = (): AudioContext => {
   if (!ctx) ctx = new AudioContext();
@@ -7,6 +11,7 @@ const getCtx = (): AudioContext => {
 };
 
 export const playCardFlip = () => {
+  if (_muted) return;
   try {
     const c = getCtx();
     const dur = 0.1;
@@ -31,6 +36,7 @@ export const playCardFlip = () => {
 };
 
 export const playRoundWin = () => {
+  if (_muted) return;
   try {
     const c = getCtx();
     const now = c.currentTime;
@@ -51,6 +57,7 @@ export const playRoundWin = () => {
 };
 
 export const playRoundLose = () => {
+  if (_muted) return;
   try {
     const c = getCtx();
     const now = c.currentTime;
@@ -71,6 +78,7 @@ export const playRoundLose = () => {
 };
 
 export const playRoundDraw = () => {
+  if (_muted) return;
   try {
     const c = getCtx();
     const now = c.currentTime;
@@ -88,6 +96,7 @@ export const playRoundDraw = () => {
 };
 
 export const playGameWin = () => {
+  if (_muted) return;
   try {
     const c = getCtx();
     const now = c.currentTime;
@@ -108,6 +117,7 @@ export const playGameWin = () => {
 };
 
 export const playGameLose = () => {
+  if (_muted) return;
   try {
     const c = getCtx();
     const now = c.currentTime;

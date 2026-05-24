@@ -2,19 +2,29 @@ import React from 'react';
 import { UserProfile, Difficulty } from '../types';
 import { ELEMENTS } from '../shared';
 import { CosmicBG, PeriodicTile, HomeFooter } from './HomeMenu';
+import { useIsMobile } from '../utils/mobile';
+import { QUESTS } from '../utils/quests';
+import { PlayerCurrency } from '../utils/supabase';
 
 export interface DashboardProps {
   userProfile: UserProfile;
   isAdmin: boolean;
   difficulty: Difficulty;
+  muted: boolean;
+  hasSavedGame: boolean;
+  savedGameInfo: { round: number; isMultiplayer: boolean } | null;
+  questProgress: Record<string, number>;
+  currency: PlayerCurrency;
   onStartGame: () => void;
   onStartMultiplayer: () => void;
+  onContinueGame: () => void;
   onSetDifficulty: (d: Difficulty) => void;
   onGoToRanking: () => void;
   onGoToAdmin: () => void;
   onGoToCollection: () => void;
   onGoToRules: () => void;
   onLogout: () => void;
+  onToggleMute: () => void;
 }
 
 // ─── Style tokens ───────────────────────────────────────────
@@ -48,20 +58,24 @@ const Currency: React.FC<{ icon: string; label: string; value: string }> = ({ ic
 // ─── Header ─────────────────────────────────────────────────
 export interface LoggedHeaderProps {
   userProfile: UserProfile;
+  muted?: boolean;
+  currency?: PlayerCurrency;
   onStartGame: () => void;
   onGoToRanking: () => void;
   onGoToCollection?: () => void;
   onGoToRules?: () => void;
   onLogout?: () => void;
+  onToggleMute?: () => void;
 }
-export const LoggedHeader: React.FC<LoggedHeaderProps> = ({ userProfile, onStartGame, onGoToRanking, onGoToCollection, onGoToRules, onLogout }) => {
+export const LoggedHeader: React.FC<LoggedHeaderProps> = ({ userProfile, muted, currency, onStartGame, onGoToRanking, onGoToCollection, onGoToRules, onLogout, onToggleMute }) => {
+  const isMobile = useIsMobile();
   const initials = userProfile.name.slice(0, 2).toUpperCase();
   const displayName = userProfile.name.toUpperCase();
   return (
     <header style={{
       position: 'sticky', top: 0, zIndex: 50,
-      display: 'grid', gridTemplateColumns: 'auto 1fr auto', alignItems: 'center', gap: 24,
-      padding: '14px 36px',
+      display: 'grid', gridTemplateColumns: isMobile ? 'auto 1fr' : 'auto 1fr auto', alignItems: 'center', gap: isMobile ? 12 : 24,
+      padding: isMobile ? '12px 16px' : '14px 36px',
       background: 'rgba(10,5,0,.9)',
       borderBottom: '2px solid #f4c349',
       backdropFilter: 'blur(10px)',
@@ -87,7 +101,7 @@ export const LoggedHeader: React.FC<LoggedHeaderProps> = ({ userProfile, onStart
         </div>
       </div>
 
-      <nav style={{ display: 'flex', justifyContent: 'center', gap: 28 }}>
+      {!isMobile && <nav style={{ display: 'flex', justifyContent: 'center', gap: 28 }}>
         {([
           ['◇', 'JOGAR',   true,  onStartGame],
           ['◈', 'COLEÇÃO', false, onGoToCollection],
@@ -104,25 +118,17 @@ export const LoggedHeader: React.FC<LoggedHeaderProps> = ({ userProfile, onStart
             <span style={{ color: '#f4c349' }}>{g}</span>{n}
           </a>
         ))}
-      </nav>
+      </nav>}
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-        <Currency icon="✦" label="COSMO" value="1,240" />
-        <Currency icon="◆" label="PÓ" value="385" />
-        <div style={{ position: 'relative' }}>
-          <button style={{
-            width: 38, height: 38, border: '1px solid rgba(244,195,73,.4)',
-            background: 'transparent', color: '#f4c349', cursor: 'pointer',
-            fontSize: 16,
-          }}>♪</button>
-          <div style={{
-            position: 'absolute', top: -4, right: -4, width: 18, height: 18, borderRadius: '50%',
-            background: '#d94a4a', color: '#fff',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontFamily: 'IBM Plex Mono, monospace', fontWeight: 700, fontSize: 10,
-            border: '1px solid #1a0e04',
-          }}>3</div>
-        </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 8 : 14, justifyContent: 'flex-end' }}>
+        {!isMobile && <Currency icon="✦" label="COSMO" value={(currency?.cosmo ?? 0).toLocaleString('pt-BR')} />}
+        {!isMobile && <Currency icon="◆" label="PÓ" value={(currency?.po ?? 0).toLocaleString('pt-BR')} />}
+        <button onClick={onToggleMute} title={muted ? 'Ativar som' : 'Silenciar'} style={{
+          width: 38, height: 38, border: `1px solid ${muted ? 'rgba(217,74,74,.5)' : 'rgba(244,195,73,.4)'}`,
+          background: muted ? 'rgba(217,74,74,.1)' : 'transparent',
+          color: muted ? '#d94a4a' : '#f4c349', cursor: 'pointer',
+          fontSize: 16,
+        }}>{muted ? '🔇' : '♪'}</button>
         <div style={{
           display: 'flex', alignItems: 'center', gap: 10, padding: '4px 12px 4px 4px',
           border: '1px solid rgba(244,195,73,.3)', background: 'rgba(244,195,73,.05)',
@@ -164,13 +170,23 @@ export const LoggedHeader: React.FC<LoggedHeaderProps> = ({ userProfile, onStart
 };
 
 // ─── Continue banner ─────────────────────────────────────────
-interface ContinueBannerProps { userName: string; onStartGame: () => void; }
-const ContinueBanner: React.FC<ContinueBannerProps> = ({ userName, onStartGame }) => (
+interface ContinueBannerProps {
+  userName: string;
+  hasSavedGame: boolean;
+  savedGameInfo: { round: number; isMultiplayer: boolean } | null;
+  onContinueGame: () => void;
+}
+const ContinueBanner: React.FC<ContinueBannerProps> = ({ userName, hasSavedGame, savedGameInfo, onContinueGame }) => {
+  const isMobile = useIsMobile();
+  if (!hasSavedGame) return null;
+  const opponentLabel = savedGameInfo?.isMultiplayer ? 'JOGADOR 2' : 'IA';
+  const roundLabel = savedGameInfo ? `Rodada ${savedGameInfo.round}` : '';
+  return (
   <div style={{
     background: 'linear-gradient(90deg, rgba(244,195,73,.18), rgba(244,195,73,.05) 40%, transparent)',
     borderBottom: '1px solid rgba(244,195,73,.3)',
-    padding: '12px 36px',
-    display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 18,
+    padding: isMobile ? '10px 16px' : '12px 36px',
+    display: 'flex', alignItems: isMobile ? 'flex-start' : 'center', flexDirection: isMobile ? 'column' : 'row', justifyContent: 'space-between', gap: 12,
   }}>
     <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
       <div style={{
@@ -185,29 +201,29 @@ const ContinueBanner: React.FC<ContinueBannerProps> = ({ userName, onStartGame }
           · PARTIDA EM ANDAMENTO ·
         </div>
         <div style={{ fontFamily: 'Cinzel, serif', fontWeight: 700, fontSize: 13, letterSpacing: '.1em', color: '#fff8e1', marginTop: 2 }}>
-          {userName} <span style={{ color: '#f4c349' }}>vs</span> SELENE · Round II/V · Aguardando sua jogada
+          {userName} <span style={{ color: '#f4c349' }}>vs</span> {opponentLabel} · {roundLabel} · Aguardando sua jogada
         </div>
       </div>
     </div>
-    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-      <div style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 11, color: 'rgba(244,195,73,.7)' }}>02:14 RESTANTES</div>
-      <a href="#" onClick={(e) => { e.preventDefault(); onStartGame(); }} style={{
-        padding: '10px 22px', textDecoration: 'none',
-        background: 'linear-gradient(180deg,#f4c349,#8a6a2a)', color: '#1a0e04',
-        border: '1px solid #f4c349',
-        fontFamily: 'Cinzel, serif', fontWeight: 900, fontSize: 10, letterSpacing: '.32em',
-        boxShadow: '0 0 16px rgba(244,195,73,.5)',
-      }}>RETORNAR AO DUELO →</a>
-    </div>
+    <button onClick={onContinueGame} style={{
+      padding: '10px 22px',
+      background: 'linear-gradient(180deg,#f4c349,#8a6a2a)', color: '#1a0e04',
+      border: '1px solid #f4c349', cursor: 'pointer',
+      fontFamily: 'Cinzel, serif', fontWeight: 900, fontSize: 10, letterSpacing: '.32em',
+      boxShadow: '0 0 16px rgba(244,195,73,.5)',
+    }}>RETORNAR AO DUELO →</button>
   </div>
-);
+  );
+};
 
 // ─── Greeting hero ───────────────────────────────────────────
 interface GreetingHeroProps { userName: string; }
-const GreetingHero: React.FC<GreetingHeroProps> = ({ userName }) => (
+const GreetingHero: React.FC<GreetingHeroProps> = ({ userName }) => {
+  const isMobile = useIsMobile();
+  return (
   <section style={{
     position: 'relative',
-    padding: '40px 36px', marginTop: 24,
+    padding: isMobile ? '20px 16px' : '40px 36px', marginTop: 24,
     background: 'linear-gradient(135deg, rgba(20,8,10,.8), rgba(10,5,0,.6))',
     border: '1px solid rgba(244,195,73,.3)',
     overflow: 'hidden',
@@ -222,7 +238,7 @@ const GreetingHero: React.FC<GreetingHeroProps> = ({ userName }) => (
       opacity: .6, pointerEvents: 'none',
     }} />
     <PeriodicTile opacity={0.04} />
-    <div style={{ position: 'relative', zIndex: 2, display: 'grid', gridTemplateColumns: '1fr auto', gap: 30, alignItems: 'center' }}>
+    <div style={{ position: 'relative', zIndex: 2, display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr auto', gap: 30, alignItems: 'center' }}>
       <div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 10 }}>
           <span style={{ width: 32, height: 1, background: '#f4c349', display: 'block' }} />
@@ -262,7 +278,8 @@ const GreetingHero: React.FC<GreetingHeroProps> = ({ userName }) => (
       </div>
     </div>
   </section>
-);
+  );
+};
 
 // ─── Difficulty selector ─────────────────────────────────────
 interface DifficultySelectorProps { difficulty: Difficulty; onSetDifficulty: (d: Difficulty) => void; }
@@ -298,6 +315,7 @@ const DifficultySelector: React.FC<DifficultySelectorProps> = ({ difficulty, onS
 // ─── Quick actions ───────────────────────────────────────────
 interface QuickActionsProps { onStartGame: () => void; onStartMultiplayer: () => void; onGoToCollection: () => void; difficulty: Difficulty; onSetDifficulty: (d: Difficulty) => void; }
 const QuickActions: React.FC<QuickActionsProps> = ({ onStartGame, onStartMultiplayer, onGoToCollection, difficulty, onSetDifficulty }) => {
+  const isMobile = useIsMobile();
   const items = [
     { tag: 'I',   name: 'BATALHA vs IA',    sub: 'Solo · vs Oráculo',          icon: '⚔', primary: true,  meta: 'Jogue contra a IA',                 action: onStartGame },
     { tag: 'II',  name: 'TREINO LOCAL',     sub: '2 Jogadores · mesma tela',   icon: '◇', primary: false, meta: 'Multiplayer local sem ranking',      action: onStartMultiplayer },
@@ -307,7 +325,7 @@ const QuickActions: React.FC<QuickActionsProps> = ({ onStartGame, onStartMultipl
   return (
     <section style={{ marginTop: 24 }}>
       <DifficultySelector difficulty={difficulty} onSetDifficulty={onSetDifficulty} />
-      <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr 1fr 1fr', gap: 18 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2,1fr)' : '1.4fr 1fr 1fr 1fr', gap: 18 }}>
       {items.map(a => (
         <a key={a.name} href="#" onClick={(e) => { e.preventDefault(); if (!a.locked) a.action?.(); }} style={{
           position: 'relative', padding: '24px 22px', textDecoration: 'none',
@@ -404,31 +422,30 @@ const Panel: React.FC<PanelProps> = ({ preLabel, title, sub, right, children }) 
 );
 
 // ─── Daily quests ────────────────────────────────────────────
-const DailyQuests: React.FC = () => {
-  const quests = [
-    { icon: '⚔', name: 'Vença 3 duelos ranqueados',    prog: 2, total: 3, rwd: '+120 Cosmo', done: false },
-    { icon: '◇', name: 'Jogue um Cavaleiro do grupo 1', prog: 1, total: 1, rwd: '+45 Pó',      done: true  },
-    { icon: '✦', name: 'Aposte em Densidade 5×',        prog: 3, total: 5, rwd: '+90 Cosmo',   done: false },
-    { icon: '♛', name: 'Vença com cavaleiro Legendary', prog: 0, total: 1, rwd: '+1 Pacote',   done: false },
-  ];
+interface DailyQuestsProps { progress: Record<string, number>; }
+const DailyQuests: React.FC<DailyQuestsProps> = ({ progress }) => {
+  const completedCount = QUESTS.filter(q => (progress[q.id] ?? 0) >= q.total).length;
   return (
-    <Panel preLabel="· MISSIONES DIARIAE ·" title="DESAFIOS DO DIA" sub="Renovam em 06h 24min · 3 de 4 reivindicáveis">
+    <Panel preLabel="· MISSIONES DIARIAE ·" title="DESAFIOS DO DIA" sub={`Renovam à meia-noite · ${completedCount} de ${QUESTS.length} concluídos`}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        {quests.map((q, i) => (
-          <div key={i} style={{
+        {QUESTS.map(q => {
+          const prog = progress[q.id] ?? 0;
+          const done = prog >= q.total;
+          return (
+          <div key={q.id} style={{
             display: 'grid', gridTemplateColumns: 'auto 1fr auto auto', alignItems: 'center', gap: 14,
             padding: '12px 16px',
-            background: q.done ? 'rgba(244,195,73,.1)' : 'rgba(244,195,73,.04)',
-            border: `1px solid ${q.done ? 'rgba(244,195,73,.45)' : 'rgba(244,195,73,.15)'}`,
+            background: done ? 'rgba(244,195,73,.1)' : 'rgba(244,195,73,.04)',
+            border: `1px solid ${done ? 'rgba(244,195,73,.45)' : 'rgba(244,195,73,.15)'}`,
           }}>
             <div style={{
               width: 36, height: 36,
-              background: q.done ? '#f4c349' : 'rgba(244,195,73,.1)',
-              border: `1px solid ${q.done ? '#f4c349' : 'rgba(244,195,73,.4)'}`,
+              background: done ? '#f4c349' : 'rgba(244,195,73,.1)',
+              border: `1px solid ${done ? '#f4c349' : 'rgba(244,195,73,.4)'}`,
               clipPath: 'polygon(50% 0,100% 30%,80% 100%,20% 100%,0 30%)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 16, color: q.done ? '#1a0e04' : '#f4c349',
-            }}>{q.done ? '✓' : q.icon}</div>
+              fontSize: 16, color: done ? '#1a0e04' : '#f4c349',
+            }}>{done ? '✓' : q.icon}</div>
             <div>
               <div style={{ fontFamily: 'Cinzel, serif', fontWeight: 700, fontSize: 13, letterSpacing: '.08em', color: '#fff8e1' }}>
                 {q.name}
@@ -436,13 +453,14 @@ const DailyQuests: React.FC = () => {
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }}>
                 <div style={{ height: 3, flex: 1, background: 'rgba(244,195,73,.15)', position: 'relative', maxWidth: 200 }}>
                   <div style={{
-                    position: 'absolute', inset: 0, width: `${(q.prog / q.total) * 100}%`,
-                    background: q.done ? '#f4c349' : 'rgba(244,195,73,.7)',
-                    boxShadow: q.done ? '0 0 8px #f4c349' : 'none',
+                    position: 'absolute', inset: 0, width: `${Math.min((prog / q.total) * 100, 100)}%`,
+                    background: done ? '#f4c349' : 'rgba(244,195,73,.7)',
+                    boxShadow: done ? '0 0 8px #f4c349' : 'none',
+                    transition: 'width 0.4s ease',
                   }} />
                 </div>
                 <span style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 10, color: 'rgba(244,195,73,.7)' }}>
-                  {q.prog} / {q.total}
+                  {prog} / {q.total}
                 </span>
               </div>
             </div>
@@ -451,15 +469,16 @@ const DailyQuests: React.FC = () => {
             </div>
             <button style={{
               padding: '8px 16px',
-              background: q.done ? 'linear-gradient(180deg,#f4c349,#8a6a2a)' : 'transparent',
-              color: q.done ? '#1a0e04' : 'rgba(244,195,73,.4)',
-              border: q.done ? '1px solid #f4c349' : '1px solid rgba(244,195,73,.2)',
+              background: done ? 'linear-gradient(180deg,#f4c349,#8a6a2a)' : 'transparent',
+              color: done ? '#1a0e04' : 'rgba(244,195,73,.4)',
+              border: done ? '1px solid #f4c349' : '1px solid rgba(244,195,73,.2)',
               fontFamily: 'Cinzel, serif', fontWeight: 700, fontSize: 9, letterSpacing: '.3em',
-              cursor: q.done ? 'pointer' : 'default',
-              boxShadow: q.done ? '0 0 14px rgba(244,195,73,.4)' : 'none',
-            }}>{q.done ? 'RECEBER' : 'EM PROGRESSO'}</button>
+              cursor: done ? 'pointer' : 'default',
+              boxShadow: done ? '0 0 14px rgba(244,195,73,.4)' : 'none',
+            }}>{done ? 'RECEBER' : 'EM PROGRESSO'}</button>
           </div>
-        ))}
+          );
+        })}
       </div>
     </Panel>
   );
@@ -564,6 +583,7 @@ const DeckSlot: React.FC<DeckSlotProps> = ({ el }) => {
 
 // ─── Active deck ─────────────────────────────────────────────
 const ActiveDeck: React.FC = () => {
+  const isMobile = useIsMobile();
   const slots: (typeof ELEMENTS[string] & { art?: string } | null)[] = [
     { ...ELEMENTS.Li, art: 'assets/cavaleiro-litio.png' },
     ELEMENTS.H, ELEMENTS.Na, ELEMENTS.O, ELEMENTS.Fe, ELEMENTS.Hg,
@@ -583,14 +603,14 @@ const ActiveDeck: React.FC = () => {
         padding: '24px 26px',
         background: 'linear-gradient(180deg, rgba(20,8,10,.7), rgba(10,5,0,.5))',
         border: '1px solid rgba(244,195,73,.3)',
-        display: 'grid', gridTemplateColumns: 'auto 1fr auto', gap: 24, alignItems: 'center',
+        display: isMobile ? 'flex' : 'grid', flexDirection: isMobile ? 'column' : undefined, gridTemplateColumns: 'auto 1fr auto', gap: 24, alignItems: 'center',
       }}>
         <div style={{ textAlign: 'center', padding: '14px 20px', background: 'rgba(244,195,73,.06)', border: '1px solid rgba(244,195,73,.3)' }}>
           <div style={{ fontFamily: 'Cinzel, serif', fontSize: 9, letterSpacing: '.35em', color: 'rgba(244,195,73,.7)' }}>PODER</div>
           <div style={{ fontFamily: 'Cinzel, serif', fontWeight: 900, fontSize: 32, color: '#fff8e1' }}>842</div>
           <div style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 10, color: '#f4c349' }}>+14 vs ontem</div>
         </div>
-        <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'center', overflowX: isMobile ? 'auto' : undefined }}>
           {slots.map((s, i) => <DeckSlot key={i} el={s} />)}
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 160 }}>
@@ -752,6 +772,7 @@ const SeasonReward: React.FC = () => (
 
 // ─── Friends row ─────────────────────────────────────────────
 const FriendsRow: React.FC = () => {
+  const isMobile = useIsMobile();
   const friends = [
     { name: 'KRATOS',   tag: 'PRATA II',   online: true,  status: 'EM DUELO' },
     { name: 'HEKATE',   tag: 'BRONZE I',   online: true,  status: 'ONLINE'   },
@@ -767,7 +788,7 @@ const FriendsRow: React.FC = () => {
       />
       <div style={{
         padding: '18px 20px', background: 'rgba(20,8,10,.5)', border: '1px solid rgba(244,195,73,.25)',
-        display: 'grid', gridTemplateColumns: 'repeat(6,1fr)', gap: 12,
+        display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2,1fr)' : 'repeat(6,1fr)', gap: 12,
       }}>
         {friends.map((f, i) => (
           <div key={i} style={{
@@ -808,7 +829,8 @@ const FriendsRow: React.FC = () => {
 };
 
 // ─── Dashboard (main export) ─────────────────────────────────
-const Dashboard: React.FC<DashboardProps> = ({ userProfile, isAdmin, difficulty, onStartGame, onStartMultiplayer, onSetDifficulty, onGoToRanking, onGoToAdmin, onGoToCollection, onGoToRules, onLogout }) => {
+const Dashboard: React.FC<DashboardProps> = ({ userProfile, isAdmin, difficulty, muted, hasSavedGame, savedGameInfo, questProgress, currency, onStartGame, onStartMultiplayer, onContinueGame, onSetDifficulty, onGoToRanking, onGoToAdmin, onGoToCollection, onGoToRules, onLogout, onToggleMute }) => {
+  const isMobile = useIsMobile();
   const userName = userProfile.name.toUpperCase();
   return (
     <div style={{
@@ -818,17 +840,17 @@ const Dashboard: React.FC<DashboardProps> = ({ userProfile, isAdmin, difficulty,
     }}>
       <CosmicBG />
       <div style={{ position: 'relative', zIndex: 1 }}>
-        <LoggedHeader userProfile={userProfile} onStartGame={onStartGame} onGoToRanking={onGoToRanking} onGoToCollection={onGoToCollection} onGoToRules={onGoToRules} onLogout={onLogout} />
-        <ContinueBanner userName={userName} onStartGame={onStartGame} />
-        <main style={{ maxWidth: 1400, margin: '0 auto', padding: '24px 36px 60px' }}>
+        <LoggedHeader userProfile={userProfile} muted={muted} currency={currency} onStartGame={onStartGame} onGoToRanking={onGoToRanking} onGoToCollection={onGoToCollection} onGoToRules={onGoToRules} onLogout={onLogout} onToggleMute={onToggleMute} />
+        <ContinueBanner userName={userName} hasSavedGame={hasSavedGame} savedGameInfo={savedGameInfo} onContinueGame={onContinueGame} />
+        <main style={{ maxWidth: 1400, margin: '0 auto', padding: isMobile ? '16px 16px 40px' : '24px 36px 60px' }}>
           <GreetingHero userName={userName} />
           <QuickActions onStartGame={onStartGame} onStartMultiplayer={onStartMultiplayer} onGoToCollection={onGoToCollection} difficulty={difficulty} onSetDifficulty={onSetDifficulty} />
-          <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 24, marginTop: 30 }}>
-            <DailyQuests />
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1.4fr 1fr', gap: 24, marginTop: 30 }}>
+            <DailyQuests progress={questProgress} />
             <RankProgress onGoToRanking={onGoToRanking} />
           </div>
           <ActiveDeck />
-          <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 24, marginTop: 30 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1.4fr 1fr', gap: 24, marginTop: 30 }}>
             <RecentMatches userName={userName} />
             <SeasonReward />
           </div>

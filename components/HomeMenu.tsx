@@ -1,6 +1,7 @@
 import React, { CSSProperties } from 'react';
 import { UserProfile } from '../types';
 import { ELEMENTS, ATTR, PERIODIC, FORMULAS, ElementData, fmt } from '../shared';
+import { useIsMobile } from '../utils/mobile';
 
 // ─── helpers ────────────────────────────────────────────────
 const el2num = (el: ElementData, key: string): number =>
@@ -111,11 +112,13 @@ interface HeaderProps {
   onGoToRules?: () => void;
 }
 
-const HomeHeader: React.FC<HeaderProps> = ({ userProfile, isAdmin, onStartGame, onGoToRanking, onGoToAdmin, onGoToRules }) => (
+const HomeHeader: React.FC<HeaderProps> = ({ userProfile, isAdmin, onStartGame, onGoToRanking, onGoToAdmin, onGoToRules }) => {
+  const isMobile = useIsMobile();
+  return (
   <header style={{
     position: 'sticky', top: 0, zIndex: 50,
-    display: 'grid', gridTemplateColumns: '1fr 2fr 1fr', alignItems: 'center',
-    padding: '16px 48px',
+    display: 'grid', gridTemplateColumns: isMobile ? 'auto 1fr' : '1fr 2fr 1fr', alignItems: 'center',
+    padding: isMobile ? '12px 16px' : '16px 48px',
     background: 'rgba(10,5,0,.85)',
     borderBottom: '2px solid #f4c349',
     backdropFilter: 'blur(10px)',
@@ -144,7 +147,7 @@ const HomeHeader: React.FC<HeaderProps> = ({ userProfile, isAdmin, onStartGame, 
     </div>
 
     {/* Nav */}
-    <nav style={{ display: 'flex', justifyContent: 'center', gap: 26 }}>
+    {!isMobile && <nav style={{ display: 'flex', justifyContent: 'center', gap: 26 }}>
       {([
         ['JOGAR',   '◇', onStartGame,   !!userProfile],
         ['RANKING', '♛', onGoToRanking, true         ],
@@ -168,7 +171,7 @@ const HomeHeader: React.FC<HeaderProps> = ({ userProfile, isAdmin, onStartGame, 
           )
         ))
       }
-    </nav>
+    </nav>}
 
     {/* Auth area */}
     <div style={{ display: 'flex', alignItems: 'center', gap: 12, justifyContent: 'flex-end' }}>
@@ -205,7 +208,8 @@ const HomeHeader: React.FC<HeaderProps> = ({ userProfile, isAdmin, onStartGame, 
       )}
     </div>
   </header>
-);
+  );
+};
 
 // ─── HeroCard ────────────────────────────────────────────────
 const HeroCard: React.FC = () => {
@@ -359,6 +363,7 @@ interface HeroProps {
 }
 
 const HomeHero: React.FC<HeroProps> = ({ userProfile, onStartGame }) => {
+  const isMobile = useIsMobile();
   const handlePlay = () => {
     if (userProfile) {
       onStartGame();
@@ -370,11 +375,11 @@ const HomeHero: React.FC<HeroProps> = ({ userProfile, onStartGame }) => {
   return (
     <section style={{
       position: 'relative',
-      minHeight: 780, padding: '80px 48px 60px', overflow: 'hidden',
+      minHeight: isMobile ? 'auto' : 780, padding: isMobile ? '40px 16px 30px' : '80px 48px 60px', overflow: 'hidden',
       background: 'radial-gradient(ellipse at 50% 20%, rgba(42,26,8,.6) 0%, transparent 60%)',
     }}>
       {/* Sun-burst */}
-      <div style={{
+      {!isMobile && <div style={{
         position: 'absolute', top: '10%', right: '-100px', width: 900, height: 900,
         background: `
           radial-gradient(circle at center, rgba(244,195,73,.4) 0%, rgba(244,195,73,.1) 35%, transparent 70%),
@@ -393,7 +398,7 @@ const HomeHero: React.FC<HeroProps> = ({ userProfile, onStartGame }) => {
             rgba(244,195,73,.3) 352deg)
         `,
         opacity: 0.6, pointerEvents: 'none',
-      }} />
+      }} />}
 
       {/* Constellation lines */}
       <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: 0.18, pointerEvents: 'none' }}
@@ -418,7 +423,7 @@ const HomeHero: React.FC<HeroProps> = ({ userProfile, onStartGame }) => {
       <div style={{
         position: 'relative', zIndex: 2,
         maxWidth: 1400, margin: '0 auto',
-        display: 'grid', gridTemplateColumns: '1.1fr 1fr', gap: 60, alignItems: 'center',
+        display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1.1fr 1fr', gap: isMobile ? 30 : 60, alignItems: 'center',
       }}>
         {/* LEFT copy */}
         <div>
@@ -481,7 +486,7 @@ const HomeHero: React.FC<HeroProps> = ({ userProfile, onStartGame }) => {
 
           {/* Stats strip */}
           <div style={{
-            display: 'grid', gridTemplateColumns: 'repeat(4,auto)', gap: 36,
+            display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2,1fr)' : 'repeat(4,auto)', gap: isMobile ? 16 : 36,
             paddingTop: 24, borderTop: '1px solid rgba(244,195,73,.2)',
           }}>
             {([
@@ -499,7 +504,7 @@ const HomeHero: React.FC<HeroProps> = ({ userProfile, onStartGame }) => {
         </div>
 
         {/* RIGHT card */}
-        <HeroCard />
+        {!isMobile && <HeroCard />}
       </div>
     </section>
   );
@@ -530,6 +535,7 @@ const ExampleClash: React.FC<{ el: ElementData; attr: string; winner?: boolean }
 
 // ─── HomeGameplay ────────────────────────────────────────────
 const HomeGameplay: React.FC = () => {
+  const isMobile = useIsMobile();
   const steps = [
     { n: 'I',   icon: '◇', title: 'INVOQUE',   body: 'Escolha um Cavaleiro da sua mão. Cada um carrega os atributos reais do seu elemento — número atômico, massa, densidade, ponto de fusão.' },
     { n: 'II',  icon: '⚔', title: 'APOSTE',    body: 'Selecione o atributo onde seu Cavaleiro vence. O Ouro é denso e pesado. O Hidrogênio é leve e frio. Use a química a seu favor.' },
@@ -539,7 +545,7 @@ const HomeGameplay: React.FC = () => {
 
   return (
     <section id="como" style={{
-      position: 'relative', padding: '120px 48px',
+      position: 'relative', padding: isMobile ? '60px 16px' : '120px 48px',
       borderTop: '1px solid rgba(244,195,73,.2)',
       borderBottom: '1px solid rgba(244,195,73,.2)',
       background: 'rgba(10,5,0,.4)',
@@ -549,7 +555,7 @@ const HomeGameplay: React.FC = () => {
       <div style={{ position: 'relative', zIndex: 2, maxWidth: 1300, margin: '0 auto' }}>
         <SectionLabel preLabel="· LEX LUDI ·" title="COMO SE JOGA" sub="Quatro passos. Cinco rounds. Um vencedor." />
 
-        <div style={{ marginTop: 60, display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 20 }}>
+        <div style={{ marginTop: 60, display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2,1fr)' : 'repeat(4,1fr)', gap: 20 }}>
           {steps.map(s => (
             <article key={s.title} style={{
               position: 'relative', padding: '32px 26px 28px',
@@ -713,6 +719,7 @@ const MiniCard: React.FC<{ el: ElementData; featured?: boolean; art?: string }> 
 
 // ─── HomeRoster ──────────────────────────────────────────────
 const HomeRoster: React.FC = () => {
+  const isMobile = useIsMobile();
   const cards: (ElementData & { featured?: boolean; art?: string })[] = [
     { ...ELEMENTS.Li, featured: true, art: 'assets/cavaleiro-litio.png' },
     ELEMENTS.Au,
@@ -723,7 +730,7 @@ const HomeRoster: React.FC = () => {
   ];
 
   return (
-    <section style={{ position: 'relative', padding: '120px 48px' }}>
+    <section style={{ position: 'relative', padding: isMobile ? '60px 16px' : '120px 48px' }}>
       <FloatingFormulasBG count={4} />
       <div style={{ position: 'relative', zIndex: 2, maxWidth: 1400, margin: '0 auto' }}>
         <SectionLabel
@@ -732,7 +739,7 @@ const HomeRoster: React.FC = () => {
           sub="Cada elemento da tabela é um cavaleiro. Cada cavaleiro carrega a verdade física do seu elemento."
         />
 
-        <div style={{ marginTop: 60, display: 'grid', gridTemplateColumns: 'repeat(6,1fr)', gap: 14 }}>
+        <div style={{ marginTop: 60, display: 'grid', gridTemplateColumns: isMobile ? 'repeat(3,1fr)' : 'repeat(6,1fr)', gap: isMobile ? 8 : 14 }}>
           {cards.map(c => (
             <MiniCard key={c.symbol} el={c} featured={c.featured} art={c.art} />
           ))}
@@ -776,6 +783,7 @@ const HomeRoster: React.FC = () => {
 
 // ─── HomeModes ───────────────────────────────────────────────
 const HomeModes: React.FC = () => {
+  const isMobile = useIsMobile();
   const modes = [
     {
       tag: 'I',   name: 'DUELO SAGRADO',      sub: 'Casual · 1v1',
@@ -799,14 +807,14 @@ const HomeModes: React.FC = () => {
 
   return (
     <section style={{
-      position: 'relative', padding: '120px 48px',
+      position: 'relative', padding: isMobile ? '60px 16px' : '120px 48px',
       background: 'linear-gradient(180deg, transparent, rgba(20,8,10,.5), transparent)',
       borderTop: '1px solid rgba(244,195,73,.15)',
     }}>
       <div style={{ position: 'relative', zIndex: 2, maxWidth: 1300, margin: '0 auto' }}>
         <SectionLabel preLabel="· LUDI ·" title="MODOS DE COMBATE" sub="Da prática ao topo do ranking. Escolha sua arena." />
 
-        <div style={{ marginTop: 60, display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 22 }}>
+        <div style={{ marginTop: 60, display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3,1fr)', gap: 22 }}>
           {modes.map(m => (
             <article key={m.name} style={{
               position: 'relative', padding: '40px 30px 32px',
@@ -870,9 +878,11 @@ interface CTAProps {
   onStartGame: () => void;
 }
 
-const HomeCTA: React.FC<CTAProps> = ({ userProfile, onStartGame }) => (
+const HomeCTA: React.FC<CTAProps> = ({ userProfile, onStartGame }) => {
+  const isMobile = useIsMobile();
+  return (
   <section id="cta" style={{
-    position: 'relative', padding: '140px 48px', overflow: 'hidden',
+    position: 'relative', padding: isMobile ? '60px 16px' : '140px 48px', overflow: 'hidden',
     borderTop: '1px solid rgba(244,195,73,.2)',
     background: 'radial-gradient(ellipse at center, rgba(244,195,73,.15) 0%, rgba(10,5,0,.6) 60%, transparent 100%)',
   }}>
@@ -956,18 +966,21 @@ const HomeCTA: React.FC<CTAProps> = ({ userProfile, onStartGame }) => (
       </div>
     </div>
   </section>
-);
+  );
+};
 
 // ─── HomeFooter ──────────────────────────────────────────────
-export const HomeFooter: React.FC = () => (
+export const HomeFooter: React.FC = () => {
+  const isMobile = useIsMobile();
+  return (
   <footer style={{
-    position: 'relative', padding: '60px 48px 40px',
+    position: 'relative', padding: isMobile ? '30px 16px 24px' : '60px 48px 40px',
     borderTop: '2px solid #f4c349',
     background: 'rgba(6,3,2,.95)',
   }}>
     <div style={{
       maxWidth: 1300, margin: '0 auto',
-      display: 'grid', gridTemplateColumns: '1.5fr 1fr 1fr 1fr', gap: 40,
+      display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2,1fr)' : '1.5fr 1fr 1fr 1fr', gap: isMobile ? 20 : 40,
     }}>
       <div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
@@ -1023,7 +1036,8 @@ export const HomeFooter: React.FC = () => (
       <span style={{ letterSpacing: '.2em' }}>· FORJADO COM Au, Fe E H₂O ·</span>
     </div>
   </footer>
-);
+  );
+};
 
 // ─── HomeMenu (root export) ──────────────────────────────────
 export interface HomeMenuProps {
