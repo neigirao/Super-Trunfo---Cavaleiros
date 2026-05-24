@@ -20,11 +20,6 @@ import { supabase } from './src/integrations/supabase/client';
 //    Coloque o seu e-mail do Google aqui para ter acesso ao Painel de Admin.
 const ADMIN_EMAIL = import.meta.env.VITE_ADMIN_EMAIL ?? 'neigirao@gmail.com';
 
-// 2. Google Client ID:
-//    Substitua pelo Client ID que você gerou no Google Cloud Console.
-//    O login NÃO FUNCIONARÁ sem um Client ID válido.
-const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID ?? '';
-
 // ==================================================================
 
 const ADVANTAGE_BONUS_PERCENTAGE = 0.20; // 20% de bônus
@@ -178,56 +173,38 @@ const App: React.FC = () => {
   const [showNextRoundButton, setShowNextRoundButton] = useState(false);
 
 
-  const isClientIdConfigured = !!GOOGLE_CLIENT_ID;
+  // Mantido apenas para compatibilidade de props; sempre true ao usar Supabase OAuth.
+  const isClientIdConfigured = true;
 
   useEffect(() => {
     localStorage.setItem('superTrunfoDeck', JSON.stringify(deck));
   }, [deck]);
-  
-  const handleCredentialResponse = useCallback((response: any) => {
-    // Decodificar o JWT para obter as informações do perfil
-    const base64Url = response.credential.split('.')[1];
-    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-    const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
-        return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-    }).join(''));
 
-    const profile = JSON.parse(jsonPayload);
-    const user: UserProfile = {
-        name: profile.name,
-        email: profile.email,
-        picture: profile.picture,
-    };
-    
-    setUserProfile(user);
-    if (user.email === ADMIN_EMAIL) {
-        setIsAdmin(true);
-    }
-  }, []);
-
+  // Hidrata o perfil a partir da sessão Supabase
   useEffect(() => {
-    if (!isClientIdConfigured) return;
-    
-    const initializeGsi = () => {
-        if (window.google) {
-            window.google.accounts.id.initialize({
-                client_id: GOOGLE_CLIENT_ID,
-                callback: handleCredentialResponse
-            });
-            window.google.accounts.id.renderButton(
-                document.getElementById('google-signin-button'),
-                { theme: 'outline', size: 'large', type: 'standard', text: 'signin_with', shape: 'pill' }
-            );
-        }
+    const hydrate = (session: any) => {
+      const user = session?.user;
+      if (!user) {
+        setUserProfile(null);
+        setIsAdmin(false);
+        return;
+      }
+      const meta = user.user_metadata ?? {};
+      const profile: UserProfile = {
+        name: meta.full_name ?? meta.name ?? user.email ?? 'Jogador',
+        email: user.email ?? '',
+        picture: meta.avatar_url ?? meta.picture ?? `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(user.email ?? 'player')}`,
+      };
+      setUserProfile(profile);
+      setIsAdmin(profile.email === ADMIN_EMAIL);
     };
-    
-    if (document.readyState === 'complete') {
-        initializeGsi();
-    } else {
-        window.addEventListener('load', initializeGsi);
-        return () => window.removeEventListener('load', initializeGsi);
-    }
-  }, [handleCredentialResponse, isClientIdConfigured]);
+
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      hydrate(session);
+    });
+    supabase.auth.getSession().then(({ data }) => hydrate(data.session));
+    return () => { sub.subscription.unsubscribe(); };
+  }, []);
   
   // Effect to orchestrate the animation sequence on the round result screen
   useEffect(() => {
@@ -434,8 +411,8 @@ const App: React.FC = () => {
     }
   };
   
-  const handleLogout = () => {
-    window.google?.accounts?.id?.disableAutoSelect?.();
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
     setUserProfile(null);
     setIsAdmin(false);
     setGameState(GameState.Menu);

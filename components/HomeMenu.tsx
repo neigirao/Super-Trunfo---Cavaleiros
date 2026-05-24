@@ -1,13 +1,22 @@
 import React, { CSSProperties } from 'react';
 import { UserProfile } from '../types';
 import { ELEMENTS, ATTR, PERIODIC, FORMULAS, ElementData, fmt } from '../shared';
+import { supabase } from '../src/integrations/supabase/client';
 
 // ─── helpers ────────────────────────────────────────────────
 const el2num = (el: ElementData, key: string): number =>
   (el as unknown as Record<string, number>)[key] ?? 0;
 
-const triggerGoogleSignIn = () => {
-  (window as any).google?.accounts?.id?.prompt?.();
+const triggerGoogleSignIn = async () => {
+  try {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: window.location.origin },
+    });
+    if (error) console.error('[auth] signInWithOAuth falhou', error);
+  } catch (err) {
+    console.error('[auth] signInWithOAuth exception', err);
+  }
 };
 
 // ─── CosmicBG ───────────────────────────────────────────────
