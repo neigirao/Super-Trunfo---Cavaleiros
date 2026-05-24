@@ -3,6 +3,7 @@ import { UserProfile } from '../types';
 import { PERIODIC, fmt } from '../shared';
 import { CosmicBG, PeriodicTile, HomeFooter } from './HomeMenu';
 import { LoggedHeader } from './Dashboard';
+import { useIsMobile } from '../utils/mobile';
 
 export interface CollectionProps {
   userProfile: UserProfile;
@@ -65,9 +66,11 @@ const RARITY_COLOR: Record<string, string> = {
 };
 
 // ─── CollectionHero ───────────────────────────────────────────
-const CollectionHero: React.FC = () => (
+const CollectionHero: React.FC = () => {
+  const isMobile = useIsMobile();
+  return (
   <section style={{
-    position: 'relative', padding: '40px 36px 30px', overflow: 'hidden',
+    position: 'relative', padding: isMobile ? '24px 16px 20px' : '40px 36px 30px', overflow: 'hidden',
     borderBottom: '1px solid rgba(244,195,73,.2)',
     background: 'radial-gradient(ellipse at 50% 0%, rgba(244,195,73,.15) 0%, transparent 60%)',
   }}>
@@ -79,7 +82,7 @@ const CollectionHero: React.FC = () => (
         <span style={{ width: 40, height: 1, background: '#f4c349', display: 'block' }} />
       </div>
       <h1 style={{
-        fontFamily: 'Cinzel, serif', fontWeight: 900, fontSize: 46, letterSpacing: '.04em',
+        fontFamily: 'Cinzel, serif', fontWeight: 900, fontSize: 'clamp(24px,6vw,46px)', letterSpacing: '.04em',
         color: '#fff8e1', margin: '0 0 10px', lineHeight: 1,
         textShadow: '0 0 30px rgba(244,195,73,.3)',
       }}>COLEÇÃO DE CAVALEIROS</h1>
@@ -89,10 +92,12 @@ const CollectionHero: React.FC = () => (
       </p>
     </div>
   </section>
-);
+  );
+};
 
 // ─── CollectionStats ─────────────────────────────────────────
 const CollectionStats: React.FC = () => {
+  const isMobile = useIsMobile();
   const stats = [
     { icon: '♛', label: 'CAVALEIROS COLETADOS', value: '18', sub: '21% da coleção', color: '#f4c349', bar: 21 },
     { icon: '◇', label: 'COMUNS',               value: '12', sub: '67% coletados',  color: '#9aa6c4', bar: 67 },
@@ -100,7 +105,7 @@ const CollectionStats: React.FC = () => {
     { icon: '✦', label: 'LENDÁRIOS',             value: '1',  sub: '20% coletados',  color: '#c995ff', bar: 20 },
   ];
   return (
-    <section style={{ marginTop: 30, display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 18 }}>
+    <section style={{ marginTop: 30, display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2,1fr)' : 'repeat(4,1fr)', gap: 18 }}>
       {stats.map(s => (
         <div key={s.label} style={{
           position: 'relative', padding: '20px 22px',
@@ -160,39 +165,59 @@ const FilterGroup: React.FC<FilterGroupProps> = ({ label, value, setValue, optio
   </div>
 );
 
+const SORT_CYCLE: Array<['atomic' | 'name' | 'rarity' | 'density', string]> = [
+  ['atomic', 'NÚMERO ATÔMICO'],
+  ['name', 'NOME A-Z'],
+  ['rarity', 'RARIDADE'],
+  ['density', 'DENSIDADE'],
+];
+
 // ─── CollectionToolbar ────────────────────────────────────────
 interface ToolbarProps {
   tab: string; setTab: (v: string) => void;
   view: string; setView: (v: string) => void;
   rarity: string; setRarity: (v: string) => void;
   type: string; setType: (v: string) => void;
+  status: string; setStatus: (v: string) => void;
+  sort: 'atomic' | 'name' | 'rarity' | 'density'; setSort: (v: 'atomic' | 'name' | 'rarity' | 'density') => void;
+  search: string; setSearch: (v: string) => void;
+  filteredCount: number;
 }
-const CollectionToolbar: React.FC<ToolbarProps> = ({ tab, setTab, view, setView, rarity, setRarity, type, setType }) => (
+const CollectionToolbar: React.FC<ToolbarProps> = ({ tab, setTab, view, setView, rarity, setRarity, type, setType, status, setStatus, sort, setSort, search, setSearch, filteredCount }) => {
+  const cycleSortLabel = SORT_CYCLE.find(([v]) => v === sort)?.[1] ?? 'NÚMERO ATÔMICO';
+  const cycleSort = () => {
+    const idx = SORT_CYCLE.findIndex(([v]) => v === sort);
+    setSort(SORT_CYCLE[(idx + 1) % SORT_CYCLE.length][0]);
+  };
+  return (
   <section style={{ marginTop: 30 }}>
     <div style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', alignItems: 'center', gap: 16, marginBottom: 16 }}>
       <div style={{ position: 'relative', background: 'rgba(10,5,0,.7)', border: '1px solid rgba(244,195,73,.3)' }}>
         <span style={{ position: 'absolute', top: '50%', left: 18, transform: 'translateY(-50%)', color: '#f4c349', fontSize: 16 }}>⌕</span>
         <input
           type="text"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
           placeholder="Buscar cavaleiro, elemento, símbolo (ex: Au, Ouro, Ferro...)"
           style={{
             width: '100%', padding: '14px 16px 14px 48px', background: 'transparent', border: 0, outline: 'none',
             fontFamily: 'Spectral, serif', fontSize: 14, color: '#fff8e1',
           }}
         />
-        <span style={{
-          position: 'absolute', top: '50%', right: 14, transform: 'translateY(-50%)',
-          padding: '4px 8px', border: '1px solid rgba(244,195,73,.3)',
-          fontFamily: 'IBM Plex Mono, monospace', fontSize: 10, color: 'rgba(244,195,73,.6)',
-        }}>⌘ K</span>
+        {search && (
+          <button onClick={() => setSearch('')} style={{
+            position: 'absolute', top: '50%', right: 14, transform: 'translateY(-50%)',
+            background: 'transparent', border: 0, color: 'rgba(244,195,73,.6)', cursor: 'pointer', fontSize: 16,
+          }}>×</button>
+        )}
       </div>
-      <div style={{
+      <button onClick={cycleSort} style={{
         padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 10,
         background: 'rgba(10,5,0,.7)', border: '1px solid rgba(244,195,73,.3)', cursor: 'pointer',
         fontFamily: 'Cinzel, serif', fontSize: 10, letterSpacing: '.3em', color: '#fff8e1', fontWeight: 700,
       }}>
-        <span style={{ color: '#f4c349' }}>⇅</span>NÚMERO ATÔMICO <span style={{ color: 'rgba(244,195,73,.5)' }}>▾</span>
-      </div>
+        <span style={{ color: '#f4c349' }}>⇅</span>{cycleSortLabel} <span style={{ color: 'rgba(244,195,73,.5)' }}>▾</span>
+      </button>
       <div style={{ display: 'flex', background: 'rgba(10,5,0,.7)', border: '1px solid rgba(244,195,73,.3)' }}>
         {([['grid', '◰ GRADE'], ['table', '⌬ TABELA PERIÓDICA']] as [string, string][]).map(([v, l]) => (
           <button key={v} onClick={() => setView(v)} style={{
@@ -213,33 +238,41 @@ const CollectionToolbar: React.FC<ToolbarProps> = ({ tab, setTab, view, setView,
         <FilterGroup label="TIPO" value={type} setValue={setType} options={[
           ['all', 'Todos'], ['metal', 'Metal'], ['nonmetal', 'Não-metal'], ['noble', 'Nobre'], ['transition', 'Transição'],
         ]} />
-        <FilterGroup label="STATUS" value="all" setValue={() => {}} options={[
+        <FilterGroup label="STATUS" value={status} setValue={setStatus} options={[
           ['all', 'Todos'], ['owned', 'Coletados'], ['missing', 'Faltam'], ['duplicate', 'Duplicatas'],
         ]} />
       </div>
-      <div style={{ display: 'flex', background: 'rgba(10,5,0,.7)', border: '1px solid rgba(244,195,73,.3)' }}>
-        {([['mine', 'MINHA COLEÇÃO', '18'], ['all', 'TODOS OS CAVALEIROS', '87']] as [string, string, string][]).map(([t, l, n]) => (
-          <button key={t} onClick={() => setTab(t)} style={{
-            padding: '12px 22px',
-            background: tab === t ? 'linear-gradient(180deg,#f4c349,#8a6a2a)' : 'transparent',
-            color: tab === t ? '#1a0e04' : '#fff8e1',
-            border: 0, cursor: 'pointer',
-            fontFamily: 'Cinzel, serif', fontWeight: 700, fontSize: 11, letterSpacing: '.25em',
-            display: 'flex', alignItems: 'center', gap: 10,
-          }}>
-            {l}
-            <span style={{
-              padding: '2px 8px',
-              background: tab === t ? 'rgba(26,14,4,.25)' : 'rgba(244,195,73,.15)',
-              fontFamily: 'IBM Plex Mono, monospace', fontSize: 10,
-              color: tab === t ? '#1a0e04' : '#f4c349',
-            }}>{n}</span>
-          </button>
-        ))}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        {search && (
+          <span style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 11, color: 'rgba(244,195,73,.6)' }}>
+            {filteredCount} resultado{filteredCount !== 1 ? 's' : ''}
+          </span>
+        )}
+        <div style={{ display: 'flex', background: 'rgba(10,5,0,.7)', border: '1px solid rgba(244,195,73,.3)' }}>
+          {([['mine', 'MINHA COLEÇÃO', String(ROSTER.filter(c => c.owned).length)], ['all', 'TODOS OS CAVALEIROS', String(ROSTER.length)]] as [string, string, string][]).map(([t, l, n]) => (
+            <button key={t} onClick={() => setTab(t)} style={{
+              padding: '12px 22px',
+              background: tab === t ? 'linear-gradient(180deg,#f4c349,#8a6a2a)' : 'transparent',
+              color: tab === t ? '#1a0e04' : '#fff8e1',
+              border: 0, cursor: 'pointer',
+              fontFamily: 'Cinzel, serif', fontWeight: 700, fontSize: 11, letterSpacing: '.25em',
+              display: 'flex', alignItems: 'center', gap: 10,
+            }}>
+              {l}
+              <span style={{
+                padding: '2px 8px',
+                background: tab === t ? 'rgba(26,14,4,.25)' : 'rgba(244,195,73,.15)',
+                fontFamily: 'IBM Plex Mono, monospace', fontSize: 10,
+                color: tab === t ? '#1a0e04' : '#f4c349',
+              }}>{n}</span>
+            </button>
+          ))}
+        </div>
       </div>
     </div>
   </section>
-);
+  );
+};
 
 // ─── CollectionCard ───────────────────────────────────────────
 const CollectionCard: React.FC<{ c: RosterEntry }> = ({ c }) => {
@@ -422,14 +455,51 @@ const CollectionCard: React.FC<{ c: RosterEntry }> = ({ c }) => {
   );
 };
 
+const RARITY_ORDER: Record<string, number> = { Legendary: 0, Epic: 1, Rare: 2, Common: 3 };
+
 // ─── CardGrid ────────────────────────────────────────────────
-interface CardGridProps { tab: string; rarity: string; type: string; }
-const CardGrid: React.FC<CardGridProps> = ({ tab, rarity }) => {
-  let cards = [...ROSTER];
-  if (tab === 'mine') cards = cards.filter(c => c.owned);
-  if (rarity !== 'all') cards = cards.filter(c => c.rarity.toLowerCase() === rarity);
+interface CardGridProps {
+  tab: string; rarity: string; type: string;
+  status: string; sort: string; search: string;
+}
+const CardGrid: React.FC<CardGridProps> = ({ tab, rarity, type, status, sort, search }) => {
+  const isMobile = useIsMobile();
+  const q = search.toLowerCase();
+  let cards = ROSTER
+    .filter(c => tab === 'mine' ? c.owned : true)
+    .filter(c => rarity === 'all' ? true : c.rarity.toLowerCase() === rarity)
+    .filter(c => {
+      if (type === 'all') return true;
+      const t = c.type.toLowerCase();
+      if (type === 'metal') return t.includes('metal') && !t.includes('não');
+      if (type === 'nonmetal') return t.includes('não') || t.includes('metaloide') || t.includes('halogênio');
+      if (type === 'noble') return t.includes('nobre');
+      if (type === 'transition') return t.includes('transi') || t.includes('actinídeo');
+      return true;
+    })
+    .filter(c => {
+      if (status === 'all') return true;
+      if (status === 'owned') return c.owned;
+      if (status === 'missing') return !c.owned;
+      if (status === 'duplicate') return c.dup > 0;
+      return true;
+    })
+    .filter(c => !q || c.name.toLowerCase().includes(q) || c.sym.toLowerCase().includes(q) || c.type.toLowerCase().includes(q))
+    .sort((a, b) => {
+      if (sort === 'name') return a.name.localeCompare(b.name, 'pt-BR');
+      if (sort === 'rarity') return (RARITY_ORDER[a.rarity] ?? 9) - (RARITY_ORDER[b.rarity] ?? 9);
+      if (sort === 'density') return b.density - a.density;
+      return a.atomic - b.atomic;
+    });
+
+  if (cards.length === 0) return (
+    <div style={{ textAlign: 'center', padding: '60px 0', color: 'rgba(255,236,196,.4)', fontFamily: 'Spectral, serif', fontSize: 16 }}>
+      Nenhum cavaleiro encontrado com esses filtros.
+    </div>
+  );
+
   return (
-    <section style={{ marginTop: 28, display: 'grid', gridTemplateColumns: 'repeat(6,1fr)', gap: 16 }}>
+    <section style={{ marginTop: 28, display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2,1fr)' : 'repeat(6,1fr)', gap: isMobile ? 10 : 16 }}>
       {cards.map(c => <CollectionCard key={c.sym} c={c} />)}
     </section>
   );
@@ -437,13 +507,14 @@ const CardGrid: React.FC<CardGridProps> = ({ tab, rarity }) => {
 
 // ─── PeriodicView ─────────────────────────────────────────────
 const PeriodicView: React.FC = () => {
+  const isMobile = useIsMobile();
   const ownedSyms = new Set(ROSTER.filter(c => c.owned).map(c => c.sym));
   const rarityBySym = Object.fromEntries(ROSTER.map(c => [c.sym, c.rarity]));
 
   return (
     <section style={{ marginTop: 30 }}>
       <div style={{
-        padding: '30px 36px',
+        padding: isMobile ? '16px 12px' : '30px 36px',
         background: 'linear-gradient(180deg, rgba(20,8,10,.7), rgba(10,5,0,.4))',
         border: '1px solid rgba(244,195,73,.3)',
         position: 'relative', overflow: 'hidden',
@@ -464,7 +535,8 @@ const PeriodicView: React.FC = () => {
             ))}
           </div>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(18,1fr)', gridTemplateRows: 'repeat(7,1fr)', gap: 3, aspectRatio: '18 / 7' }}>
+        <div style={{ overflowX: 'auto' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(18,1fr)', gridTemplateRows: 'repeat(7,1fr)', gap: 3, aspectRatio: '18 / 7', minWidth: isMobile ? 640 : undefined }}>
           {PERIODIC.map(([p, g, s], i) => {
             const owned = ownedSyms.has(s);
             const color = owned ? RARITY_COLOR[rarityBySym[s]] ?? '#9aa6c4' : 'rgba(244,195,73,.15)';
@@ -491,6 +563,7 @@ const PeriodicView: React.FC = () => {
             );
           })}
         </div>
+        </div>
       </div>
     </section>
   );
@@ -498,10 +571,22 @@ const PeriodicView: React.FC = () => {
 
 // ─── Collection (main export) ─────────────────────────────────
 const Collection: React.FC<CollectionProps> = ({ userProfile, onStartGame, onGoToRanking, onGoToCollection, onBack, onLogout }) => {
+  const isMobile = useIsMobile();
   const [tab, setTab] = useState('mine');
   const [view, setView] = useState('grid');
   const [rarity, setRarity] = useState('all');
   const [type, setType] = useState('all');
+  const [status, setStatus] = useState('all');
+  const [sort, setSort] = useState<'atomic' | 'name' | 'rarity' | 'density'>('atomic');
+  const [search, setSearch] = useState('');
+
+  const q = search.toLowerCase();
+  const filteredCount = ROSTER
+    .filter(c => tab === 'mine' ? c.owned : true)
+    .filter(c => rarity === 'all' ? true : c.rarity.toLowerCase() === rarity)
+    .filter(c => status === 'all' ? true : status === 'owned' ? c.owned : status === 'missing' ? !c.owned : c.dup > 0)
+    .filter(c => !q || c.name.toLowerCase().includes(q) || c.sym.toLowerCase().includes(q) || c.type.toLowerCase().includes(q))
+    .length;
 
   return (
     <div style={{
@@ -519,16 +604,20 @@ const Collection: React.FC<CollectionProps> = ({ userProfile, onStartGame, onGoT
           onLogout={onLogout}
         />
         <CollectionHero />
-        <main style={{ maxWidth: 1500, margin: '0 auto', padding: '0 36px 80px' }}>
+        <main style={{ maxWidth: 1500, margin: '0 auto', padding: isMobile ? '0 16px 40px' : '0 36px 80px' }}>
           <CollectionStats />
           <CollectionToolbar
             tab={tab} setTab={setTab}
             view={view} setView={setView}
             rarity={rarity} setRarity={setRarity}
             type={type} setType={setType}
+            status={status} setStatus={setStatus}
+            sort={sort} setSort={setSort}
+            search={search} setSearch={setSearch}
+            filteredCount={filteredCount}
           />
           {view === 'grid'
-            ? <CardGrid tab={tab} rarity={rarity} type={type} />
+            ? <CardGrid tab={tab} rarity={rarity} type={type} status={status} sort={sort} search={search} />
             : <PeriodicView />
           }
         </main>
