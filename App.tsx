@@ -9,12 +9,13 @@ import HomeMenu from './components/HomeMenu';
 import Dashboard from './components/Dashboard';
 import Collection from './components/Collection';
 import { initialDeck } from './initialDeck';
-import { playCardFlip, playRoundWin, playRoundLose, playRoundDraw, playGameWin, playGameLose } from './utils/sounds';
+import { playCardFlip, playRoundWin, playRoundLose, playRoundDraw, playGameWin, playGameLose, setMuted as setMutedFn } from './utils/sounds';
 import { useIsMobile } from './utils/mobile';
+import { QUESTS, loadQuestProgress, incrementQuest } from './utils/quests';
 import {
   supabase, signInWithGoogleToken, signOut as supabaseSignOut,
   loadDeckFromCloud, saveDeckToCloud,
-  fetchRanking, upsertGameResult, RankingRow,
+  fetchRanking, upsertGameResult, fetchPlayerCurrency, RankingRow, PlayerCurrency,
 } from './utils/supabase';
 
 // ==================================================================
@@ -184,6 +185,26 @@ const App: React.FC = () => {
   // Ranking data (loaded from Supabase)
   const [rankingData, setRankingData] = useState<RankingEntry[]>([]);
 
+  // Mute preference (persisted in localStorage)
+  const [muted, setMuted] = useState(() => localStorage.getItem('muted') === '1');
+  useEffect(() => {
+    setMutedFn(muted);
+    localStorage.setItem('muted', muted ? '1' : '0');
+  }, [muted]);
+
+  // Daily quests progress (reloaded from localStorage after each relevant action)
+  const [questProgress, setQuestProgress] = useState<Record<string, number>>(() => loadQuestProgress());
+  const refreshQuests = () => setQuestProgress(loadQuestProgress());
+
+  // Player currency (loaded from Supabase after login)
+  const [currency, setCurrency] = useState<PlayerCurrency>({ cosmo: 0, po: 0 });
+
+  // Saved game snapshot (for Continue Banner)
+  const [hasSavedGame, setHasSavedGame] = useState(() => !!localStorage.getItem('savedGame'));
+  const [savedGameInfo, setSavedGameInfo] = useState<{ round: number; isMultiplayer: boolean } | null>(() => {
+    try { const s = localStorage.getItem('savedGame'); return s ? JSON.parse(s).info ?? null : null; } catch { return null; }
+  });
+
 
   // Mantido apenas para compatibilidade de props; sempre true ao usar Supabase OAuth.
   const isClientIdConfigured = true;
@@ -218,6 +239,10 @@ const App: React.FC = () => {
     if (cloudDeck && cloudDeck.length > 0) {
       setDeck(cloudDeck);
     }
+
+    // 4. Carregar moedas do jogador
+    const cur = await fetchPlayerCurrency();
+    setCurrency(cur);
   }, []);
 
   // Hidrata o perfil a partir da sessão Supabase
@@ -405,6 +430,10 @@ const App: React.FC = () => {
   const handleAttributeSelect = (attribute: Attribute) => {
     if (!isPlayerTurn || playerDeck.length === 0 || aiDeck.length === 0) return;
     playCardFlip();
+    // Quest: aposte em Condutividade 5×
+    if (attribute === Attribute.Condutividade) { incrementQuest('cond5'); refreshQuests(); }
+    // Quest: jogue um Cavaleiro do grupo 1 (Metal Alcalino)
+    if (playerDeck[0].element === ElementType.AlkaliMetal) { incrementQuest('grp1'); refreshQuests(); }
     resolveRound(attribute, playerDeck[0], aiDeck[0]);
   };
 
@@ -453,7 +482,14 @@ const App: React.FC = () => {
     if (newPlayerDeck.length === 0 || newAiDeck.length === 0) {
       const playerWon = newPlayerDeck.length > 0;
       if (playerWon) playGameWin(); else playGameLose();
-      // Persistir resultado no ranking (sem bloquear a UI)
+      // Quest: vença 3 duelos
+      if (playerWon) { incrementQuest('win3'); refreshQuests(); }
+      // Quest: vença com Legendary (card no topo do deck antes de ser removida)
+      if (playerWon && playerCard) {
+        const isLegendary = playerCard.isSuperTrunfo;
+        if (isLegendary) { incrementQuest('legwin'); refreshQuests(); }
+      }
+      // Persistir resultado no ranking e atualizar moedas
       if (userProfile) {
         upsertGameResult({
           playerName: userProfile.name,
@@ -461,7 +497,7 @@ const App: React.FC = () => {
           playerCardsLeft: newPlayerDeck.length,
           totalCards: deck.length,
           difficulty: difficulty,
-        });
+        }).then(newCurrency => setCurrency(newCurrency));
       }
       setGameState(GameState.GameOver);
     } else {
@@ -476,6 +512,39 @@ const App: React.FC = () => {
     setUserProfile(null);
     setIsAdmin(false);
     setGameState(GameState.Menu);
+  };
+
+  // Persist/clear game snapshot for Continue Banner
+  useEffect(() => {
+    if (gameState === GameState.Playing || gameState === GameState.RoundResult) {
+      const round = (playerDeck.length || 0) + (aiDeck.length || 0) > 0
+        ? Math.abs(playerDeck.length - aiDeck.length) + 1
+        : 1;
+      const info = { round, isMultiplayer };
+      localStorage.setItem('savedGame', JSON.stringify({ playerDeck, aiDeck, isPlayerTurn, matchHistory, isMultiplayer, difficulty, roundResult, info }));
+      setHasSavedGame(true);
+      setSavedGameInfo(info);
+    } else if (gameState === GameState.GameOver || gameState === GameState.Menu) {
+      localStorage.removeItem('savedGame');
+      setHasSavedGame(false);
+      setSavedGameInfo(null);
+    }
+  }, [gameState, playerDeck, aiDeck]);
+
+  const handleContinueGame = () => {
+    try {
+      const raw = localStorage.getItem('savedGame');
+      if (!raw) return;
+      const saved = JSON.parse(raw);
+      setPlayerDeck(saved.playerDeck ?? []);
+      setAiDeck(saved.aiDeck ?? []);
+      setIsPlayerTurn(saved.isPlayerTurn ?? true);
+      setMatchHistory(saved.matchHistory ?? []);
+      setIsMultiplayer(saved.isMultiplayer ?? false);
+      setDifficulty(saved.difficulty ?? Difficulty.Normal);
+      setRoundResult(saved.roundResult ?? null);
+      setGameState(saved.roundResult ? GameState.RoundResult : GameState.Playing);
+    } catch { /* corrupted save, ignore */ }
   };
 
   const handleBackToMenu = () => {
@@ -848,14 +917,21 @@ const App: React.FC = () => {
           userProfile={userProfile}
           isAdmin={isAdmin}
           difficulty={difficulty}
+          muted={muted}
+          hasSavedGame={hasSavedGame}
+          savedGameInfo={savedGameInfo}
+          questProgress={questProgress}
+          currency={currency}
           onStartGame={startGame}
           onStartMultiplayer={() => startGame(true)}
+          onContinueGame={handleContinueGame}
           onSetDifficulty={setDifficulty}
           onGoToRanking={handleGoToRanking}
           onGoToAdmin={() => setGameState(GameState.Admin)}
           onGoToCollection={() => setGameState(GameState.Collection)}
           onGoToRules={() => setGameState(GameState.Rules)}
           onLogout={handleLogout}
+          onToggleMute={() => setMuted(p => !p)}
         />
       );
     }
