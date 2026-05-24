@@ -2,6 +2,7 @@
 import React from 'react';
 import { CardData, Attribute, ElementType } from '../types';
 import { ReactivityIcon, AtomicMassIcon, RadioactivityIcon, ConductivityIcon, HardnessIcon } from '../constants';
+import { useIsMobile } from '../utils/mobile';
 
 interface CardProps {
   card: CardData | null;
@@ -38,6 +39,7 @@ const elementHue: Partial<Record<ElementType, number>> = {
 const CardFaceUp: React.FC<Omit<CardProps, 'isFaceDown'>> = ({
   card, onAttributeSelect, isPlayerTurn, highlightedAttribute, isWinner, isLoser, advantageBonus,
 }) => {
+  const isMobile = useIsMobile();
   if (!card) return null;
 
   const hue = elementHue[card.element] ?? 220;
@@ -74,18 +76,18 @@ const CardFaceUp: React.FC<Omit<CardProps, 'isFaceDown'>> = ({
 
       {/* Header */}
       <div style={{
-        padding: '28px 10px 5px', textAlign: 'center',
+        padding: isMobile ? '22px 8px 4px' : '28px 10px 5px', textAlign: 'center',
         borderBottom: '1px solid rgba(201,161,74,.3)',
         background: 'rgba(138,107,42,.06)',
       }}>
         <div style={{
-          fontFamily: 'Cinzel, serif', fontSize: 8, letterSpacing: '.35em',
+          fontFamily: 'Cinzel, serif', fontSize: isMobile ? 7 : 8, letterSpacing: '.35em',
           color: isST ? '#f4c349' : '#8a6a2a', fontWeight: 700,
         }}>
           {isST ? '★ SUPER TRUNFO ★' : `Nº ${card.id.padStart(3, '0')}`}
         </div>
         <div style={{
-          fontFamily: 'Cinzel, serif', fontWeight: 900, fontSize: 13, color: '#1a0e04',
+          fontFamily: 'Cinzel, serif', fontWeight: 900, fontSize: isMobile ? 11 : 13, color: '#1a0e04',
           letterSpacing: '.03em',
           whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
           paddingTop: 1,
@@ -109,7 +111,7 @@ const CardFaceUp: React.FC<Omit<CardProps, 'isFaceDown'>> = ({
       </div>
 
       {/* Attribute rows */}
-      <div style={{ padding: '0 8px 6px', display: 'flex', flexDirection: 'column', gap: 2 }}>
+      <div style={{ padding: isMobile ? '0 5px 4px' : '0 8px 6px', display: 'flex', flexDirection: 'column', gap: 2 }}>
         {Object.entries(card.attributes).map(([key, value]) => {
           const attribute = key as Attribute;
           const canSelect = !!(onAttributeSelect && isPlayerTurn);
@@ -123,7 +125,7 @@ const CardFaceUp: React.FC<Omit<CardProps, 'isFaceDown'>> = ({
               disabled={!canSelect}
               style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                padding: '4px 8px',
+                padding: isMobile ? '3px 5px' : '4px 8px',
                 background: isHigh
                   ? 'linear-gradient(90deg, rgba(244,195,73,.28), rgba(244,195,73,.1))'
                   : 'rgba(201,161,74,.1)',
@@ -137,19 +139,19 @@ const CardFaceUp: React.FC<Omit<CardProps, 'isFaceDown'>> = ({
                 transition: 'background 0.2s, border 0.2s, box-shadow 0.2s',
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 5, color: '#6a4a10' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 3 : 5, color: '#6a4a10' }}>
                 {attributeIcons[attribute]}
-                <span style={{ fontFamily: 'Cinzel, serif', fontSize: 9, letterSpacing: '.1em', color: '#3a2a0a', fontWeight: 700 }}>
+                <span style={{ fontFamily: 'Cinzel, serif', fontSize: isMobile ? 8 : 9, letterSpacing: '.1em', color: '#3a2a0a', fontWeight: 700 }}>
                   {attribute}
                 </span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                 {hasAdv && (
-                  <span style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 9, color: '#50dc78', fontWeight: 700 }}>
+                  <span style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: isMobile ? 8 : 9, color: '#50dc78', fontWeight: 700 }}>
                     +{advantageBonus!.bonus}
                   </span>
                 )}
-                <span style={{ fontFamily: 'IBM Plex Mono, monospace', fontWeight: 700, fontSize: 14, color: '#1a0e04' }}>
+                <span style={{ fontFamily: 'IBM Plex Mono, monospace', fontWeight: 700, fontSize: isMobile ? 12 : 14, color: '#1a0e04' }}>
                   {value}
                 </span>
               </div>
@@ -190,11 +192,14 @@ const CardFaceDown: React.FC = () => (
 );
 
 export const Card: React.FC<CardProps> = (props) => {
+  const isMobile = useIsMobile();
   const { card, isFaceDown } = props;
-  if (!card && !isFaceDown) return <div style={{ width: 288, height: 448 }} />;
+  const W = isMobile ? 224 : 288;
+  const H = isMobile ? 352 : 448;
+  if (!card && !isFaceDown) return <div style={{ width: W, height: H }} />;
 
   return (
-    <div className="w-72 h-[28rem] card-container">
+    <div className="card-container" style={{ width: W, height: H, flexShrink: 0 }}>
       <div className={`card-flipper ${isFaceDown ? 'is-flipped' : ''}`}>
         <div className="card-face">
           <CardFaceUp {...props} />

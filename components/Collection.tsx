@@ -3,6 +3,7 @@ import { UserProfile } from '../types';
 import { PERIODIC, fmt } from '../shared';
 import { CosmicBG, PeriodicTile, HomeFooter } from './HomeMenu';
 import { LoggedHeader } from './Dashboard';
+import { useIsMobile } from '../utils/mobile';
 
 export interface CollectionProps {
   userProfile: UserProfile;
@@ -65,9 +66,11 @@ const RARITY_COLOR: Record<string, string> = {
 };
 
 // ─── CollectionHero ───────────────────────────────────────────
-const CollectionHero: React.FC = () => (
+const CollectionHero: React.FC = () => {
+  const isMobile = useIsMobile();
+  return (
   <section style={{
-    position: 'relative', padding: '40px 36px 30px', overflow: 'hidden',
+    position: 'relative', padding: isMobile ? '24px 16px 20px' : '40px 36px 30px', overflow: 'hidden',
     borderBottom: '1px solid rgba(244,195,73,.2)',
     background: 'radial-gradient(ellipse at 50% 0%, rgba(244,195,73,.15) 0%, transparent 60%)',
   }}>
@@ -79,7 +82,7 @@ const CollectionHero: React.FC = () => (
         <span style={{ width: 40, height: 1, background: '#f4c349', display: 'block' }} />
       </div>
       <h1 style={{
-        fontFamily: 'Cinzel, serif', fontWeight: 900, fontSize: 46, letterSpacing: '.04em',
+        fontFamily: 'Cinzel, serif', fontWeight: 900, fontSize: 'clamp(24px,6vw,46px)', letterSpacing: '.04em',
         color: '#fff8e1', margin: '0 0 10px', lineHeight: 1,
         textShadow: '0 0 30px rgba(244,195,73,.3)',
       }}>COLEÇÃO DE CAVALEIROS</h1>
@@ -89,10 +92,12 @@ const CollectionHero: React.FC = () => (
       </p>
     </div>
   </section>
-);
+  );
+};
 
 // ─── CollectionStats ─────────────────────────────────────────
 const CollectionStats: React.FC = () => {
+  const isMobile = useIsMobile();
   const stats = [
     { icon: '♛', label: 'CAVALEIROS COLETADOS', value: '18', sub: '21% da coleção', color: '#f4c349', bar: 21 },
     { icon: '◇', label: 'COMUNS',               value: '12', sub: '67% coletados',  color: '#9aa6c4', bar: 67 },
@@ -100,7 +105,7 @@ const CollectionStats: React.FC = () => {
     { icon: '✦', label: 'LENDÁRIOS',             value: '1',  sub: '20% coletados',  color: '#c995ff', bar: 20 },
   ];
   return (
-    <section style={{ marginTop: 30, display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 18 }}>
+    <section style={{ marginTop: 30, display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2,1fr)' : 'repeat(4,1fr)', gap: 18 }}>
       {stats.map(s => (
         <div key={s.label} style={{
           position: 'relative', padding: '20px 22px',
@@ -425,11 +430,12 @@ const CollectionCard: React.FC<{ c: RosterEntry }> = ({ c }) => {
 // ─── CardGrid ────────────────────────────────────────────────
 interface CardGridProps { tab: string; rarity: string; type: string; }
 const CardGrid: React.FC<CardGridProps> = ({ tab, rarity }) => {
+  const isMobile = useIsMobile();
   let cards = [...ROSTER];
   if (tab === 'mine') cards = cards.filter(c => c.owned);
   if (rarity !== 'all') cards = cards.filter(c => c.rarity.toLowerCase() === rarity);
   return (
-    <section style={{ marginTop: 28, display: 'grid', gridTemplateColumns: 'repeat(6,1fr)', gap: 16 }}>
+    <section style={{ marginTop: 28, display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2,1fr)' : 'repeat(6,1fr)', gap: isMobile ? 10 : 16 }}>
       {cards.map(c => <CollectionCard key={c.sym} c={c} />)}
     </section>
   );
@@ -437,13 +443,14 @@ const CardGrid: React.FC<CardGridProps> = ({ tab, rarity }) => {
 
 // ─── PeriodicView ─────────────────────────────────────────────
 const PeriodicView: React.FC = () => {
+  const isMobile = useIsMobile();
   const ownedSyms = new Set(ROSTER.filter(c => c.owned).map(c => c.sym));
   const rarityBySym = Object.fromEntries(ROSTER.map(c => [c.sym, c.rarity]));
 
   return (
     <section style={{ marginTop: 30 }}>
       <div style={{
-        padding: '30px 36px',
+        padding: isMobile ? '16px 12px' : '30px 36px',
         background: 'linear-gradient(180deg, rgba(20,8,10,.7), rgba(10,5,0,.4))',
         border: '1px solid rgba(244,195,73,.3)',
         position: 'relative', overflow: 'hidden',
@@ -464,7 +471,8 @@ const PeriodicView: React.FC = () => {
             ))}
           </div>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(18,1fr)', gridTemplateRows: 'repeat(7,1fr)', gap: 3, aspectRatio: '18 / 7' }}>
+        <div style={{ overflowX: 'auto' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(18,1fr)', gridTemplateRows: 'repeat(7,1fr)', gap: 3, aspectRatio: '18 / 7', minWidth: isMobile ? 640 : undefined }}>
           {PERIODIC.map(([p, g, s], i) => {
             const owned = ownedSyms.has(s);
             const color = owned ? RARITY_COLOR[rarityBySym[s]] ?? '#9aa6c4' : 'rgba(244,195,73,.15)';
@@ -491,6 +499,7 @@ const PeriodicView: React.FC = () => {
             );
           })}
         </div>
+        </div>
       </div>
     </section>
   );
@@ -498,6 +507,7 @@ const PeriodicView: React.FC = () => {
 
 // ─── Collection (main export) ─────────────────────────────────
 const Collection: React.FC<CollectionProps> = ({ userProfile, onStartGame, onGoToRanking, onGoToCollection, onBack, onLogout }) => {
+  const isMobile = useIsMobile();
   const [tab, setTab] = useState('mine');
   const [view, setView] = useState('grid');
   const [rarity, setRarity] = useState('all');
@@ -519,7 +529,7 @@ const Collection: React.FC<CollectionProps> = ({ userProfile, onStartGame, onGoT
           onLogout={onLogout}
         />
         <CollectionHero />
-        <main style={{ maxWidth: 1500, margin: '0 auto', padding: '0 36px 80px' }}>
+        <main style={{ maxWidth: 1500, margin: '0 auto', padding: isMobile ? '0 16px 40px' : '0 36px 80px' }}>
           <CollectionStats />
           <CollectionToolbar
             tab={tab} setTab={setTab}
