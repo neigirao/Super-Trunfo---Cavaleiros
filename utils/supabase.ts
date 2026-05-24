@@ -21,7 +21,11 @@ export interface RankingRow {
   longest_streak: number;
   difficulty_level: string;
   last_played_at: string | null;
+  cosmo: number;
+  po: number;
 }
+
+export interface PlayerCurrency { cosmo: number; po: number; }
 
 // ─── Auth ─────────────────────────────────────────────────────
 export async function signInWithGoogleToken(idToken: string) {
@@ -64,11 +68,25 @@ export async function saveDeckToCloud(deck: CardData[]): Promise<void> {
     );
 }
 
+// ─── Currency ─────────────────────────────────────────────────
+export async function fetchPlayerCurrency(): Promise<PlayerCurrency> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { cosmo: 0, po: 0 };
+
+  const { data } = await supabase
+    .from('card_game_rankings')
+    .select('cosmo,po')
+    .eq('user_id', user.id)
+    .single();
+
+  return { cosmo: data?.cosmo ?? 0, po: data?.po ?? 0 };
+}
+
 // ─── Ranking ──────────────────────────────────────────────────
 export async function fetchRanking(limit = 20): Promise<RankingRow[]> {
   const { data, error } = await supabase
     .from('card_game_rankings')
-    .select('id,user_id,player_name,total_score,games_won,games_lost,total_games,win_rate,highest_score,current_streak,longest_streak,difficulty_level,last_played_at')
+    .select('id,user_id,player_name,total_score,games_won,games_lost,total_games,win_rate,highest_score,current_streak,longest_streak,difficulty_level,last_played_at,cosmo,po')
     .order('total_score', { ascending: false })
     .limit(limit);
 
@@ -82,9 +100,9 @@ export async function upsertGameResult(params: {
   playerCardsLeft: number;
   totalCards: number;
   difficulty: string;
-}): Promise<void> {
+}): Promise<PlayerCurrency> {
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return;
+  if (!user) return { cosmo: 0, po: 0 };
 
   const { data: existing } = await supabase
     .from('card_game_rankings')
@@ -94,6 +112,12 @@ export async function upsertGameResult(params: {
 
   const now = new Date().toISOString();
   const gameScore = params.won ? params.playerCardsLeft * 10 : 0;
+
+  // Currency rewards
+  const cosmoEarned = params.won
+    ? 100 + Math.max(0, params.playerCardsLeft - Math.floor(params.totalCards / 2)) * 10
+    : 10;
+  const poEarned = params.won ? 0 : 0; // Pó reserved for future use
 
   if (existing) {
     const gW  = existing.games_won  + (params.won ? 1 : 0);
@@ -105,6 +129,8 @@ export async function upsertGameResult(params: {
     const newScore   = existing.total_score + gameScore + bonusScore;
     const newHighest = Math.max(existing.highest_score, gameScore);
     const wr = parseFloat(((gW / gT) * 100).toFixed(2));
+    const newCosmo = (existing.cosmo ?? 0) + cosmoEarned;
+    const newPo    = (existing.po    ?? 0) + poEarned;
 
     await supabase.from('card_game_rankings').update({
       player_name: params.playerName,
@@ -114,8 +140,10 @@ export async function upsertGameResult(params: {
       win_rate: wr,
       difficulty_level: params.difficulty,
       total_cards_played: existing.total_cards_played + params.totalCards,
+      cosmo: newCosmo, po: newPo,
       last_played_at: now, updated_at: now,
     }).eq('user_id', user.id);
+    return { cosmo: newCosmo, po: newPo };
   } else {
     const str = params.won ? 1 : 0;
     await supabase.from('card_game_rankings').insert({
@@ -130,7 +158,9 @@ export async function upsertGameResult(params: {
       difficulty_level: params.difficulty,
       total_cards_played: params.totalCards,
       average_game_duration: 0,
+      cosmo: cosmoEarned, po: poEarned,
       last_played_at: now, created_at: now, updated_at: now,
     });
+    return { cosmo: cosmoEarned, po: poEarned };
   }
 }
