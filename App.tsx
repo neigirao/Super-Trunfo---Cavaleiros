@@ -11,11 +11,11 @@ import Collection from './components/Collection';
 import { initialDeck } from './initialDeck';
 import { playCardFlip, playRoundWin, playRoundLose, playRoundDraw, playGameWin, playGameLose, setMuted as setMutedFn } from './utils/sounds';
 import { useIsMobile } from './utils/mobile';
-import { QUESTS, loadQuestProgress, incrementQuest } from './utils/quests';
+import { QUESTS, loadQuestProgress, incrementQuest, QuestIncrementResult } from './utils/quests';
 import {
-  supabase, signInWithGoogleToken, signOut as supabaseSignOut,
+  supabase, signOut as supabaseSignOut,
   loadDeckFromCloud, saveDeckToCloud,
-  fetchRanking, upsertGameResult, fetchPlayerCurrency, RankingRow, PlayerCurrency,
+  fetchRanking, upsertGameResult, fetchPlayerCurrency, addCurrency, RankingRow, PlayerCurrency,
 } from './utils/supabase';
 
 // ==================================================================
@@ -25,11 +25,6 @@ import {
 // 1. E-mail do Administrador:
 //    Coloque o seu e-mail do Google aqui para ter acesso ao Painel de Admin.
 const ADMIN_EMAIL = import.meta.env.VITE_ADMIN_EMAIL ?? 'neigirao@gmail.com';
-
-// 2. Google Client ID:
-//    Substitua pelo Client ID que você gerou no Google Cloud Console.
-//    O login NÃO FUNCIONARÁ sem um Client ID válido.
-const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID ?? '';
 
 // ==================================================================
 
@@ -126,6 +121,9 @@ const App: React.FC = () => {
   const [difficulty, setDifficulty] = useState<Difficulty>(Difficulty.Normal);
   const [matchHistory, setMatchHistory] = useState<RoundResult[]>([]);
   const [isMultiplayer, setIsMultiplayer] = useState(false);
+  const [rankingData, setRankingData] = useState<RankingEntry[]>([]);
+  const [isLoadingRanking, setIsLoadingRanking] = useState(false);
+
   const [playerAdvantage, setPlayerAdvantage] = useState<{ attribute: Attribute; bonus: number } | null>(null);
   const [p2Advantage, setP2Advantage] = useState<{ attribute: Attribute; bonus: number } | null>(null);
   const [timeLeft, setTimeLeft] = useState<number>(TURN_TIMER_SECONDS);
@@ -138,9 +136,6 @@ const App: React.FC = () => {
   // Card transfer animation: 'none' | 'player-wins' | 'ai-wins'
   const [transferAnim, setTransferAnim] = useState<'none' | 'player-wins' | 'ai-wins'>('none');
 
-  // Ranking data (loaded from Supabase)
-  const [rankingData, setRankingData] = useState<RankingEntry[]>([]);
-
   // Mute preference (persisted in localStorage)
   const [muted, setMuted] = useState(() => localStorage.getItem('muted') === '1');
   useEffect(() => {
@@ -152,6 +147,15 @@ const App: React.FC = () => {
   const [questProgress, setQuestProgress] = useState<Record<string, number>>(() => loadQuestProgress());
   const refreshQuests = () => setQuestProgress(loadQuestProgress());
 
+  const applyQuestReward = useCallback((result: QuestIncrementResult | null) => {
+    if (!result?.completed || !userProfile) return;
+    const cosmo = result.quest.rewardCosmo;
+    const po = result.quest.rewardPo ?? 0;
+    if (cosmo === 0 && po === 0) return;
+    setCurrency(prev => ({ cosmo: prev.cosmo + cosmo, po: prev.po + po }));
+    addCurrency(cosmo, po);
+  }, [userProfile]);
+
   // Player currency (loaded from Supabase after login)
   const [currency, setCurrency] = useState<PlayerCurrency>({ cosmo: 0, po: 0 });
 
@@ -162,7 +166,8 @@ const App: React.FC = () => {
   });
 
 
-  const isClientIdConfigured = !!GOOGLE_CLIENT_ID;
+  // Mantido apenas para compatibilidade de props; sempre true ao usar Supabase OAuth.
+  const isClientIdConfigured = true;
 
   useEffect(() => {
     localStorage.setItem('superTrunfoDeck', JSON.stringify(deck));
@@ -173,56 +178,44 @@ const App: React.FC = () => {
     if (!userProfile) return;
     saveDeckToCloud(deck);
   }, [deck, userProfile]);
-  
-  const handleCredentialResponse = useCallback(async (response: any) => {
-    // 1. Decodificar o JWT do Google para UI imediata
-    const base64Url = response.credential.split('.')[1];
-    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-    const jsonPayload = decodeURIComponent(
-      atob(base64).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join('')
-    );
-    const profile = JSON.parse(jsonPayload);
-    const user: UserProfile = { name: profile.name, email: profile.email, picture: profile.picture };
-    setUserProfile(user);
-    if (user.email === ADMIN_EMAIL) setIsAdmin(true);
 
-    // 2. Autenticar no Supabase com o token do Google (JWT server-side)
-    await signInWithGoogleToken(response.credential);
-
-    // 3. Carregar baralho da nuvem (se existir)
-    const cloudDeck = await loadDeckFromCloud();
-    if (cloudDeck && cloudDeck.length > 0) {
-      setDeck(cloudDeck);
-    }
-
-    // 4. Carregar moedas do jogador
-    const cur = await fetchPlayerCurrency();
-    setCurrency(cur);
-  }, []);
-
+  // Hidrata o perfil a partir da sessão Supabase
   useEffect(() => {
-    if (!isClientIdConfigured) return;
-    
-    const initializeGsi = () => {
-        if (window.google) {
-            window.google.accounts.id.initialize({
-                client_id: GOOGLE_CLIENT_ID,
-                callback: handleCredentialResponse
-            });
-            window.google.accounts.id.renderButton(
-                document.getElementById('google-signin-button'),
-                { theme: 'outline', size: 'large', type: 'standard', text: 'signin_with', shape: 'pill' }
-            );
-        }
+    const hydrate = (session: any) => {
+      const user = session?.user;
+      if (!user) {
+        setUserProfile(null);
+        setIsAdmin(false);
+        return;
+      }
+      const meta = user.user_metadata ?? {};
+      const profile: UserProfile = {
+        name: meta.full_name ?? meta.name ?? user.email ?? 'Jogador',
+        email: user.email ?? '',
+        picture: meta.avatar_url ?? meta.picture ?? `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(user.email ?? 'player')}`,
+      };
+      setUserProfile(profile);
+      setIsAdmin(profile.email === ADMIN_EMAIL);
     };
-    
-    if (document.readyState === 'complete') {
-        initializeGsi();
-    } else {
-        window.addEventListener('load', initializeGsi);
-        return () => window.removeEventListener('load', initializeGsi);
-    }
-  }, [handleCredentialResponse, isClientIdConfigured]);
+
+    const { data: sub } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      hydrate(session);
+      if (_event === 'SIGNED_IN' && session?.user) {
+        const cloudDeck = await loadDeckFromCloud();
+        if (cloudDeck && cloudDeck.length > 0) setDeck(cloudDeck);
+        const cur = await fetchPlayerCurrency();
+        setCurrency(cur);
+      }
+    });
+    supabase.auth.getSession().then(async ({ data }) => {
+      hydrate(data.session);
+      if (data.session?.user) {
+        const cur = await fetchPlayerCurrency();
+        setCurrency(cur);
+      }
+    });
+    return () => { sub.subscription.unsubscribe(); };
+  }, []);
   
   // Effect to orchestrate the animation sequence on the round result screen
   useEffect(() => {
@@ -299,8 +292,8 @@ const App: React.FC = () => {
 
     if (timeLeft <= 0) {
       if (playerDeck.length === 0 || aiDeck.length === 0) return;
-      const deck = isPlayerTurn ? playerDeck : aiDeck;
-      const attrs = Object.keys(deck[0].attributes) as Attribute[];
+      const activeDeck = isPlayerTurn ? playerDeck : aiDeck;
+      const attrs = Object.keys(activeDeck[0].attributes) as Attribute[];
       const randomAttr = attrs[Math.floor(Math.random() * attrs.length)];
       playCardFlip();
       resolveRound(randomAttr, playerDeck[0], aiDeck[0]);
@@ -384,9 +377,9 @@ const App: React.FC = () => {
     if (!isPlayerTurn || playerDeck.length === 0 || aiDeck.length === 0) return;
     playCardFlip();
     // Quest: aposte em Condutividade 5×
-    if (attribute === Attribute.Condutividade) { incrementQuest('cond5'); refreshQuests(); }
+    if (attribute === Attribute.Condutividade) { applyQuestReward(incrementQuest('cond5')); refreshQuests(); }
     // Quest: jogue um Cavaleiro do grupo 1 (Metal Alcalino)
-    if (playerDeck[0].element === ElementType.AlkaliMetal) { incrementQuest('grp1'); refreshQuests(); }
+    if (playerDeck[0].element === ElementType.AlkaliMetal) { applyQuestReward(incrementQuest('grp1')); refreshQuests(); }
     resolveRound(attribute, playerDeck[0], aiDeck[0]);
   };
 
@@ -436,11 +429,11 @@ const App: React.FC = () => {
       const playerWon = newPlayerDeck.length > 0;
       if (playerWon) playGameWin(); else playGameLose();
       // Quest: vença 3 duelos
-      if (playerWon) { incrementQuest('win3'); refreshQuests(); }
+      if (playerWon) { applyQuestReward(incrementQuest('win3')); refreshQuests(); }
       // Quest: vença com Legendary (card no topo do deck antes de ser removida)
       if (playerWon && playerCard) {
         const isLegendary = playerCard.isSuperTrunfo;
-        if (isLegendary) { incrementQuest('legwin'); refreshQuests(); }
+        if (isLegendary) { applyQuestReward(incrementQuest('legwin')); refreshQuests(); }
       }
       // Persistir resultado no ranking e atualizar moedas
       if (userProfile) {
@@ -505,6 +498,8 @@ const App: React.FC = () => {
   };
 
   const handleGoToRanking = async () => {
+    setIsLoadingRanking(true);
+    setRankingData([]);
     setGameState(GameState.Ranking);
     const rows: RankingRow[] = await fetchRanking(20);
     const entries: RankingEntry[] = rows.map((r, i) => ({
@@ -514,6 +509,7 @@ const App: React.FC = () => {
       score: r.total_score,
     }));
     setRankingData(entries);
+    setIsLoadingRanking(false);
   };
   
   const handleSaveCard = (cardToSave: CardData) => {
@@ -837,7 +833,7 @@ const App: React.FC = () => {
             </p>
 
             <div style={{ display: 'flex', gap: 14, justifyContent: 'center', flexWrap: 'wrap' }}>
-              <button onClick={startGame} style={{
+              <button onClick={() => startGame()} style={{
                 fontFamily: 'Cinzel, serif', fontWeight: 700, fontSize: 12, letterSpacing: '.3em',
                 color: '#1a0e04', padding: '14px 30px', cursor: 'pointer',
                 background: 'linear-gradient(180deg,#f4c349,#8a6a2a)',
@@ -855,7 +851,7 @@ const App: React.FC = () => {
       }
 
       case GameState.Ranking:
-        return <Ranking rankingData={rankingData} onBack={handleBackToMenu} />;
+        return <Ranking rankingData={rankingData} onBack={handleBackToMenu} isLoading={isLoadingRanking} />;
 
       case GameState.Admin:
         return <AdminPanel cards={deck} onSave={handleSaveCard} onDelete={handleDeleteCard} onBack={handleBackToMenu} />;

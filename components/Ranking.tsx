@@ -5,9 +5,10 @@ import { useIsMobile } from '../utils/mobile';
 interface RankingProps {
   rankingData: RankingEntry[];
   onBack: () => void;
+  isLoading?: boolean;
 }
 
-export const Ranking: React.FC<RankingProps> = ({ rankingData, onBack }) => {
+export const Ranking: React.FC<RankingProps> = ({ rankingData, onBack, isLoading }) => {
   const isMobile = useIsMobile();
   return (
   <div style={{
@@ -46,7 +47,20 @@ export const Ranking: React.FC<RankingProps> = ({ rankingData, onBack }) => {
           </tr>
         </thead>
         <tbody>
-          {rankingData.length === 0 ? (
+          {isLoading ? (
+            <tr>
+              <td colSpan={4} style={{ textAlign: 'center', padding: '48px 0' }}>
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 12, color: 'rgba(244,195,73,.7)' }}>
+                  <div style={{
+                    width: 20, height: 20, border: '2px solid rgba(244,195,73,.3)',
+                    borderTopColor: '#f4c349', borderRadius: '50%',
+                    animation: 'spin 0.8s linear infinite',
+                  }} />
+                  <span style={{ fontFamily: 'Cinzel, serif', fontSize: 11, letterSpacing: '.3em' }}>CARREGANDO…</span>
+                </div>
+              </td>
+            </tr>
+          ) : rankingData.length === 0 ? (
             <tr>
               <td colSpan={4} style={{
                 textAlign: 'center', padding: '48px 0',
