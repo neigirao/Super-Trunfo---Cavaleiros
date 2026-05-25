@@ -11,11 +11,11 @@ import Collection from './components/Collection';
 import { initialDeck } from './initialDeck';
 import { playCardFlip, playRoundWin, playRoundLose, playRoundDraw, playGameWin, playGameLose, setMuted as setMutedFn } from './utils/sounds';
 import { useIsMobile } from './utils/mobile';
-import { QUESTS, loadQuestProgress, incrementQuest } from './utils/quests';
+import { QUESTS, loadQuestProgress, incrementQuest, QuestIncrementResult } from './utils/quests';
 import {
-  supabase, signInWithGoogleToken, signOut as supabaseSignOut,
+  supabase, signOut as supabaseSignOut,
   loadDeckFromCloud, saveDeckToCloud,
-  fetchRanking, upsertGameResult, fetchPlayerCurrency, RankingRow, PlayerCurrency,
+  fetchRanking, upsertGameResult, fetchPlayerCurrency, addCurrency, RankingRow, PlayerCurrency,
 } from './utils/supabase';
 
 // ==================================================================
@@ -122,54 +122,7 @@ const App: React.FC = () => {
   const [matchHistory, setMatchHistory] = useState<RoundResult[]>([]);
   const [isMultiplayer, setIsMultiplayer] = useState(false);
   const [rankingData, setRankingData] = useState<RankingEntry[]>([]);
-
-  const saveRanking = useCallback(async (playerWon: boolean, remainingCards: number) => {
-    if (isMultiplayer || !userProfile) return;
-    const diffMultiplier = difficulty === Difficulty.Hard ? 3 : difficulty === Difficulty.Normal ? 2 : 1;
-    const score = (playerWon ? 100 : 0) + remainingCards * 10 * diffMultiplier;
-    try {
-      await supabase.from('rankings').insert({
-        player_name: userProfile.name,
-        score,
-        games_played: 1,
-        game_mode: 'classic',
-        difficulty_level: difficulty,
-      });
-    } catch (err) {
-      console.error('[ranking] insert falhou', err);
-    }
-  }, [isMultiplayer, userProfile, difficulty]);
-
-  const loadRanking = useCallback(async () => {
-    try {
-      const { data, error } = await supabase
-        .from('rankings')
-        .select('player_name, score, user_id')
-        .order('score', { ascending: false })
-        .limit(200);
-      if (error) throw error;
-      const agg = new Map<string, { name: string; wins: number; score: number }>();
-      (data ?? []).forEach((row: any) => {
-        const key = row.user_id || row.player_name;
-        const cur = agg.get(key) ?? { name: row.player_name, wins: 0, score: 0 };
-        cur.score += row.score ?? 0;
-        if ((row.score ?? 0) >= 100) cur.wins += 1;
-        agg.set(key, cur);
-      });
-      const sorted = Array.from(agg.values())
-        .sort((a, b) => b.score - a.score)
-        .slice(0, 50)
-        .map((entry, idx) => ({
-          rank: idx + 1,
-          user: { name: entry.name, picture: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(entry.name)}` },
-          wins: entry.wins,
-          score: entry.score,
-        }));
-      setRankingData(sorted);
-    } catch (err) {
-      console.error('[ranking] load falhou', err);
-    }
-  }, []);
+  const [isLoadingRanking, setIsLoadingRanking] = useState(false);
   const [playerAdvantage, setPlayerAdvantage] = useState<{ attribute: Attribute; bonus: number } | null>(null);
   const [p2Advantage, setP2Advantage] = useState<{ attribute: Attribute; bonus: number } | null>(null);
   const [timeLeft, setTimeLeft] = useState<number>(TURN_TIMER_SECONDS);
@@ -192,6 +145,15 @@ const App: React.FC = () => {
   // Daily quests progress (reloaded from localStorage after each relevant action)
   const [questProgress, setQuestProgress] = useState<Record<string, number>>(() => loadQuestProgress());
   const refreshQuests = () => setQuestProgress(loadQuestProgress());
+
+  const applyQuestReward = useCallback((result: QuestIncrementResult | null) => {
+    if (!result?.completed || !userProfile) return;
+    const cosmo = result.quest.rewardCosmo;
+    const po = result.quest.rewardPo ?? 0;
+    if (cosmo === 0 && po === 0) return;
+    setCurrency(prev => ({ cosmo: prev.cosmo + cosmo, po: prev.po + po }));
+    addCurrency(cosmo, po);
+  }, [userProfile]);
 
   // Player currency (loaded from Supabase after login)
   const [currency, setCurrency] = useState<PlayerCurrency>({ cosmo: 0, po: 0 });
@@ -216,32 +178,6 @@ const App: React.FC = () => {
     saveDeckToCloud(deck);
   }, [deck, userProfile]);
 
-  const handleCredentialResponse = useCallback(async (response: any) => {
-    // 1. Decodificar o JWT do Google para UI imediata
-    const base64Url = response.credential.split('.')[1];
-    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-    const jsonPayload = decodeURIComponent(
-      atob(base64).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join('')
-    );
-    const profile = JSON.parse(jsonPayload);
-    const user: UserProfile = { name: profile.name, email: profile.email, picture: profile.picture };
-    setUserProfile(user);
-    if (user.email === ADMIN_EMAIL) setIsAdmin(true);
-
-    // 2. Autenticar no Supabase com o token do Google (JWT server-side)
-    await signInWithGoogleToken(response.credential);
-
-    // 3. Carregar baralho da nuvem (se existir)
-    const cloudDeck = await loadDeckFromCloud();
-    if (cloudDeck && cloudDeck.length > 0) {
-      setDeck(cloudDeck);
-    }
-
-    // 4. Carregar moedas do jogador
-    const cur = await fetchPlayerCurrency();
-    setCurrency(cur);
-  }, []);
-
   // Hidrata o perfil a partir da sessão Supabase
   useEffect(() => {
     const hydrate = (session: any) => {
@@ -261,10 +197,22 @@ const App: React.FC = () => {
       setIsAdmin(profile.email === ADMIN_EMAIL);
     };
 
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: sub } = supabase.auth.onAuthStateChange(async (_event, session) => {
       hydrate(session);
+      if (_event === 'SIGNED_IN' && session?.user) {
+        const cloudDeck = await loadDeckFromCloud();
+        if (cloudDeck && cloudDeck.length > 0) setDeck(cloudDeck);
+        const cur = await fetchPlayerCurrency();
+        setCurrency(cur);
+      }
     });
-    supabase.auth.getSession().then(({ data }) => hydrate(data.session));
+    supabase.auth.getSession().then(async ({ data }) => {
+      hydrate(data.session);
+      if (data.session?.user) {
+        const cur = await fetchPlayerCurrency();
+        setCurrency(cur);
+      }
+    });
     return () => { sub.subscription.unsubscribe(); };
   }, []);
   
@@ -343,8 +291,8 @@ const App: React.FC = () => {
 
     if (timeLeft <= 0) {
       if (playerDeck.length === 0 || aiDeck.length === 0) return;
-      const deck = isPlayerTurn ? playerDeck : aiDeck;
-      const attrs = Object.keys(deck[0].attributes) as Attribute[];
+      const activeDeck = isPlayerTurn ? playerDeck : aiDeck;
+      const attrs = Object.keys(activeDeck[0].attributes) as Attribute[];
       const randomAttr = attrs[Math.floor(Math.random() * attrs.length)];
       playCardFlip();
       resolveRound(randomAttr, playerDeck[0], aiDeck[0]);
@@ -428,9 +376,9 @@ const App: React.FC = () => {
     if (!isPlayerTurn || playerDeck.length === 0 || aiDeck.length === 0) return;
     playCardFlip();
     // Quest: aposte em Condutividade 5×
-    if (attribute === Attribute.Condutividade) { incrementQuest('cond5'); refreshQuests(); }
+    if (attribute === Attribute.Condutividade) { applyQuestReward(incrementQuest('cond5')); refreshQuests(); }
     // Quest: jogue um Cavaleiro do grupo 1 (Metal Alcalino)
-    if (playerDeck[0].element === ElementType.AlkaliMetal) { incrementQuest('grp1'); refreshQuests(); }
+    if (playerDeck[0].element === ElementType.AlkaliMetal) { applyQuestReward(incrementQuest('grp1')); refreshQuests(); }
     resolveRound(attribute, playerDeck[0], aiDeck[0]);
   };
 
@@ -480,11 +428,11 @@ const App: React.FC = () => {
       const playerWon = newPlayerDeck.length > 0;
       if (playerWon) playGameWin(); else playGameLose();
       // Quest: vença 3 duelos
-      if (playerWon) { incrementQuest('win3'); refreshQuests(); }
+      if (playerWon) { applyQuestReward(incrementQuest('win3')); refreshQuests(); }
       // Quest: vença com Legendary (card no topo do deck antes de ser removida)
       if (playerWon && playerCard) {
         const isLegendary = playerCard.isSuperTrunfo;
-        if (isLegendary) { incrementQuest('legwin'); refreshQuests(); }
+        if (isLegendary) { applyQuestReward(incrementQuest('legwin')); refreshQuests(); }
       }
       // Persistir resultado no ranking e atualizar moedas
       if (userProfile) {
@@ -549,6 +497,8 @@ const App: React.FC = () => {
   };
 
   const handleGoToRanking = async () => {
+    setIsLoadingRanking(true);
+    setRankingData([]);
     setGameState(GameState.Ranking);
     const rows: RankingRow[] = await fetchRanking(20);
     const entries: RankingEntry[] = rows.map((r, i) => ({
@@ -558,6 +508,7 @@ const App: React.FC = () => {
       score: r.total_score,
     }));
     setRankingData(entries);
+    setIsLoadingRanking(false);
   };
   
   const handleSaveCard = (cardToSave: CardData) => {
@@ -899,7 +850,7 @@ const App: React.FC = () => {
       }
 
       case GameState.Ranking:
-        return <Ranking rankingData={rankingData} onBack={handleBackToMenu} />;
+        return <Ranking rankingData={rankingData} onBack={handleBackToMenu} isLoading={isLoadingRanking} />;
 
       case GameState.Admin:
         return <AdminPanel cards={deck} onSave={handleSaveCard} onDelete={handleDeleteCard} onBack={handleBackToMenu} />;

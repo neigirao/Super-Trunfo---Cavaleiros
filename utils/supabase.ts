@@ -69,6 +69,21 @@ export async function saveDeckToCloud(deck: CardData[]): Promise<void> {
 }
 
 // ─── Currency ─────────────────────────────────────────────────
+export async function addCurrency(cosmo: number, po = 0): Promise<void> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return;
+  const { data: existing } = await supabase
+    .from('card_game_rankings')
+    .select('cosmo,po')
+    .eq('user_id', user.id)
+    .single();
+  if (!existing) return;
+  await supabase.from('card_game_rankings').update({
+    cosmo: (existing.cosmo ?? 0) + cosmo,
+    po:    (existing.po    ?? 0) + po,
+  }).eq('user_id', user.id);
+}
+
 export async function fetchPlayerCurrency(): Promise<PlayerCurrency> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { cosmo: 0, po: 0 };

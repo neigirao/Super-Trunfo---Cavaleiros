@@ -1,7 +1,7 @@
 import React, { CSSProperties } from 'react';
 import { UserProfile } from '../types';
 import { ELEMENTS, ATTR, PERIODIC, FORMULAS, ElementData, fmt } from '../shared';
-import { supabase } from '../src/integrations/supabase/client';
+import { supabase } from '../utils/supabase';
 import { useIsMobile } from '../utils/mobile';
 
 // ─── helpers ────────────────────────────────────────────────
