@@ -249,6 +249,7 @@ export type Database = {
       card_game_rankings: {
         Row: {
           average_game_duration: number
+          cosmo: number
           created_at: string
           current_streak: number
           difficulty_level: string
@@ -260,6 +261,7 @@ export type Database = {
           last_played_at: string | null
           longest_streak: number
           player_name: string
+          po: number
           total_cards_played: number
           total_games: number
           total_score: number
@@ -269,6 +271,7 @@ export type Database = {
         }
         Insert: {
           average_game_duration?: number
+          cosmo?: number
           created_at?: string
           current_streak?: number
           difficulty_level?: string
@@ -280,6 +283,7 @@ export type Database = {
           last_played_at?: string | null
           longest_streak?: number
           player_name: string
+          po?: number
           total_cards_played?: number
           total_games?: number
           total_score?: number
@@ -289,6 +293,7 @@ export type Database = {
         }
         Update: {
           average_game_duration?: number
+          cosmo?: number
           created_at?: string
           current_streak?: number
           difficulty_level?: string
@@ -300,6 +305,7 @@ export type Database = {
           last_played_at?: string | null
           longest_streak?: number
           player_name?: string
+          po?: number
           total_cards_played?: number
           total_games?: number
           total_score?: number
