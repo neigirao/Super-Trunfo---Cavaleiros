@@ -440,6 +440,559 @@ Configurar service worker para jogar sem conexão. Requer substituição das ima
 
 ---
 
+---
+
+## 🔐 Segurança — Achados da Auditoria (maio/2026)
+
+> Itens descobertos na auditoria de segurança realizada após o MVP. Severidade independente das prioridades funcionais acima; itens marcados 🔥 devem ser resolvidos antes de qualquer usuário externo acessar o sistema em produção.
+
+### S1 — RLS (Row Level Security) desativado em todas as tabelas 🔥
+
+**Problema:** Nenhuma política de RLS está ativa nas tabelas `card_game_rankings`, `cavaleiros_decks`, `element_cards`, `profiles`. O `anon key` público do Supabase permite que qualquer pessoa leia e escreva dados diretamente via REST API sem autenticação — bastam as credenciais do `index.html`.
+
+**Vetor de ataque:** `curl -H "apikey: ANON_KEY" https://SUPABASE_URL/rest/v1/card_game_rankings` retorna todos os registros de todos os jogadores.
+
+**Plano de Ação:**
+```sql
+-- Executar no Supabase SQL Editor
+ALTER TABLE card_game_rankings ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "users_own_rows" ON card_game_rankings
+  FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "public_read_ranking" ON card_game_rankings
+  FOR SELECT USING (true);
+
+ALTER TABLE cavaleiros_decks ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "users_own_decks" ON cavaleiros_decks
+  FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+```
+
+**Arquivos:** Supabase Dashboard → Table Editor → RLS
+
+---
+
+### S2 — GEMINI_API_KEY exposta no bundle JavaScript de produção 🔥
+
+**Problema:** `vite.config.ts:8-9` injeta `GEMINI_API_KEY` via `define: { 'process.env.GEMINI_API_KEY': ... }`. Essa substituição acontece em tempo de build, embutindo a chave literalmente no `dist/assets/index-*.js`. Qualquer pessoa pode abrir o DevTools e extrair a chave.
+
+**Vetor de ataque:** `grep -o '"AIza[^"]*"' dist/assets/index-*.js` ou DevTools → Sources → busca "AIza".
+
+**Plano de Ação:**
+1. Remover as linhas `define` de `vite.config.ts:8-9`
+2. Se Gemini for usado no futuro, criar Edge Function no Supabase que faz proxy das chamadas (chave fica no servidor)
+3. Revogar a chave atual no Google Cloud Console e gerar nova
+
+**Arquivos:** `vite.config.ts`
+
+---
+
+### S3 — Autorização de Admin exclusivamente no frontend
+
+**Problema:** `App.tsx` verifica `userProfile.email === ADMIN_EMAIL` para mostrar o painel de admin, mas essa lógica está inteiramente no cliente. Qualquer pessoa pode modificar o estado local (React DevTools) para ganhar acesso ao `AdminPanel` e criar/editar/deletar cartas do banco sem restrição server-side.
+
+**Vetor de ataque:** React DevTools → buscar componente App → editar `isAdmin` para `true`.
+
+**Plano de Ação:**
+1. Criar política RLS no Supabase para a tabela `element_cards`:
+   ```sql
+   CREATE POLICY "admin_write" ON element_cards
+     FOR ALL USING (auth.jwt() ->> 'email' = 'neigirao@gmail.com');
+   ```
+2. Adicionar verificação server-side via Supabase Function ou Edge Function antes de qualquer mutação de carta
+3. Manter verificação frontend apenas como UX (esconder botão), não como segurança real
+
+**Arquivos:** `App.tsx`, Supabase Dashboard
+
+---
+
+### S4 — Sem Content Security Policy (CSP)
+
+**Problema:** `index.html` não define header `Content-Security-Policy`. O app carrega scripts de 4 origens externas (`cdn.tailwindcss.com`, `esm.sh`, `accounts.google.com`, `fonts.googleapis.com`) sem whitelist. Se qualquer CDN for comprometida (supply chain attack), scripts maliciosos serão executados no contexto do jogo com acesso ao token de sessão do Supabase.
+
+**Plano de Ação:**
+```html
+<!-- Adicionar em index.html <head> -->
+<meta http-equiv="Content-Security-Policy" content="
+  default-src 'self';
+  script-src 'self' https://cdn.tailwindcss.com https://esm.sh https://accounts.google.com;
+  style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+  font-src https://fonts.gstatic.com;
+  img-src 'self' data: https://picsum.photos https://lh3.googleusercontent.com;
+  connect-src 'self' https://*.supabase.co;
+">
+```
+
+**Arquivos:** `index.html`
+
+---
+
+### S5 — Sem Subresource Integrity (SRI) em scripts externos
+
+**Problema:** `<script src="https://cdn.tailwindcss.com">` e imports do `esm.sh` não usam `integrity="sha384-..."`. Se o CDN servir uma versão modificada do script, o browser a executa sem aviso.
+
+**Plano de Ação:**
+1. Migrar Tailwind para dependência local (`npm install tailwindcss`) e compilar no build (resolve CDN + SRI em um passo)
+2. Migrar React/ReactDOM de `esm.sh` para bundle local via Vite (já estão em `package.json` como deps)
+3. Para scripts que permanecerem externos, gerar hash SRI: `openssl dgst -sha384 -binary script.js | openssl base64 -A`
+
+**Arquivos:** `index.html`, `vite.config.ts`
+
+---
+
+### S6 — Token de sessão exposto via `console.log` implícito
+
+**Problema:** `utils/supabase.ts:36` e `:108` usam `console.error()` com objetos de erro que podem conter tokens parciais ou metadados de sessão. Em produção, ferramentas de log externas (Datadog, Papertrail) capturariam esses logs incluindo dados sensíveis.
+
+**Plano de Ação:**
+1. Em produção (`import.meta.env.PROD`), substituir `console.error` por chamada silenciosa ao Sentry
+2. Nunca logar o objeto de erro inteiro — apenas `error.message`
+
+**Arquivos:** `utils/supabase.ts`
+
+---
+
+## ⚡ Performance — Achados da Auditoria (maio/2026)
+
+> Impactos medidos via análise estática do build. TTI = Time to Interactive, LCP = Largest Contentful Paint.
+
+### P1 — Tailwind carregado via CDN síncrono (bloqueante) 🔥
+
+**Problema:** `index.html:8` tem `<script src="https://cdn.tailwindcss.com">` sem `defer` ou `async`. O browser para de processar o HTML e espera o download do script (~80KB) antes de continuar — bloqueia o render da primeira tela.
+
+**Impacto estimado:** LCP +300–500ms em 4G; +1–2s em 3G.
+
+**Plano de Ação:**
+1. Instalar Tailwind como dependência: `npm install -D tailwindcss`
+2. Criar `tailwind.config.js` e `postcss.config.js`
+3. Remover `<script src="https://cdn.tailwindcss.com">` do `index.html`
+4. Importar Tailwind no CSS: criar `src/index.css` com `@tailwind base; @tailwind components; @tailwind utilities;`
+5. Importar o CSS em `index.tsx`
+
+**Arquivos:** `index.html`, novo `tailwind.config.js`, `index.tsx`
+
+---
+
+### P2 — React carregado via `esm.sh` (sem controle de bundle, sem cache)
+
+**Problema:** `index.html:92-98` define importmap apontando React para `https://esm.sh/react@^19.1.1`. Cada deploy pode resolver uma versão diferente (`^`). Sem `package-lock` cobrindo essa resolução. Cache do browser é da URL do esm.sh, não do seu domínio — expiração imprevisível. Duas requisições de rede extras antes do app inicializar.
+
+**Impacto estimado:** TTI +400–800ms por falta de bundle único otimizado.
+
+**Plano de Ação:**
+1. Remover o bloco `<script type="importmap">` do `index.html`
+2. React já está em `package.json` — o Vite já o empacota. Garantir que `index.tsx` não faz import de URL
+3. Rodar `npm run build` e verificar que React está no bundle local (`dist/assets/index-*.js`)
+
+**Arquivos:** `index.html`, `index.tsx`
+
+---
+
+### P3 — `initialDeck.ts` com 118 cartas inline no bundle principal
+
+**Problema:** `initialDeck.ts` define ~118 objetos com 6 atributos cada e uma URL de imagem. Esse arquivo é importado estaticamente em `App.tsx` e vai inteiro no bundle principal. Jogadores que nunca constroem um deck customizado pagam o custo de parse de ~35KB de dados que não usarão naquela sessão.
+
+**Impacto estimado:** +15–25ms de parse time; +35KB no bundle principal.
+
+**Plano de Ação (preferida):** Carregar cartas da tabela `element_cards` no Supabase (já existe, já tem os 118 elementos com atributos). Eliminar `initialDeck.ts` completamente.
+
+**Plano de Ação (alternativo):** Converter para `initialDeck.json` + dynamic import:
+```typescript
+const { default: initialDeck } = await import('./initialDeck.json');
+```
+
+**Arquivos:** `initialDeck.ts`, `App.tsx`
+
+---
+
+### P4 — localStorage sincronizado sem debounce a cada mudança de deck
+
+**Problema:** `App.tsx:172-179` tem dois `useEffect` que disparam em cascata a cada mudança em `deck`: um salva no localStorage (síncrono, bloqueia main thread ~15ms), outro chama `saveDeckToCloud` (request HTTP). Durante o jogo, o deck muda a cada rodada — cada transferência de carta aciona ambos.
+
+**Plano de Ação:**
+```typescript
+// Debounce de 2s para localStorage, 5s para Supabase
+const saveDeckDebounced = useMemo(
+  () => debounce((d: CardData[]) => {
+    localStorage.setItem('ce_v1_deck', JSON.stringify(d));
+    if (userProfile) saveDeckToCloud(d);
+  }, 2000),
+  [userProfile]
+);
+useEffect(() => { saveDeckDebounced(deck); }, [deck]);
+```
+
+**Arquivos:** `App.tsx`
+
+---
+
+### P5 — Sem code splitting: bundle único de 555KB
+
+**Problema:** `vite.config.ts` não configura `build.rollupOptions.output.manualChunks`. O Vite gera um único `index-*.js` de 555KB. Usuários que visitam apenas o menu principal baixam código de AdminPanel, Collection, DeckEditor sem precisar.
+
+**Plano de Ação:**
+```typescript
+// vite.config.ts
+build: {
+  rollupOptions: {
+    output: {
+      manualChunks: {
+        vendor: ['react', 'react-dom', '@supabase/supabase-js'],
+        admin: ['./components/AdminPanel.tsx'],
+        collection: ['./components/Collection.tsx'],
+        deckEditor: ['./components/DeckEditor.tsx'],
+      }
+    }
+  }
+}
+```
+
+**Arquivos:** `vite.config.ts`
+
+---
+
+### P6 — Sem React.memo / useCallback nos componentes pesados
+
+**Problema:** `Dashboard`, `Card`, `Collection` re-renderizam a cada mudança de qualquer estado em `App.tsx` (13 `useState`). Em modo Playing, `timeLeft` decrementa a cada segundo causando re-render total da árvore.
+
+**Plano de Ação:**
+1. Envolver `Dashboard`, `Ranking`, `Collection`, `AdminPanel` em `React.memo()`
+2. Todos os callbacks passados como props (handlers de atributo, handlers de navegação) em `useCallback`
+3. Tirar `timeLeft` do estado de `App` para um hook isolado `useTimer` que renderiza apenas o componente `TimerRing`
+
+**Arquivos:** `App.tsx`, `components/Dashboard.tsx`, `components/Card.tsx`, `components/Collection.tsx`
+
+---
+
+### P7 — Sourcemaps habilitados em produção (vazamento de código)
+
+**Problema:** `vite.config.ts` não define `build.sourcemap: false`. O Vite gera sourcemaps por padrão dependendo da versão — se gerados em produção, o código TypeScript original fica acessível via DevTools, facilitando engenharia reversa da lógica do jogo e extração de strings sensíveis.
+
+**Plano de Ação:**
+```typescript
+build: { sourcemap: false } // ou: sourcemap: mode === 'development'
+```
+
+**Arquivos:** `vite.config.ts`
+
+---
+
+### P8 — Google Fonts bloqueia render (FOUT sem font-display)
+
+**Problema:** `index.html:9-11` tem preconnect para Google Fonts (correto), mas a stylesheet carregada não especifica `font-display: swap`. Cinzel e Spectral bloqueiam renderização de texto até o download das fontes — usuário vê tela em branco ou sem texto.
+
+**Plano de Ação:**
+```html
+<!-- Adicionar &display=swap na URL do Google Fonts -->
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;900&...&display=swap" rel="stylesheet">
+```
+
+**Arquivos:** `index.html`
+
+---
+
+## 📋 Legal & Compliance (LGPD/GDPR) — Achados da Auditoria
+
+> Itens com risco jurídico direto. O jogo coleta dados pessoais (nome, email, foto Google, histórico de partidas) de usuários brasileiros — LGPD (Lei 13.709/2018) é aplicável.
+
+### L1 — Ausência de Política de Privacidade 🔥
+
+**Problema:** O app coleta nome completo, email e foto via Google OAuth e armazena histórico de partidas e preferências no Supabase. Não existe nenhum link ou documento de Política de Privacidade. Isso viola o Art. 9º da LGPD (dever de informação) e os Termos de Serviço do Google OAuth (exigem link para privacy policy visível na tela de login).
+
+**Plano de Ação:**
+1. Criar `/public/privacidade.html` com: quais dados são coletados, por quê, por quanto tempo, com quem compartilhados, direitos do titular
+2. Adicionar link visível na tela de login (HomeMenu) antes do botão "Entrar com Google"
+3. Link no rodapé do Dashboard
+
+**Arquivos:** novo `/public/privacidade.html`, `components/HomeMenu.tsx`, `components/Dashboard.tsx`
+
+---
+
+### L2 — Consentimento não solicitado antes do OAuth 🔥
+
+**Problema:** O botão "ENTRAR COM GOOGLE" inicia o fluxo OAuth imediatamente sem informar o usuário sobre os dados coletados ou obter consentimento. O Art. 7º da LGPD exige que o tratamento de dados pessoais tenha base legal — para jogo casual (sem contrato), a base é consentimento, que deve ser livre, informado e inequívoco.
+
+**Plano de Ação:**
+1. Antes de chamar `triggerGoogleSignIn`, exibir modal/checkbox: "Ao continuar, você concorda com nossa [Política de Privacidade] e consente com o tratamento dos seus dados para fins de jogo."
+2. Salvar timestamp do consentimento em `card_game_rankings.consent_at` (nova coluna)
+3. Botão "ENTRAR" desabilitado até checkbox marcado
+
+**Arquivos:** `components/HomeMenu.tsx`, Supabase (nova coluna)
+
+---
+
+### L3 — Ausência de mecanismo de exclusão de conta (direito ao esquecimento)
+
+**Problema:** Art. 18, IV da LGPD garante ao titular o direito de solicitar eliminação dos dados pessoais. O app não oferece nenhum botão ou fluxo de "Excluir minha conta e dados".
+
+**Plano de Ação:**
+1. Adicionar botão "Excluir minha conta" nas configurações do Dashboard
+2. Ao confirmar, executar: `DELETE FROM card_game_rankings WHERE user_id = auth.uid()` e `DELETE FROM cavaleiros_decks WHERE user_id = auth.uid()`, depois `supabase.auth.admin.deleteUser(uid)`
+3. Exibir confirmação "Seus dados foram removidos permanentemente"
+
+**Arquivos:** `components/Dashboard.tsx`, `utils/supabase.ts`
+
+---
+
+### L4 — Sem Termos de Uso
+
+**Problema:** Sem documento definindo as regras de uso do jogo: comportamento esperado, proibições (cheating, automação), responsabilidade por conteúdo, lei aplicável para resolução de disputas.
+
+**Plano de Ação:**
+1. Criar `/public/termos.html` com termos simplificados
+2. Linkar junto com a Política de Privacidade no fluxo de consentimento
+
+**Arquivos:** novo `/public/termos.html`, `components/HomeMenu.tsx`
+
+---
+
+## 🔍 SEO & Visibilidade
+
+> O jogo é uma SPA sem SSR — bots de busca veem apenas o `index.html` vazio antes de executar JavaScript. Isso limita severamente a indexação orgânica.
+
+### SEO1 — Meta description ausente
+
+**Problema:** `index.html` tem `<title>` mas sem `<meta name="description">`. Google usa a description no snippet da SERP. Sem ela, o algoritmo extrai texto aleatório do conteúdo, geralmente pobre.
+
+**Plano de Ação:**
+```html
+<meta name="description" content="Cavaleiros dos Elementos: um jogo de cartas que transforma a Tabela Periódica em campo de batalha. Construa seu baralho, aposte atributos químicos e vença a IA. Grátis, no browser.">
+```
+
+**Arquivos:** `index.html`
+
+---
+
+### SEO2 — Open Graph e Twitter Card ausentes
+
+**Problema:** Quando o link é compartilhado no WhatsApp, Twitter ou Discord, o preview mostra apenas o domínio sem imagem ou descrição — taxa de clique cai ~60%.
+
+**Plano de Ação:**
+```html
+<meta property="og:title" content="Cavaleiros dos Elementos">
+<meta property="og:description" content="A Tabela Periódica como campo de batalha.">
+<meta property="og:image" content="https://[dominio]/og-cover.png">
+<meta property="og:url" content="https://[dominio]/">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+```
+Criar `og-cover.png` (1200×630px) com arte do jogo.
+
+**Arquivos:** `index.html`, `public/og-cover.png`
+
+---
+
+### SEO3 — robots.txt e sitemap.xml ausentes
+
+**Problema:** Sem `robots.txt`, o Google Disallow padrão pode bloquear rotas. Sem `sitemap.xml`, o bot não sabe quais URLs priorizar (relevante quando SSR/SSG for implementado).
+
+**Plano de Ação:**
+Criar `/public/robots.txt`:
+```
+User-agent: *
+Allow: /
+Disallow: /admin
+Sitemap: https://[dominio]/sitemap.xml
+```
+Criar `/public/sitemap.xml` básico com a URL raiz.
+
+**Arquivos:** `public/robots.txt`, `public/sitemap.xml`
+
+---
+
+### SEO4 — Structured Data (JSON-LD) ausente
+
+**Problema:** Google Search entende jogos melhor com Schema.org `Game`. Sem isso, o resultado de busca não qualifica para rich snippets (avaliações, gênero, plataforma).
+
+**Plano de Ação:**
+```html
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "VideoGame",
+  "name": "Cavaleiros dos Elementos",
+  "description": "Jogo de cartas com elementos da Tabela Periódica",
+  "genre": "Card Game",
+  "gamePlatform": "Web Browser",
+  "operatingSystem": "Any",
+  "applicationCategory": "Game",
+  "isAccessibleForFree": true
+}
+</script>
+```
+
+**Arquivos:** `index.html`
+
+---
+
+## 🤖 SEO de IA (LLM Search Optimization)
+
+> Motores de busca como Perplexity, ChatGPT Search, Google AI Overviews e Claude.ai citam fontes quando respondem perguntas. Para aparecer nessas citações ("jogo de cartas da tabela periódica"), o conteúdo precisa ser rastreável e estruturado.
+
+### AISO1 — SPA sem conteúdo rastreável por LLMs
+
+**Problema:** O app inteiro reside em `App.tsx` renderizado no cliente. Quando um crawler de LLM visita o domínio, recebe `<div id="root"></div>` vazio. Nenhum texto sobre o jogo, regras, elementos ou mecânicas está disponível no HTML estático — impossível de indexar, impossível de citar.
+
+**Impacto:** Zero probabilidade de aparecer em respostas de AI Search para queries como "jogo de cartas tabela periódica" ou "super trunfo elementos químicos".
+
+**Plano de Ação (curto prazo):**
+1. Adicionar ao `index.html` um bloco `<noscript>` com descrição textual completa do jogo, mecânicas e lista de elementos — visível para crawlers sem JS
+2. Criar `/public/sobre.html` (página estática) com conteúdo rico: regras, lista de cavaleiros, atributos explicados — linkada no `index.html`
+
+**Plano de Ação (médio prazo):**
+1. Avaliar SSG (Static Site Generation) via Vite + prerender para gerar HTML estático das telas principais (HomeMenu, Regras)
+2. Configurar `vite-plugin-prerender` ou migrar para Astro/Next.js para as páginas de conteúdo
+
+**Arquivos:** `index.html`, novo `public/sobre.html`
+
+---
+
+### AISO2 — Conteúdo sem FAQ estruturado
+
+**Problema:** Perguntas como "como funciona a vantagem elemental?" ou "o que é Super Trunfo no jogo de cavaleiros?" são frequentes e têm alta intenção de engajamento. Sem página de FAQ com Schema.org `FAQPage`, essas perguntas são respondidas pela IA com conteúdo de outros sites.
+
+**Plano de Ação:**
+1. Criar seção FAQ na página `/public/sobre.html` com Schema.org `FAQPage`
+2. Perguntas sugeridas: "Como funciona a vantagem elemental?", "O que é Super Trunfo?", "Quais são os 5 atributos das cartas?", "Como montar um baralho?", "Posso jogar sem login?"
+3. Incluir respostas completas com a terminologia do jogo
+
+**Arquivos:** `public/sobre.html`
+
+---
+
+### AISO3 — Nenhum link externo aponta para o jogo (autoridade zero)
+
+**Problema:** LLMs priorizam fontes com autoridade de domínio (backlinks). Um jogo sem nenhum link externo apontando para ele tem autoridade próxima de zero para qualquer motor de busca ou LLM retrieval.
+
+**Plano de Ação (marketing, não técnico):**
+1. Publicar o jogo em plataformas de curadoria: itch.io, Newgrounds, GameJolt (com link para o domínio)
+2. Post no Reddit r/WebGames, r/tabletopgamedesign com link e explicação
+3. Se possível, artigo educacional em blog de química/ciência citando o jogo
+4. Criar perfil GitHub Pages do projeto com README rico e link para o app
+
+**Arquivos:** `README.md`, `public/sobre.html`
+
+---
+
+### AISO4 — Nome do jogo não está em domínio próprio memorável
+
+**Problema:** Se o app estiver hospedado em subdomínio genérico (ex: `projeto.vercel.app`), LLMs não associam o nome "Cavaleiros dos Elementos" ao domínio. Buscas por "site:projeto.vercel.app" retornam zero resultados úteis para AI Overviews.
+
+**Plano de Ação:**
+1. Registrar domínio: `cavaleirosdeelementos.com.br` ou `cavaleiros-elementais.app`
+2. Configurar DNS apontando para o host atual
+3. Atualizar canonical URL, OG tags e sitemap com o novo domínio
+
+**Arquivos:** `index.html`, `public/robots.txt`, `public/sitemap.xml`
+
+---
+
+## 🏗️ DevOps & Monitoramento — Achados da Auditoria
+
+### D1 — Nenhum pipeline de CI/CD configurado 🔥
+
+**Problema:** Não existe `.github/workflows/`, `vercel.json`, `netlify.toml` ou qualquer automação de deploy. O processo atual é presumidamente: `git push` → deploy manual. Sem verificação automática de tipos ou build antes do deploy — código quebrado pode ir para produção.
+
+**Plano de Ação:**
+Criar `.github/workflows/ci.yml`:
+```yaml
+name: CI
+on: [push, pull_request]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      - run: npm ci
+      - run: npx tsc --noEmit   # typecheck
+      - run: npm run build       # build
+```
+
+**Arquivos:** novo `.github/workflows/ci.yml`
+
+---
+
+### D2 — TypeScript strict mode desativado
+
+**Problema:** `tsconfig.json` não tem `"strict": true`. Isso desativa: `strictNullChecks`, `noImplicitAny`, `strictFunctionTypes`. O código aceita `any` implícito, `null` sem verificação, funções com assinaturas incompatíveis — sem erro de compilação.
+
+**Impacto:** Bugs como o `total_cards_played` NaN (item U4) e sombra de variável `deck` (item C4) são possíveis e passam despercebidos.
+
+**Plano de Ação:**
+1. Adicionar `"strict": true` ao `tsconfig.json`
+2. Corrigir erros que surgirem (esperar 20–50 erros no primeiro passo)
+3. Adicionar `"noUnusedLocals": true, "noUnusedParameters": true`
+
+**Arquivos:** `tsconfig.json`
+
+---
+
+### D3 — Sem error tracking em produção (Sentry)
+
+**Problema:** Erros de runtime em produção vão para `console.error` que ninguém monitora. Quando um usuário encontra um bug, não há como saber a frequência, o stack trace ou o contexto da sessão.
+
+**Plano de Ação:**
+1. Criar conta gratuita no Sentry (sentry.io)
+2. `npm install @sentry/react`
+3. Inicializar em `index.tsx`:
+   ```typescript
+   import * as Sentry from '@sentry/react';
+   Sentry.init({ dsn: import.meta.env.VITE_SENTRY_DSN, environment: import.meta.env.MODE });
+   ```
+4. Substituir `console.error` em `utils/supabase.ts` por `Sentry.captureException(error)`
+
+**Arquivos:** `index.tsx`, `utils/supabase.ts`, `.env.local`
+
+---
+
+### D4 — Sem ambiente de staging
+
+**Problema:** Não existe `.env.staging` nem projeto Supabase separado para staging. Qualquer teste de nova feature que envolva banco de dados acontece em produção — risco de corrupção de dados de usuários reais.
+
+**Plano de Ação:**
+1. Criar projeto Supabase de staging (plano free cobre isso)
+2. Criar `.env.staging` com as keys do projeto de staging
+3. Adicionar script `"preview:staging": "vite preview --mode staging"` ao `package.json`
+4. Antes de qualquer deploy, testar no staging com a mesma build
+
+**Arquivos:** `.env.staging`, `package.json`
+
+---
+
+### D5 — Scripts de qualidade ausentes no package.json
+
+**Problema:** `package.json` só tem `dev`, `build`, `preview`. Sem `typecheck`, `lint`, `test`. Isso torna impossível automatizar verificações de qualidade no CI ou no pre-commit.
+
+**Plano de Ação:**
+```json
+"scripts": {
+  "dev": "vite",
+  "build": "vite build",
+  "preview": "vite preview",
+  "typecheck": "tsc --noEmit",
+  "lint": "eslint src --ext ts,tsx --report-unused-disable-directives",
+  "test": "vitest run"
+}
+```
+Instalar: `npm install -D eslint @typescript-eslint/parser @typescript-eslint/eslint-plugin vitest`
+
+**Arquivos:** `package.json`
+
+---
+
+### D6 — Sem monitoramento de uptime ou alertas
+
+**Problema:** Se o Supabase ou o host do frontend cair, ninguém é notificado automaticamente. O downtime só é descoberto quando um usuário reclama.
+
+**Plano de Ação:**
+1. Criar monitor gratuito no UptimeRobot (5-minute checks, free tier)
+2. Configurar alerta por email para `neigirao@gmail.com`
+3. Opcionalmente: integrar Supabase Health endpoint ao monitor
+
+**Arquivos:** Configuração externa (UptimeRobot dashboard)
+
+---
+
 ## ✅ Concluído
 
 - [x] Estrutura base do jogo (baralho, rodadas, vitória/derrota)
