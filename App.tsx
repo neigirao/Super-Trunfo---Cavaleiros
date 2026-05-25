@@ -182,9 +182,6 @@ const App: React.FC = () => {
   // Card transfer animation: 'none' | 'player-wins' | 'ai-wins'
   const [transferAnim, setTransferAnim] = useState<'none' | 'player-wins' | 'ai-wins'>('none');
 
-  // Ranking data (loaded from Supabase)
-  const [rankingData, setRankingData] = useState<RankingEntry[]>([]);
-
   // Mute preference (persisted in localStorage)
   const [muted, setMuted] = useState(() => localStorage.getItem('muted') === '1');
   useEffect(() => {
