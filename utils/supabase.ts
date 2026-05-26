@@ -23,9 +23,20 @@ export interface RankingRow {
   last_played_at: string | null;
   cosmo: number;
   po: number;
+  total_cards_played: number;
+  average_game_duration: number;
 }
 
 export interface PlayerCurrency { cosmo: number; po: number; }
+
+export interface PlayerStats {
+  gamesWon: number;
+  gamesLost: number;
+  totalGames: number;
+  winRate: number;
+  currentStreak: number;
+  totalScore: number;
+}
 
 // ─── Auth ─────────────────────────────────────────────────────
 export async function signInWithGoogleToken(idToken: string) {
@@ -69,6 +80,21 @@ export async function saveDeckToCloud(deck: CardData[]): Promise<void> {
 }
 
 // ─── Currency ─────────────────────────────────────────────────
+export async function addCurrency(cosmo: number, po = 0): Promise<void> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return;
+  const { data: existing } = await supabase
+    .from('card_game_rankings')
+    .select('cosmo,po')
+    .eq('user_id', user.id)
+    .single();
+  if (!existing) return;
+  await supabase.from('card_game_rankings').update({
+    cosmo: (existing.cosmo ?? 0) + cosmo,
+    po:    (existing.po    ?? 0) + po,
+  }).eq('user_id', user.id);
+}
+
 export async function fetchPlayerCurrency(): Promise<PlayerCurrency> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { cosmo: 0, po: 0 };
@@ -80,6 +106,26 @@ export async function fetchPlayerCurrency(): Promise<PlayerCurrency> {
     .single();
 
   return { cosmo: data?.cosmo ?? 0, po: data?.po ?? 0 };
+}
+
+// ─── Player stats ─────────────────────────────────────────────
+export async function fetchPlayerStats(): Promise<PlayerStats | null> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return null;
+  const { data } = await supabase
+    .from('card_game_rankings')
+    .select('games_won,games_lost,total_games,win_rate,current_streak,total_score')
+    .eq('user_id', user.id)
+    .single();
+  if (!data) return null;
+  return {
+    gamesWon: data.games_won ?? 0,
+    gamesLost: data.games_lost ?? 0,
+    totalGames: data.total_games ?? 0,
+    winRate: data.win_rate ?? 0,
+    currentStreak: data.current_streak ?? 0,
+    totalScore: data.total_score ?? 0,
+  };
 }
 
 // ─── Ranking ──────────────────────────────────────────────────
@@ -113,10 +159,16 @@ export async function upsertGameResult(params: {
   const now = new Date().toISOString();
   const gameScore = params.won ? params.playerCardsLeft * 10 : 0;
 
+  // Difficulty multiplier for Cosmo rewards
+  const diffMultiplier = params.difficulty === 'Difícil' ? 2.0
+    : params.difficulty === 'Normal' ? 1.5
+    : 1.0;
+
   // Currency rewards
-  const cosmoEarned = params.won
+  const cosmoBase = params.won
     ? 100 + Math.max(0, params.playerCardsLeft - Math.floor(params.totalCards / 2)) * 10
     : 10;
+  const cosmoEarned = params.won ? Math.round(cosmoBase * diffMultiplier) : cosmoBase;
   const poEarned = params.won ? 0 : 0; // Pó reserved for future use
 
   if (existing) {
@@ -139,7 +191,7 @@ export async function upsertGameResult(params: {
       total_score: newScore, highest_score: newHighest,
       win_rate: wr,
       difficulty_level: params.difficulty,
-      total_cards_played: existing.total_cards_played + params.totalCards,
+      total_cards_played: (existing.total_cards_played ?? 0) + params.totalCards,
       cosmo: newCosmo, po: newPo,
       last_played_at: now, updated_at: now,
     }).eq('user_id', user.id);

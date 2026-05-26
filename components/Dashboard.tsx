@@ -1,10 +1,10 @@
 import React from 'react';
-import { UserProfile, Difficulty } from '../types';
+import { UserProfile, Difficulty, RoundResult, CardData } from '../types';
 import { ELEMENTS } from '../shared';
 import { CosmicBG, PeriodicTile, HomeFooter } from './HomeMenu';
 import { useIsMobile } from '../utils/mobile';
 import { QUESTS } from '../utils/quests';
-import { PlayerCurrency } from '../utils/supabase';
+import { PlayerCurrency, PlayerStats } from '../utils/supabase';
 
 export interface DashboardProps {
   userProfile: UserProfile;
@@ -15,6 +15,9 @@ export interface DashboardProps {
   savedGameInfo: { round: number; isMultiplayer: boolean } | null;
   questProgress: Record<string, number>;
   currency: PlayerCurrency;
+  matchHistory: RoundResult[];
+  activeDeck: CardData[];
+  playerStats: PlayerStats | null;
   onStartGame: () => void;
   onStartMultiplayer: () => void;
   onContinueGame: () => void;
@@ -23,6 +26,7 @@ export interface DashboardProps {
   onGoToAdmin: () => void;
   onGoToCollection: () => void;
   onGoToRules: () => void;
+  onGoToDeckEditor: () => void;
   onLogout: () => void;
   onToggleMute: () => void;
 }
@@ -60,6 +64,7 @@ export interface LoggedHeaderProps {
   userProfile: UserProfile;
   muted?: boolean;
   currency?: PlayerCurrency;
+  playerStats?: PlayerStats | null;
   onStartGame: () => void;
   onGoToRanking: () => void;
   onGoToCollection?: () => void;
@@ -67,7 +72,7 @@ export interface LoggedHeaderProps {
   onLogout?: () => void;
   onToggleMute?: () => void;
 }
-export const LoggedHeader: React.FC<LoggedHeaderProps> = ({ userProfile, muted, currency, onStartGame, onGoToRanking, onGoToCollection, onGoToRules, onLogout, onToggleMute }) => {
+export const LoggedHeader: React.FC<LoggedHeaderProps> = ({ userProfile, muted, currency, playerStats, onStartGame, onGoToRanking, onGoToCollection, onGoToRules, onLogout, onToggleMute }) => {
   const isMobile = useIsMobile();
   const initials = userProfile.name.slice(0, 2).toUpperCase();
   const displayName = userProfile.name.toUpperCase();
@@ -152,7 +157,9 @@ export const LoggedHeader: React.FC<LoggedHeaderProps> = ({ userProfile, muted, 
               {displayName}
             </div>
             <div style={{ fontFamily: 'Cinzel, serif', fontSize: 8, letterSpacing: '.3em', color: 'rgba(244,195,73,.7)' }}>
-              BRONZE III · LV 4
+              {playerStats
+                ? `${playerStats.gamesWon}V · ${playerStats.gamesLost}D · ${Math.round(playerStats.winRate)}%`
+                : '— partidas'}
             </div>
           </div>
         </div>
@@ -256,8 +263,8 @@ const GreetingHero: React.FC<GreetingHeroProps> = ({ userName }) => {
           color: 'rgba(255,236,196,.75)', maxWidth: 620, margin: '10px 0 0',
         }}>
           O cosmo despertou. <strong style={{ color: '#f4c349' }}>3 desafios diários</strong> esperam
-          sua mão, sua liga acaba em <strong style={{ color: '#f4c349' }}>14 dias</strong>, e
-          <strong style={{ color: '#f4c349' }}> Selene</strong> te aguarda na arena.
+          sua mão. Complete missões para acumular <strong style={{ color: '#f4c349' }}>Cosmo</strong> e
+          fortalecer seu arsenal elemental.
         </p>
       </div>
       <div style={{
@@ -485,62 +492,84 @@ const DailyQuests: React.FC<DailyQuestsProps> = ({ progress }) => {
 };
 
 // ─── Rank progress ───────────────────────────────────────────
-interface RankProgressProps { onGoToRanking: () => void; }
-const RankProgress: React.FC<RankProgressProps> = ({ onGoToRanking }) => (
-  <Panel preLabel="· ORDO ·" title="SUA POSIÇÃO" sub="Liga atual e meta da temporada">
-    <div style={{
-      padding: '18px 20px',
-      background: 'rgba(10,5,0,.6)', border: '1px solid rgba(244,195,73,.3)',
-      display: 'flex', alignItems: 'center', gap: 18,
-    }}>
+interface RankProgressProps { playerStats: PlayerStats | null; onGoToRanking: () => void; }
+const RankProgress: React.FC<RankProgressProps> = ({ playerStats, onGoToRanking }) => {
+  const wins = playerStats?.gamesWon ?? null;
+  const losses = playerStats?.gamesLost ?? null;
+  const streak = playerStats?.currentStreak ?? null;
+  const score = playerStats?.totalScore ?? null;
+  const winRate = playerStats?.winRate ?? null;
+
+  const statsRow: [string, string][] = [
+    ['VITÓRIAS',  wins   !== null ? String(wins)   : '—'],
+    ['DERROTAS',  losses !== null ? String(losses) : '—'],
+    ['STREAK',    streak !== null ? `${streak} W`  : '—'],
+  ];
+
+  return (
+    <Panel preLabel="· ORDO ·" title="SUA POSIÇÃO" sub="Estatísticas acumuladas">
       <div style={{
-        width: 78, height: 78,
-        background: 'linear-gradient(135deg,#c98449,#6a3f24)',
-        border: '2px solid #d49a64',
-        clipPath: 'polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        color: '#1a0e04', fontFamily: 'Cinzel, serif', fontWeight: 900, fontSize: 14,
-        boxShadow: '0 0 0 1px #1a0e04, 0 0 24px rgba(212,154,100,.5)',
-        flexShrink: 0, textAlign: 'center',
-      }}>BRONZE<br />III</div>
-      <div style={{ flex: 1 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6 }}>
-          <span style={{ fontFamily: 'Cinzel, serif', fontWeight: 700, fontSize: 13, letterSpacing: '.15em', color: '#fff8e1' }}>
-            BRONZE III
-          </span>
-          <span style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 11, color: 'rgba(244,195,73,.7)' }}>
-            340 / 500 PE
-          </span>
+        padding: '18px 20px', marginBottom: 14,
+        background: 'rgba(10,5,0,.6)', border: '1px solid rgba(244,195,73,.3)',
+        display: 'flex', alignItems: 'center', gap: 18,
+      }}>
+        <div style={{
+          width: 78, height: 78,
+          background: score !== null ? 'linear-gradient(135deg,#c98449,#6a3f24)' : 'rgba(100,80,50,.3)',
+          border: '2px solid rgba(212,154,100,.6)',
+          clipPath: 'polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          color: '#1a0e04', fontFamily: 'Cinzel, serif', fontWeight: 900, fontSize: 11,
+          boxShadow: '0 0 0 1px #1a0e04, 0 0 24px rgba(212,154,100,.4)',
+          flexShrink: 0, textAlign: 'center',
+        }}>
+          {score !== null ? score.toLocaleString('pt-BR') : '—'}
         </div>
-        <div style={{ height: 8, background: 'rgba(244,195,73,.12)', border: '1px solid rgba(244,195,73,.2)', position: 'relative' }}>
-          <div style={{ position: 'absolute', inset: 0, width: '68%', background: 'linear-gradient(90deg,#c98449,#f4c349)', boxShadow: '0 0 12px rgba(244,195,73,.5)' }} />
-        </div>
-        <div style={{ marginTop: 6, fontFamily: 'Cinzel, serif', fontSize: 10, letterSpacing: '.25em', color: 'rgba(244,195,73,.6)' }}>
-          PRÓXIMA LIGA: <span style={{ color: '#f4c349' }}>BRONZE II</span> em 160 PE
+        <div style={{ flex: 1 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6 }}>
+            <span style={{ fontFamily: 'Cinzel, serif', fontWeight: 700, fontSize: 13, letterSpacing: '.15em', color: '#fff8e1' }}>
+              PONTUAÇÃO TOTAL
+            </span>
+            <span style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 11, color: 'rgba(244,195,73,.7)' }}>
+              {winRate !== null ? `${Math.round(winRate)}% win rate` : '—'}
+            </span>
+          </div>
+          <div style={{ height: 8, background: 'rgba(244,195,73,.12)', border: '1px solid rgba(244,195,73,.2)', position: 'relative' }}>
+            <div style={{
+              position: 'absolute', inset: 0,
+              width: `${winRate !== null ? Math.round(winRate) : 0}%`,
+              background: 'linear-gradient(90deg,#c98449,#f4c349)',
+              boxShadow: winRate ? '0 0 12px rgba(244,195,73,.5)' : 'none',
+              transition: 'width 0.4s',
+            }} />
+          </div>
+          <div style={{ marginTop: 6, fontFamily: 'Cinzel, serif', fontSize: 10, letterSpacing: '.25em', color: 'rgba(244,195,73,.6)' }}>
+            {playerStats
+              ? `${playerStats.totalGames} partida${playerStats.totalGames !== 1 ? 's' : ''} jogada${playerStats.totalGames !== 1 ? 's' : ''}`
+              : 'Jogue para ver suas estatísticas'}
+          </div>
         </div>
       </div>
-    </div>
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginTop: 14 }}>
-      {[['VITÓRIAS', '9'], ['DERROTAS', '5'], ['STREAK', '3 W']].map(([k, v]) => (
-        <div key={k} style={{ padding: '10px 12px', background: 'rgba(244,195,73,.05)', border: '1px solid rgba(244,195,73,.2)' }}>
-          <div style={{ fontFamily: 'Cinzel, serif', fontSize: 9, letterSpacing: '.3em', color: 'rgba(244,195,73,.7)' }}>{k}</div>
-          <div style={{ fontFamily: 'IBM Plex Mono, monospace', fontWeight: 700, fontSize: 18, color: '#fff8e1', marginTop: 2 }}>{v}</div>
-        </div>
-      ))}
-    </div>
-    <a href="#" onClick={(e) => { e.preventDefault(); onGoToRanking(); }} style={{
-      display: 'block', marginTop: 14, padding: '12px', textAlign: 'center', textDecoration: 'none',
-      border: '1px solid rgba(244,195,73,.35)', color: '#f4c349',
-      fontFamily: 'Cinzel, serif', fontWeight: 700, fontSize: 10, letterSpacing: '.3em',
-    }}>VER RANKING GLOBAL →</a>
-  </Panel>
-);
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+        {statsRow.map(([k, v]) => (
+          <div key={k} style={{ padding: '10px 12px', background: 'rgba(244,195,73,.05)', border: '1px solid rgba(244,195,73,.2)' }}>
+            <div style={{ fontFamily: 'Cinzel, serif', fontSize: 9, letterSpacing: '.3em', color: 'rgba(244,195,73,.7)' }}>{k}</div>
+            <div style={{ fontFamily: 'IBM Plex Mono, monospace', fontWeight: 700, fontSize: 18, color: '#fff8e1', marginTop: 2 }}>{v}</div>
+          </div>
+        ))}
+      </div>
+      <a href="#" onClick={(e) => { e.preventDefault(); onGoToRanking(); }} style={{
+        display: 'block', marginTop: 14, padding: '12px', textAlign: 'center', textDecoration: 'none',
+        border: '1px solid rgba(244,195,73,.35)', color: '#f4c349',
+        fontFamily: 'Cinzel, serif', fontWeight: 700, fontSize: 10, letterSpacing: '.3em',
+      }}>VER RANKING GLOBAL →</a>
+    </Panel>
+  );
+};
 
 // ─── Deck slot ───────────────────────────────────────────────
-interface DeckSlotEl { symbol: string; name: string; atomic: number; hue: number; rarity: string; }
-interface DeckSlotProps { el: (DeckSlotEl & { art?: string }) | null; }
-const DeckSlot: React.FC<DeckSlotProps> = ({ el }) => {
-  if (!el) {
+const DeckSlot: React.FC<{ card: CardData | null }> = ({ card }) => {
+  if (!card) {
     return (
       <div style={{
         width: 64, height: 90,
@@ -550,8 +579,8 @@ const DeckSlot: React.FC<DeckSlotProps> = ({ el }) => {
       }}>+</div>
     );
   }
-  const rarityColor: Record<string, string> = { Common: '#9aa6c4', Rare: '#9bd5ff', Epic: '#c995ff', Legendary: '#f4c349' };
-  const rc = rarityColor[el.rarity] ?? '#9aa6c4';
+  const rc = card.isSuperTrunfo ? '#f4c349' : '#9aa6c4';
+  const initials = card.name.slice(0, 2).toUpperCase();
   return (
     <div style={{
       width: 64, height: 90, position: 'relative',
@@ -561,20 +590,17 @@ const DeckSlot: React.FC<DeckSlotProps> = ({ el }) => {
       display: 'flex', flexDirection: 'column', alignItems: 'center', padding: 4,
       overflow: 'hidden',
     }}>
-      <div style={{ fontFamily: 'Cinzel, serif', fontWeight: 700, fontSize: 9, color: '#8a6a2a', alignSelf: 'flex-start' }}>
-        {el.atomic}
+      <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
+        <img src={card.imageUrl} alt="" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: '50% 0%', opacity: .85 }} />
+        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, transparent 40%, rgba(245,236,212,.7))' }} />
       </div>
-      {el.art && (
-        <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
-          <img src={el.art} alt="" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: '50% 0%', opacity: .85 }} />
-          <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, transparent 40%, rgba(245,236,212,.7))' }} />
-        </div>
-      )}
       <div style={{ position: 'absolute', bottom: 6, left: 0, right: 0, textAlign: 'center', zIndex: 2 }}>
-        <div style={{ fontFamily: 'Cinzel, serif', fontWeight: 900, fontSize: 22, color: '#1a0e04', lineHeight: 1 }}>{el.symbol}</div>
-        <div style={{ fontFamily: 'Cinzel, serif', fontSize: 7, letterSpacing: '.15em', color: '#8a6a2a', fontWeight: 700, marginTop: 2 }}>
-          {el.name.slice(0, 4).toUpperCase()}
+        <div style={{ fontFamily: 'Cinzel, serif', fontWeight: 900, fontSize: 18, color: '#1a0e04', lineHeight: 1 }}>
+          {card.isSuperTrunfo ? '♛' : initials}
+        </div>
+        <div style={{ fontFamily: 'Cinzel, serif', fontSize: 7, letterSpacing: '.12em', color: '#8a6a2a', fontWeight: 700, marginTop: 2 }}>
+          {card.name.slice(0, 4).toUpperCase()}
         </div>
       </div>
     </div>
@@ -582,20 +608,25 @@ const DeckSlot: React.FC<DeckSlotProps> = ({ el }) => {
 };
 
 // ─── Active deck ─────────────────────────────────────────────
-const ActiveDeck: React.FC = () => {
+interface ActiveDeckProps { deck: CardData[]; onGoToDeckEditor: () => void; }
+const ActiveDeck: React.FC<ActiveDeckProps> = ({ deck, onGoToDeckEditor }) => {
   const isMobile = useIsMobile();
-  const slots: (typeof ELEMENTS[string] & { art?: string } | null)[] = [
-    { ...ELEMENTS.Li, art: 'assets/cavaleiro-litio.png' },
-    ELEMENTS.H, ELEMENTS.Na, ELEMENTS.O, ELEMENTS.Fe, ELEMENTS.Hg,
-    ELEMENTS.Au, null, null,
+  const SLOT_COUNT = 9;
+  const slots: (CardData | null)[] = [
+    ...deck.slice(0, SLOT_COUNT),
+    ...Array(Math.max(0, SLOT_COUNT - deck.length)).fill(null),
   ];
+  const superTrunfoCount = deck.filter(c => c.isSuperTrunfo).length;
+  const avgPower = deck.length > 0
+    ? Math.round(deck.reduce((sum, c) => sum + Object.values(c.attributes).reduce((s, v) => s + v, 0), 0) / deck.length)
+    : 0;
+
   return (
     <section style={{ marginTop: 30 }}>
-      <PanelHeader preLabel="· ARSENAL ·" title="DECK ATIVO · AURUM TRINITAS"
+      <PanelHeader preLabel="· ARSENAL ·" title={`DECK ATIVO · ${deck.length} CARTAS`}
         right={
           <div style={{ display: 'flex', gap: 10 }}>
-            <button style={panelBtnGhost}>↻ TROCAR DECK</button>
-            <button style={panelBtnPrimary}>✎ EDITAR DECK</button>
+            <button onClick={onGoToDeckEditor} style={panelBtnPrimary}>✎ EDITAR DECK</button>
           </div>
         }
       />
@@ -603,26 +634,25 @@ const ActiveDeck: React.FC = () => {
         padding: '24px 26px',
         background: 'linear-gradient(180deg, rgba(20,8,10,.7), rgba(10,5,0,.5))',
         border: '1px solid rgba(244,195,73,.3)',
-        display: isMobile ? 'flex' : 'grid', flexDirection: isMobile ? 'column' : undefined, gridTemplateColumns: 'auto 1fr auto', gap: 24, alignItems: 'center',
+        display: isMobile ? 'flex' : 'grid', flexDirection: isMobile ? 'column' : undefined,
+        gridTemplateColumns: 'auto 1fr auto', gap: 24, alignItems: 'center',
       }}>
         <div style={{ textAlign: 'center', padding: '14px 20px', background: 'rgba(244,195,73,.06)', border: '1px solid rgba(244,195,73,.3)' }}>
           <div style={{ fontFamily: 'Cinzel, serif', fontSize: 9, letterSpacing: '.35em', color: 'rgba(244,195,73,.7)' }}>PODER</div>
-          <div style={{ fontFamily: 'Cinzel, serif', fontWeight: 900, fontSize: 32, color: '#fff8e1' }}>842</div>
-          <div style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 10, color: '#f4c349' }}>+14 vs ontem</div>
+          <div style={{ fontFamily: 'Cinzel, serif', fontWeight: 900, fontSize: 32, color: '#fff8e1' }}>{avgPower}</div>
+          <div style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 10, color: '#f4c349' }}>média/carta</div>
         </div>
-        <div style={{ display: 'flex', gap: 8, justifyContent: 'center', overflowX: isMobile ? 'auto' : undefined }}>
-          {slots.map((s, i) => <DeckSlot key={i} el={s} />)}
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'center', overflowX: 'auto' }}>
+          {slots.map((card, i) => <DeckSlot key={i} card={card} />)}
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 160 }}>
           {[
-            ['CARTAS', '07 / 09'],
-            ['RARIDADE MÉDIA', 'RARE'],
-            ['ESPECIALIDADE', 'DENSIDADE'],
-            ['WIN RATE', '64%'],
-          ].map(([k, v], i) => (
+            ['CARTAS', `${deck.length}`],
+            ['SUPER TRUNFO', superTrunfoCount > 0 ? `${superTrunfoCount}` : 'Nenhum'],
+          ].map(([k, v]) => (
             <div key={k} style={{ display: 'flex', justifyContent: 'space-between', fontFamily: 'Cinzel, serif', fontSize: 10, letterSpacing: '.2em', color: 'rgba(244,195,73,.7)' }}>
               <span>{k}</span>
-              <span style={{ color: i === 3 ? '#a8e6c4' : i === 2 ? '#f4c349' : '#fff8e1', fontFamily: i === 3 ? 'IBM Plex Mono, monospace' : undefined }}>{v}</span>
+              <span style={{ color: '#fff8e1' }}>{v}</span>
             </div>
           ))}
         </div>
@@ -647,65 +677,61 @@ const ElemChip: React.FC<{ s: string }> = ({ s }) => {
 };
 
 // ─── Recent matches ──────────────────────────────────────────
-interface RecentMatchesProps { userName: string; }
-const RecentMatches: React.FC<RecentMatchesProps> = ({ userName }) => {
-  const matches = [
-    { opp: 'SELENE',   rank: 'PRATA I',    el: 'Au', myEl: 'Li', result: 'L', score: '2 - 5', dur: '9:14',  pe: -18 },
-    { opp: 'KRATOS',   rank: 'BRONZE III', el: 'Fe', myEl: 'Hg', result: 'V', score: '5 - 3', dur: '7:22',  pe: +22 },
-    { opp: 'NYX',      rank: 'BRONZE III', el: 'Cu', myEl: 'O',  result: 'V', score: '5 - 2', dur: '6:48',  pe: +24 },
-    { opp: 'PROMETEU', rank: 'BRONZE II',  el: 'C',  myEl: 'Fe', result: 'L', score: '4 - 5', dur: '10:32', pe: -15 },
-    { opp: 'HEKATE',   rank: 'BRONZE IV',  el: 'H',  myEl: 'Au', result: 'V', score: '5 - 1', dur: '5:10',  pe: +28 },
-  ];
+interface RecentMatchesProps { userName: string; matchHistory: RoundResult[]; }
+const RecentMatches: React.FC<RecentMatchesProps> = ({ userName, matchHistory }) => {
+  const rounds = matchHistory.slice(0, 5);
+  const wins = rounds.filter(r => r.winner === 'player').length;
+  const sub = rounds.length > 0
+    ? `Última partida · ${wins}V ${rounds.length - wins}D`
+    : 'Nenhuma partida registrada';
+
   return (
-    <Panel preLabel="· HISTORIA ·" title="DUELOS RECENTES" sub="Últimos 5 confrontos · 3V 2D">
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        {matches.map((m, i) => {
-          const isWin = m.result === 'V';
-          return (
-            <div key={i} style={{
-              display: 'grid', gridTemplateColumns: 'auto auto 1fr auto auto auto', gap: 14, alignItems: 'center',
-              padding: '10px 14px',
-              background: isWin ? 'rgba(168,230,196,.06)' : 'rgba(217,74,74,.06)',
-              border: `1px solid ${isWin ? 'rgba(168,230,196,.2)' : 'rgba(217,74,74,.2)'}`,
-              borderLeft: `3px solid ${isWin ? '#a8e6c4' : '#ff7a7a'}`,
-            }}>
-              <div style={{
-                width: 28, height: 28, borderRadius: '50%',
-                background: isWin ? '#a8e6c4' : 'rgba(217,74,74,.8)',
-                color: '#1a0e04',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontFamily: 'Cinzel, serif', fontWeight: 900, fontSize: 13,
-              }}>{m.result}</div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <ElemChip s={m.myEl} />
-                <span style={{ color: 'rgba(244,195,73,.5)', fontSize: 11 }}>×</span>
-                <ElemChip s={m.el} />
-              </div>
-              <div>
-                <div style={{ fontFamily: 'Cinzel, serif', fontWeight: 700, fontSize: 12, letterSpacing: '.12em', color: '#fff8e1' }}>
-                  {userName} <span style={{ color: 'rgba(244,195,73,.6)' }}>vs</span> {m.opp}
+    <Panel preLabel="· HISTORIA ·" title="ÚLTIMA PARTIDA" sub={sub}>
+      {rounds.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '32px 0', fontFamily: 'Spectral, serif', fontSize: 15, color: 'rgba(255,236,196,.45)' }}>
+          Jogue uma partida para ver o histórico de rodadas aqui.
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {rounds.map((r, i) => {
+            const isWin = r.winner === 'player';
+            const isDraw = r.winner === 'tie';
+            const borderColor = isWin ? '#a8e6c4' : isDraw ? 'rgba(244,195,73,.5)' : '#ff7a7a';
+            const bgColor = isWin ? 'rgba(168,230,196,.06)' : isDraw ? 'rgba(244,195,73,.04)' : 'rgba(217,74,74,.06)';
+            const label = isWin ? 'V' : isDraw ? '=' : 'D';
+            const badgeColor = isWin ? '#a8e6c4' : isDraw ? 'rgba(244,195,73,.6)' : 'rgba(217,74,74,.8)';
+            return (
+              <div key={i} style={{
+                display: 'grid', gridTemplateColumns: 'auto 1fr auto', gap: 12, alignItems: 'center',
+                padding: '10px 14px',
+                background: bgColor,
+                border: `1px solid ${borderColor}22`,
+                borderLeft: `3px solid ${borderColor}`,
+              }}>
+                <div style={{
+                  width: 28, height: 28, borderRadius: '50%',
+                  background: badgeColor, color: '#1a0e04',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontFamily: 'Cinzel, serif', fontWeight: 900, fontSize: 13,
+                }}>{label}</div>
+                <div>
+                  <div style={{ fontFamily: 'Cinzel, serif', fontWeight: 700, fontSize: 12, letterSpacing: '.1em', color: '#fff8e1' }}>
+                    {r.attribute.toUpperCase()} · <span style={{ color: 'rgba(255,236,196,.7)', fontWeight: 400 }}>{r.playerCard.name}</span>
+                    <span style={{ color: 'rgba(244,195,73,.5)' }}> vs </span>
+                    <span style={{ color: 'rgba(255,236,196,.7)', fontWeight: 400 }}>{r.aiCard.name}</span>
+                  </div>
+                  <div style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 10, color: 'rgba(244,195,73,.55)', marginTop: 2 }}>
+                    {userName} {r.playerValue} × {r.aiValue} ORÁCULO
+                  </div>
                 </div>
-                <div style={{ fontFamily: 'Cinzel, serif', fontSize: 9, letterSpacing: '.25em', color: 'rgba(244,195,73,.55)', marginTop: 2 }}>
-                  {m.rank}
+                <div style={{ textAlign: 'right', fontFamily: 'IBM Plex Mono, monospace', fontSize: 12, fontWeight: 700, color: borderColor }}>
+                  {r.playerValue} × {r.aiValue}
                 </div>
               </div>
-              <div style={{ textAlign: 'right' }}>
-                <div style={{ fontFamily: 'IBM Plex Mono, monospace', fontWeight: 700, fontSize: 13, color: '#fff8e1' }}>{m.score}</div>
-                <div style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 10, color: 'rgba(244,195,73,.6)', marginTop: 1 }}>{m.dur}</div>
-              </div>
-              <div style={{
-                fontFamily: 'IBM Plex Mono, monospace', fontWeight: 700, fontSize: 13,
-                color: m.pe > 0 ? '#a8e6c4' : '#ff7a7a',
-                minWidth: 48, textAlign: 'right',
-              }}>{m.pe > 0 ? '+' : ''}{m.pe} PE</div>
-              <a href="#" style={{
-                fontFamily: 'Cinzel, serif', fontSize: 9, letterSpacing: '.25em', color: 'rgba(244,195,73,.7)',
-                textDecoration: 'none', padding: '6px 10px', border: '1px solid rgba(244,195,73,.25)',
-              }}>REPLAY</a>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
     </Panel>
   );
 };
@@ -770,66 +796,15 @@ const SeasonReward: React.FC = () => (
   </Panel>
 );
 
-// ─── Friends row ─────────────────────────────────────────────
-const FriendsRow: React.FC = () => {
-  const isMobile = useIsMobile();
-  const friends = [
-    { name: 'KRATOS',   tag: 'PRATA II',   online: true,  status: 'EM DUELO' },
-    { name: 'HEKATE',   tag: 'BRONZE I',   online: true,  status: 'ONLINE'   },
-    { name: 'NYX',      tag: 'BRONZE III', online: true,  status: 'NO LOBBY' },
-    { name: 'PROMETEU', tag: 'PRATA III',  online: false, status: 'OFFLINE 2h' },
-    { name: 'AETHRA',   tag: 'OURO IV',    online: true,  status: 'ONLINE'   },
-    { name: 'ATLAS',    tag: 'COSMO',      online: false, status: 'OFFLINE 1d' },
-  ];
-  return (
-    <section style={{ marginTop: 30 }}>
-      <PanelHeader preLabel="· CONFRATRES ·" title="CAVALEIROS ALIADOS"
-        right={<button style={panelBtnGhost}>+ ADICIONAR AMIGO</button>}
-      />
-      <div style={{
-        padding: '18px 20px', background: 'rgba(20,8,10,.5)', border: '1px solid rgba(244,195,73,.25)',
-        display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2,1fr)' : 'repeat(6,1fr)', gap: 12,
-      }}>
-        {friends.map((f, i) => (
-          <div key={i} style={{
-            display: 'flex', alignItems: 'center', gap: 10,
-            padding: '10px 12px',
-            background: 'rgba(244,195,73,.04)', border: '1px solid rgba(244,195,73,.15)',
-          }}>
-            <div style={{ position: 'relative' }}>
-              <div style={{
-                width: 38, height: 38, borderRadius: '50%',
-                background: f.online ? 'linear-gradient(135deg,#f4c349,#6a4f1e)' : 'rgba(100,80,50,.5)',
-                color: '#1a0e04', fontFamily: 'Cinzel, serif', fontWeight: 900, fontSize: 12,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                opacity: f.online ? 1 : .5,
-              }}>{f.name.slice(0, 2)}</div>
-              <div style={{
-                position: 'absolute', bottom: 0, right: 0, width: 10, height: 10, borderRadius: '50%',
-                background: f.online ? '#a8e6c4' : '#666',
-                border: '2px solid #1a0e04',
-                boxShadow: f.online ? '0 0 8px #a8e6c4' : 'none',
-              }} />
-            </div>
-            <div style={{ minWidth: 0, flex: 1 }}>
-              <div style={{
-                fontFamily: 'Cinzel, serif', fontWeight: 700, fontSize: 11, letterSpacing: '.12em', color: '#fff8e1',
-                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-              }}>{f.name}</div>
-              <div style={{
-                fontFamily: 'Cinzel, serif', fontSize: 8, letterSpacing: '.25em',
-                color: f.status === 'EM DUELO' ? '#f4c349' : 'rgba(244,195,73,.6)', marginTop: 2,
-              }}>{f.status}</div>
-            </div>
-          </div>
-        ))}
-      </div>
-    </section>
-  );
-};
-
 // ─── Dashboard (main export) ─────────────────────────────────
-const Dashboard: React.FC<DashboardProps> = ({ userProfile, isAdmin, difficulty, muted, hasSavedGame, savedGameInfo, questProgress, currency, onStartGame, onStartMultiplayer, onContinueGame, onSetDifficulty, onGoToRanking, onGoToAdmin, onGoToCollection, onGoToRules, onLogout, onToggleMute }) => {
+const Dashboard: React.FC<DashboardProps> = ({
+  userProfile, isAdmin, difficulty, muted,
+  hasSavedGame, savedGameInfo, questProgress, currency,
+  matchHistory, activeDeck, playerStats,
+  onStartGame, onStartMultiplayer, onContinueGame, onSetDifficulty,
+  onGoToRanking, onGoToAdmin, onGoToCollection, onGoToRules, onGoToDeckEditor,
+  onLogout, onToggleMute,
+}) => {
   const isMobile = useIsMobile();
   const userName = userProfile.name.toUpperCase();
   return (
@@ -840,21 +815,24 @@ const Dashboard: React.FC<DashboardProps> = ({ userProfile, isAdmin, difficulty,
     }}>
       <CosmicBG />
       <div style={{ position: 'relative', zIndex: 1 }}>
-        <LoggedHeader userProfile={userProfile} muted={muted} currency={currency} onStartGame={onStartGame} onGoToRanking={onGoToRanking} onGoToCollection={onGoToCollection} onGoToRules={onGoToRules} onLogout={onLogout} onToggleMute={onToggleMute} />
+        <LoggedHeader
+          userProfile={userProfile} muted={muted} currency={currency} playerStats={playerStats}
+          onStartGame={onStartGame} onGoToRanking={onGoToRanking} onGoToCollection={onGoToCollection}
+          onGoToRules={onGoToRules} onLogout={onLogout} onToggleMute={onToggleMute}
+        />
         <ContinueBanner userName={userName} hasSavedGame={hasSavedGame} savedGameInfo={savedGameInfo} onContinueGame={onContinueGame} />
         <main style={{ maxWidth: 1400, margin: '0 auto', padding: isMobile ? '16px 16px 40px' : '24px 36px 60px' }}>
           <GreetingHero userName={userName} />
           <QuickActions onStartGame={onStartGame} onStartMultiplayer={onStartMultiplayer} onGoToCollection={onGoToCollection} difficulty={difficulty} onSetDifficulty={onSetDifficulty} />
           <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1.4fr 1fr', gap: 24, marginTop: 30 }}>
             <DailyQuests progress={questProgress} />
-            <RankProgress onGoToRanking={onGoToRanking} />
+            <RankProgress playerStats={playerStats} onGoToRanking={onGoToRanking} />
           </div>
-          <ActiveDeck />
+          <ActiveDeck deck={activeDeck} onGoToDeckEditor={onGoToDeckEditor} />
           <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1.4fr 1fr', gap: 24, marginTop: 30 }}>
-            <RecentMatches userName={userName} />
+            <RecentMatches userName={userName} matchHistory={matchHistory} />
             <SeasonReward />
           </div>
-          <FriendsRow />
         </main>
         <HomeFooter />
       </div>
