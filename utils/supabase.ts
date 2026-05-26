@@ -23,6 +23,8 @@ export interface RankingRow {
   last_played_at: string | null;
   cosmo: number;
   po: number;
+  total_cards_played: number;
+  average_game_duration: number;
 }
 
 export interface PlayerCurrency { cosmo: number; po: number; }
@@ -128,10 +130,16 @@ export async function upsertGameResult(params: {
   const now = new Date().toISOString();
   const gameScore = params.won ? params.playerCardsLeft * 10 : 0;
 
+  // Difficulty multiplier for Cosmo rewards
+  const diffMultiplier = params.difficulty === 'Difícil' ? 2.0
+    : params.difficulty === 'Normal' ? 1.5
+    : 1.0;
+
   // Currency rewards
-  const cosmoEarned = params.won
+  const cosmoBase = params.won
     ? 100 + Math.max(0, params.playerCardsLeft - Math.floor(params.totalCards / 2)) * 10
     : 10;
+  const cosmoEarned = params.won ? Math.round(cosmoBase * diffMultiplier) : cosmoBase;
   const poEarned = params.won ? 0 : 0; // Pó reserved for future use
 
   if (existing) {
@@ -154,7 +162,7 @@ export async function upsertGameResult(params: {
       total_score: newScore, highest_score: newHighest,
       win_rate: wr,
       difficulty_level: params.difficulty,
-      total_cards_played: existing.total_cards_played + params.totalCards,
+      total_cards_played: (existing.total_cards_played ?? 0) + params.totalCards,
       cosmo: newCosmo, po: newPo,
       last_played_at: now, updated_at: now,
     }).eq('user_id', user.id);
