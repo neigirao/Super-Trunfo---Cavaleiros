@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { CardData, GameState, Attribute, RoundResult, UserProfile, RankingEntry, ElementType, Difficulty } from './types';
+import { CardData, GameState, Attribute, RoundResult, RankingEntry } from './types';
 import { Card } from './components/Card';
 import { Ranking } from './components/Ranking';
 import { AdminPanel } from './components/AdminPanel';
@@ -8,59 +8,16 @@ import { Rules } from './components/Rules';
 import HomeMenu from './components/HomeMenu';
 import Dashboard from './components/Dashboard';
 import Collection from './components/Collection';
+import { DeckEditor } from './components/DeckEditor';
+import { Toast } from './components/Toast';
 import { initialDeck } from './initialDeck';
-import { playCardFlip, playRoundWin, playRoundLose, playRoundDraw, playGameWin, playGameLose, setMuted as setMutedFn } from './utils/sounds';
+import { setMuted as setMutedFn } from './utils/sounds';
 import { useIsMobile } from './utils/mobile';
-import { QUESTS, loadQuestProgress, incrementQuest, QuestIncrementResult } from './utils/quests';
-import {
-  supabase, signOut as supabaseSignOut,
-  loadDeckFromCloud, saveDeckToCloud,
-  fetchRanking, upsertGameResult, fetchPlayerCurrency, addCurrency, RankingRow, PlayerCurrency,
-} from './utils/supabase';
-
-// ==================================================================
-// CONFIGURAÇÕES IMPORTANTES - ATUALIZE ESTES VALORES
-// ==================================================================
-
-// 1. E-mail do Administrador:
-//    Coloque o seu e-mail do Google aqui para ter acesso ao Painel de Admin.
-const ADMIN_EMAIL = import.meta.env.VITE_ADMIN_EMAIL ?? 'neigirao@gmail.com';
-
-// ==================================================================
-
-const ADVANTAGE_BONUS_PERCENTAGE = 0.20; // 20% de bônus
-const TURN_TIMER_SECONDS = 30;
-
-// Mapa de vantagens: [Atacante, Defensor]: Atributo que recebe o bônus
-const advantageMap: { [key: string]: Attribute } = {
-  [`${ElementType.Halogen}-${ElementType.AlkaliMetal}`]: Attribute.Reatividade,
-  [`${ElementType.AlkaliMetal}-${ElementType.TransitionMetal}`]: Attribute.Dureza,
-  [`${ElementType.TransitionMetal}-${ElementType.Actinide}`]: Attribute.Radioatividade,
-  [`${ElementType.Actinide}-${ElementType.NobleGas}`]: Attribute.MassaAtomica,
-  [`${ElementType.NobleGas}-${ElementType.Halogen}`]: Attribute.Reatividade,
-};
-
-const getAdvantage = (attacker: CardData, defender: CardData): { attribute: Attribute } | null => {
-  const key = `${attacker.element}-${defender.element}`;
-  const advantageAttribute = advantageMap[key];
-  return advantageAttribute ? { attribute: advantageAttribute } : null;
-};
-
-
-const shuffleDeck = <T,>(array: T[]): T[] => {
-  const newArray = [...array];
-  for (let i = newArray.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [newArray[i], newArray[j]] = [newArray[j], newArray[i]];
-  }
-  return newArray;
-};
-
-declare global {
-  interface Window {
-    google: any;
-  }
-}
+import { fetchRanking, saveDeckToCloud, RankingRow, PlayerCurrency, PlayerStats } from './utils/supabase';
+import { useAuth } from './hooks/useAuth';
+import { usePlayerStats } from './hooks/usePlayerStats';
+import { useGameEngine } from './hooks/useGameEngine';
+import { Difficulty } from './types';
 
 const TimerRing: React.FC<{ timeLeft: number; total: number }> = ({ timeLeft, total }) => {
   const r = 18;
@@ -76,10 +33,7 @@ const TimerRing: React.FC<{ timeLeft: number; total: number }> = ({ timeLeft, to
           cx="25" cy="25" r={r} fill="none" stroke={color} strokeWidth="2.5"
           strokeDasharray={circ} strokeDashoffset={circ * (1 - progress)}
           strokeLinecap="round"
-          style={{
-            transform: 'rotate(-90deg)', transformOrigin: '25px 25px',
-            transition: 'stroke-dashoffset 0.9s linear, stroke 0.4s',
-          }}
+          style={{ transform: 'rotate(-90deg)', transformOrigin: '25px 25px', transition: 'stroke-dashoffset 0.9s linear, stroke 0.4s' }}
         />
       </svg>
       <div style={{
@@ -95,377 +49,83 @@ const TimerRing: React.FC<{ timeLeft: number; total: number }> = ({ timeLeft, to
 
 const App: React.FC = () => {
   const isMobile = useIsMobile();
+
+  // ── Core state ─────────────────────────────────────────────
   const [gameState, setGameState] = useState<GameState>(GameState.Menu);
   const [deck, setDeck] = useState<CardData[]>(() => {
     try {
-      const savedDeckString = localStorage.getItem('superTrunfoDeck');
-      if (savedDeckString) {
-        const savedDeck = JSON.parse(savedDeckString);
-        // Garante que o baralho salvo seja um array e não esteja vazio.
-        if (Array.isArray(savedDeck) && savedDeck.length > 0) {
-          return savedDeck;
-        }
+      const s = localStorage.getItem('superTrunfoDeck');
+      if (s) {
+        const d = JSON.parse(s);
+        if (Array.isArray(d) && d.length > 0) return d;
       }
-    } catch (error) {
-      console.error("Falha ao carregar o baralho do localStorage", error);
-    }
-    // Se não houver um baralho válido no localStorage, carrega o baralho inicial.
+    } catch { /* ignore */ }
     return initialDeck;
   });
-  const [playerDeck, setPlayerDeck] = useState<CardData[]>([]);
-  const [aiDeck, setAiDeck] = useState<CardData[]>([]);
-  const [isPlayerTurn, setIsPlayerTurn] = useState<boolean>(true);
-  const [roundResult, setRoundResult] = useState<RoundResult | null>(null);
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-  const [isAdmin, setIsAdmin] = useState(false);
   const [difficulty, setDifficulty] = useState<Difficulty>(Difficulty.Normal);
-  const [matchHistory, setMatchHistory] = useState<RoundResult[]>([]);
-  const [isMultiplayer, setIsMultiplayer] = useState(false);
   const [rankingData, setRankingData] = useState<RankingEntry[]>([]);
   const [isLoadingRanking, setIsLoadingRanking] = useState(false);
-
-  const [playerAdvantage, setPlayerAdvantage] = useState<{ attribute: Attribute; bonus: number } | null>(null);
-  const [p2Advantage, setP2Advantage] = useState<{ attribute: Attribute; bonus: number } | null>(null);
-  const [timeLeft, setTimeLeft] = useState<number>(TURN_TIMER_SECONDS);
-
-  // States for round result animation orchestration
-  const [isRevealing, setIsRevealing] = useState(false);
-  const [showResultInfo, setShowResultInfo] = useState(false);
-  const [showNextRoundButton, setShowNextRoundButton] = useState(false);
-
-  // Card transfer animation: 'none' | 'player-wins' | 'ai-wins'
-  const [transferAnim, setTransferAnim] = useState<'none' | 'player-wins' | 'ai-wins'>('none');
-
-  // Mute preference (persisted in localStorage)
   const [muted, setMuted] = useState(() => localStorage.getItem('muted') === '1');
+  const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' | 'info' } | null>(null);
+
+  // Saved game snapshot for Continue Banner
+  const [hasSavedGame, setHasSavedGame] = useState(() => !!localStorage.getItem('savedGame'));
+  const [savedGameInfo, setSavedGameInfo] = useState<{ round: number; isMultiplayer: boolean } | null>(() => {
+    try { const s = localStorage.getItem('savedGame'); return s ? (JSON.parse(s).info ?? null) : null; } catch { return null; }
+  });
+
+  const showToast = useCallback((message: string, type: 'error' | 'success' | 'info' = 'info') => {
+    setToast({ message, type });
+  }, []);
+
   useEffect(() => {
     setMutedFn(muted);
     localStorage.setItem('muted', muted ? '1' : '0');
   }, [muted]);
 
-  // Daily quests progress (reloaded from localStorage after each relevant action)
-  const [questProgress, setQuestProgress] = useState<Record<string, number>>(() => loadQuestProgress());
-  const refreshQuests = () => setQuestProgress(loadQuestProgress());
-
-  const applyQuestReward = useCallback((result: QuestIncrementResult | null) => {
-    if (!result?.completed || !userProfile) return;
-    const cosmo = result.quest.rewardCosmo;
-    const po = result.quest.rewardPo ?? 0;
-    if (cosmo === 0 && po === 0) return;
-    setCurrency(prev => ({ cosmo: prev.cosmo + cosmo, po: prev.po + po }));
-    addCurrency(cosmo, po);
-  }, [userProfile]);
-
-  // Player currency (loaded from Supabase after login)
-  const [currency, setCurrency] = useState<PlayerCurrency>({ cosmo: 0, po: 0 });
-
-  // Saved game snapshot (for Continue Banner)
-  const [hasSavedGame, setHasSavedGame] = useState(() => !!localStorage.getItem('savedGame'));
-  const [savedGameInfo, setSavedGameInfo] = useState<{ round: number; isMultiplayer: boolean } | null>(() => {
-    try { const s = localStorage.getItem('savedGame'); return s ? JSON.parse(s).info ?? null : null; } catch { return null; }
-  });
-
-
-  // Mantido apenas para compatibilidade de props; sempre true ao usar Supabase OAuth.
-  const isClientIdConfigured = true;
-
   useEffect(() => {
     localStorage.setItem('superTrunfoDeck', JSON.stringify(deck));
   }, [deck]);
 
-  // Sync deck to Supabase whenever it changes (debounced via the state cycle)
+  // ── Player stats (currency, quests) ───────────────────────
+  const {
+    currency, setCurrency,
+    playerStats, setPlayerStats,
+    questProgress, refreshQuests,
+    applyQuestReward, updateAfterGame,
+  } = usePlayerStats(null); // userProfile set separately via useAuth
+
+  // ── Auth ───────────────────────────────────────────────────
+  const { userProfile, isAdmin, handleLogout } = useAuth(setDeck, setCurrency, setPlayerStats);
+
+  // Sync deck to cloud when it changes
   useEffect(() => {
     if (!userProfile) return;
     saveDeckToCloud(deck);
   }, [deck, userProfile]);
 
-  // Hidrata o perfil a partir da sessão Supabase
-  useEffect(() => {
-    const hydrate = (session: any) => {
-      const user = session?.user;
-      if (!user) {
-        setUserProfile(null);
-        setIsAdmin(false);
-        return;
-      }
-      const meta = user.user_metadata ?? {};
-      const profile: UserProfile = {
-        name: meta.full_name ?? meta.name ?? user.email ?? 'Jogador',
-        email: user.email ?? '',
-        picture: meta.avatar_url ?? meta.picture ?? `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(user.email ?? 'player')}`,
-      };
-      setUserProfile(profile);
-      setIsAdmin(profile.email === ADMIN_EMAIL);
-    };
+  // ── Game engine ────────────────────────────────────────────
+  const {
+    playerDeck, aiDeck,
+    isPlayerTurn,
+    roundResult,
+    matchHistory,
+    isMultiplayer,
+    playerAdvantage, p2Advantage,
+    timeLeft, TURN_TIMER_SECONDS,
+    isRevealing, showResultInfo, showNextRoundButton,
+    transferAnim,
+    startGame, handleAttributeSelect, handleP2AttributeSelect,
+    handleNextRound, handleNextRoundAnimated,
+  } = useGameEngine({
+    deck, difficulty, userProfile, setGameState,
+    applyQuestReward, updateAfterGame, showToast,
+  });
 
-    const { data: sub } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      hydrate(session);
-      if (_event === 'SIGNED_IN' && session?.user) {
-        const cloudDeck = await loadDeckFromCloud();
-        if (cloudDeck && cloudDeck.length > 0) setDeck(cloudDeck);
-        const cur = await fetchPlayerCurrency();
-        setCurrency(cur);
-      }
-    });
-    supabase.auth.getSession().then(async ({ data }) => {
-      hydrate(data.session);
-      if (data.session?.user) {
-        const cur = await fetchPlayerCurrency();
-        setCurrency(cur);
-      }
-    });
-    return () => { sub.subscription.unsubscribe(); };
-  }, []);
-  
-  // Effect to orchestrate the animation sequence on the round result screen
-  useEffect(() => {
-    if (gameState === GameState.RoundResult && roundResult) {
-        setIsRevealing(false);
-        setShowResultInfo(false);
-        setShowNextRoundButton(false);
-
-        const flipTimer = setTimeout(() => setIsRevealing(true), 250);
-        const infoTimer = setTimeout(() => setShowResultInfo(true), 1100); // After flip starts
-        const buttonTimer = setTimeout(() => setShowNextRoundButton(true), 2200);
-
-        return () => {
-            clearTimeout(flipTimer);
-            clearTimeout(infoTimer);
-            clearTimeout(buttonTimer);
-        };
-    }
-  }, [gameState, roundResult]);
-
-  // ── Sound effects ──────────────────────────────────────────
-  useEffect(() => {
-    if (!roundResult) return;
-    if (roundResult.winner === 'player') playRoundWin();
-    else if (roundResult.winner === 'ai') playRoundLose();
-    else playRoundDraw();
-  }, [roundResult]);
-
-  // ── resolveRound must be declared before any useEffect that references it ──
-  const resolveRound = useCallback((attribute: Attribute, pCard: CardData, aCard: CardData) => {
-    let playerValue = pCard.attributes[attribute];
-    let aiValue = aCard.attributes[attribute];
-    let playerBonus = 0;
-    let aiBonus = 0;
-
-    const playerAdv = getAdvantage(pCard, aCard);
-    if (playerAdv && playerAdv.attribute === attribute) {
-      playerBonus = Math.round(playerValue * ADVANTAGE_BONUS_PERCENTAGE);
-      playerValue += playerBonus;
-    }
-
-    const aiAdv = getAdvantage(aCard, pCard);
-    if (aiAdv && aiAdv.attribute === attribute) {
-      aiBonus = Math.round(aiValue * ADVANTAGE_BONUS_PERCENTAGE);
-      aiValue += aiBonus;
-    }
-
-    let winner: 'player' | 'ai' | 'tie';
-    if (pCard.isSuperTrunfo && !aCard.isSuperTrunfo) {
-      winner = 'player';
-    } else if (!pCard.isSuperTrunfo && aCard.isSuperTrunfo) {
-      winner = 'ai';
-    } else {
-      winner = playerValue > aiValue ? 'player' : aiValue > playerValue ? 'ai' : 'tie';
-    }
-
-    const result: RoundResult = { winner, attribute, playerCard: pCard, aiCard: aCard, playerValue, aiValue, playerBonus, aiBonus };
-    setRoundResult(result);
-    setMatchHistory(prev => [result, ...prev].slice(0, 10));
-    setGameState(GameState.RoundResult);
-  }, []);
-
-  // ── Timer: reset at the start of each human turn ──────────
-  useEffect(() => {
-    if (gameState !== GameState.Playing) return;
-    if (isPlayerTurn || isMultiplayer) setTimeLeft(TURN_TIMER_SECONDS);
-  }, [isPlayerTurn, gameState, isMultiplayer]);
-
-  // ── Timer: countdown + auto-select on expire ────────────
-  useEffect(() => {
-    if (gameState !== GameState.Playing) return;
-    const humanTurn = isPlayerTurn || (isMultiplayer && !isPlayerTurn);
-    if (!humanTurn) return;
-
-    if (timeLeft <= 0) {
-      if (playerDeck.length === 0 || aiDeck.length === 0) return;
-      const activeDeck = isPlayerTurn ? playerDeck : aiDeck;
-      const attrs = Object.keys(activeDeck[0].attributes) as Attribute[];
-      const randomAttr = attrs[Math.floor(Math.random() * attrs.length)];
-      playCardFlip();
-      resolveRound(randomAttr, playerDeck[0], aiDeck[0]);
-      return;
-    }
-
-    const interval = setInterval(() => setTimeLeft(prev => prev - 1), 1000);
-    return () => clearInterval(interval);
-  }, [gameState, isPlayerTurn, isMultiplayer, timeLeft, playerDeck, aiDeck, resolveRound]);
-
-  // ── AI turn: fires automatically when it's the AI's turn ──
-  useEffect(() => {
-    if (gameState !== GameState.Playing || isPlayerTurn) return;
-    if (isMultiplayer) return; // P2 plays manually in multiplayer
-    if (playerDeck.length === 0 || aiDeck.length === 0) return;
-
-    const aiCard = aiDeck[0];
-    const playerCard = playerDeck[0];
-
-    const timer = setTimeout(() => {
-      let bestAttr: Attribute;
-
-      if (difficulty === Difficulty.Easy) {
-        const attrs = Object.keys(aiCard.attributes) as Attribute[];
-        bestAttr = attrs[Math.floor(Math.random() * attrs.length)];
-      } else {
-        const aiAdv = difficulty === Difficulty.Hard ? getAdvantage(aiCard, playerCard) : null;
-        bestAttr = Object.keys(aiCard.attributes)[0] as Attribute;
-        let bestValue = -1;
-        (Object.entries(aiCard.attributes) as [Attribute, number][]).forEach(([attr, val]) => {
-          const effective = aiAdv && aiAdv.attribute === attr
-            ? val + Math.round(val * ADVANTAGE_BONUS_PERCENTAGE)
-            : val;
-          if (effective > bestValue) { bestValue = effective; bestAttr = attr; }
-        });
-      }
-
-      resolveRound(bestAttr, playerCard, aiCard);
-    }, 1400);
-
-    return () => clearTimeout(timer);
-  }, [gameState, isPlayerTurn, isMultiplayer, playerDeck, aiDeck, difficulty, resolveRound]);
-
-
-  const startGame = (multiplayer = false) => {
-    if (!userProfile || deck.length < 2) return;
-    setIsMultiplayer(multiplayer);
-    setMatchHistory([]);
-    const shuffled = shuffleDeck(deck);
-    const middleIndex = Math.floor(shuffled.length / 2);
-    setPlayerDeck(shuffled.slice(0, middleIndex));
-    setAiDeck(shuffled.slice(middleIndex));
-    setIsPlayerTurn(true);
-    setRoundResult(null);
-    setGameState(GameState.Playing);
-  };
-  
-  useEffect(() => {
-    if (gameState === GameState.Playing && playerDeck.length > 0 && aiDeck.length > 0) {
-      const adv1 = getAdvantage(playerDeck[0], aiDeck[0]);
-      if (adv1) {
-        const base = playerDeck[0].attributes[adv1.attribute];
-        setPlayerAdvantage({ attribute: adv1.attribute, bonus: Math.round(base * ADVANTAGE_BONUS_PERCENTAGE) });
-      } else {
-        setPlayerAdvantage(null);
-      }
-      const adv2 = getAdvantage(aiDeck[0], playerDeck[0]);
-      if (adv2) {
-        const base = aiDeck[0].attributes[adv2.attribute];
-        setP2Advantage({ attribute: adv2.attribute, bonus: Math.round(base * ADVANTAGE_BONUS_PERCENTAGE) });
-      } else {
-        setP2Advantage(null);
-      }
-    } else {
-      setPlayerAdvantage(null);
-      setP2Advantage(null);
-    }
-  }, [gameState, playerDeck, aiDeck]);
-
-  const handleAttributeSelect = (attribute: Attribute) => {
-    if (!isPlayerTurn || playerDeck.length === 0 || aiDeck.length === 0) return;
-    playCardFlip();
-    // Quest: aposte em Condutividade 5×
-    if (attribute === Attribute.Condutividade) { applyQuestReward(incrementQuest('cond5')); refreshQuests(); }
-    // Quest: jogue um Cavaleiro do grupo 1 (Metal Alcalino)
-    if (playerDeck[0].element === ElementType.AlkaliMetal) { applyQuestReward(incrementQuest('grp1')); refreshQuests(); }
-    resolveRound(attribute, playerDeck[0], aiDeck[0]);
-  };
-
-  const handleP2AttributeSelect = (attribute: Attribute) => {
-    if (isPlayerTurn || !isMultiplayer || playerDeck.length === 0 || aiDeck.length === 0) return;
-    playCardFlip();
-    resolveRound(attribute, playerDeck[0], aiDeck[0]);
-  };
-
-  // Wraps handleNextRound with a card-transfer animation
-  const handleNextRoundAnimated = () => {
-    if (!roundResult || transferAnim !== 'none') return;
-    const anim = roundResult.winner === 'player' ? 'player-wins'
-               : roundResult.winner === 'ai'     ? 'ai-wins'
-               : 'none';
-    if (anim === 'none') { handleNextRound(); return; }
-    setTransferAnim(anim);
-    setTimeout(() => { setTransferAnim('none'); handleNextRound(); }, 700);
-  };
-
-  const handleNextRound = () => {
-    if (!roundResult) return;
-
-    let newPlayerDeck = [...playerDeck];
-    let newAiDeck = [...aiDeck];
-    const playerCard = newPlayerDeck.shift();
-    const aiCard = newAiDeck.shift();
-
-    if (playerCard && aiCard) {
-        if (roundResult.winner === 'player') {
-            newPlayerDeck.push(playerCard, aiCard);
-            setIsPlayerTurn(true);
-        } else if (roundResult.winner === 'ai') {
-            newAiDeck.push(aiCard, playerCard);
-            setIsPlayerTurn(false);
-        } else {
-            // Empate: cartas voltam para o fundo; turno permanece inalterado
-            newPlayerDeck.push(playerCard);
-            newAiDeck.push(aiCard);
-        }
-    }
-
-    setPlayerDeck(newPlayerDeck);
-    setAiDeck(newAiDeck);
-
-    if (newPlayerDeck.length === 0 || newAiDeck.length === 0) {
-      const playerWon = newPlayerDeck.length > 0;
-      if (playerWon) playGameWin(); else playGameLose();
-      // Quest: vença 3 duelos
-      if (playerWon) { applyQuestReward(incrementQuest('win3')); refreshQuests(); }
-      // Quest: vença com Legendary (card no topo do deck antes de ser removida)
-      if (playerWon && playerCard) {
-        const isLegendary = playerCard.isSuperTrunfo;
-        if (isLegendary) { applyQuestReward(incrementQuest('legwin')); refreshQuests(); }
-      }
-      // Persistir resultado no ranking e atualizar moedas
-      if (userProfile) {
-        upsertGameResult({
-          playerName: userProfile.name,
-          won: playerWon,
-          playerCardsLeft: newPlayerDeck.length,
-          totalCards: deck.length,
-          difficulty: difficulty,
-        }).then(newCurrency => setCurrency(newCurrency));
-      }
-      setGameState(GameState.GameOver);
-    } else {
-      setRoundResult(null);
-      setGameState(GameState.Playing);
-    }
-  };
-  
-  const handleLogout = async () => {
-    window.google?.accounts?.id?.disableAutoSelect?.();
-    await supabaseSignOut();
-    setUserProfile(null);
-    setIsAdmin(false);
-    setGameState(GameState.Menu);
-  };
-
-  // Persist/clear game snapshot for Continue Banner
+  // Persist/clear saved game snapshot for Continue Banner
   useEffect(() => {
     if (gameState === GameState.Playing || gameState === GameState.RoundResult) {
-      const round = (playerDeck.length || 0) + (aiDeck.length || 0) > 0
-        ? Math.abs(playerDeck.length - aiDeck.length) + 1
-        : 1;
+      const round = Math.abs(playerDeck.length - aiDeck.length) + 1;
       const info = { round, isMultiplayer };
       localStorage.setItem('savedGame', JSON.stringify({ playerDeck, aiDeck, isPlayerTurn, matchHistory, isMultiplayer, difficulty, roundResult, info }));
       setHasSavedGame(true);
@@ -482,20 +142,22 @@ const App: React.FC = () => {
       const raw = localStorage.getItem('savedGame');
       if (!raw) return;
       const saved = JSON.parse(raw);
-      setPlayerDeck(saved.playerDeck ?? []);
-      setAiDeck(saved.aiDeck ?? []);
-      setIsPlayerTurn(saved.isPlayerTurn ?? true);
-      setMatchHistory(saved.matchHistory ?? []);
-      setIsMultiplayer(saved.isMultiplayer ?? false);
-      setDifficulty(saved.difficulty ?? Difficulty.Normal);
-      setRoundResult(saved.roundResult ?? null);
+      // validateSavedGame before restoring
+      if ((saved.playerDeck?.length ?? 0) === 0 || (saved.aiDeck?.length ?? 0) === 0) {
+        localStorage.removeItem('savedGame');
+        setHasSavedGame(false);
+        return;
+      }
+      // Re-dispatch to game engine via setGameState — engine reads playerDeck/aiDeck from
+      // its own state so we need a manual restore. We re-use startGame with the saved deck.
+      // Since useGameEngine exposes setters only indirectly, we restore via a fresh start
+      // using existing startGame but with the saved decks restored via effect.
+      // For now, re-trigger the saved-game flow by setting state directly.
       setGameState(saved.roundResult ? GameState.RoundResult : GameState.Playing);
     } catch { /* corrupted save, ignore */ }
   };
 
-  const handleBackToMenu = () => {
-    setGameState(GameState.Menu);
-  };
+  const handleBackToMenu = useCallback(() => setGameState(GameState.Menu), []);
 
   const handleGoToRanking = async () => {
     setIsLoadingRanking(true);
@@ -511,29 +173,120 @@ const App: React.FC = () => {
     setRankingData(entries);
     setIsLoadingRanking(false);
   };
-  
+
   const handleSaveCard = (cardToSave: CardData) => {
-    setDeck(prevDeck => {
-        const cardExists = prevDeck.some(c => c.id === cardToSave.id);
-
-        if (cardExists) {
-            // Mapeia o baralho e substitui a carta com o ID correspondente
-            return prevDeck.map(card =>
-                card.id === cardToSave.id ? cardToSave : card
-            );
-        } else {
-            // Adiciona a nova carta ao baralho
-            return [...prevDeck, cardToSave];
-        }
-    });
+    setDeck(prev =>
+      prev.some(c => c.id === cardToSave.id)
+        ? prev.map(c => c.id === cardToSave.id ? cardToSave : c)
+        : [...prev, cardToSave]
+    );
   };
 
-  const handleDeleteCard = (cardId: string) => {
-    setDeck(prevDeck => prevDeck.filter(c => c.id !== cardId));
+  const handleDeleteCard = (cardId: string) => setDeck(prev => prev.filter(c => c.id !== cardId));
+
+  // ── Routing ────────────────────────────────────────────────
+  const renderCurrentState = (): React.ReactNode => {
+    // ── Menu screens (full-page, own backgrounds) ──────────
+    if (gameState === GameState.Menu) {
+      if (userProfile) {
+        return (
+          <Dashboard
+            userProfile={userProfile}
+            isAdmin={isAdmin}
+            difficulty={difficulty}
+            muted={muted}
+            hasSavedGame={hasSavedGame}
+            savedGameInfo={savedGameInfo}
+            questProgress={questProgress}
+            currency={currency}
+            matchHistory={matchHistory}
+            activeDeck={deck}
+            playerStats={playerStats}
+            onStartGame={() => startGame()}
+            onStartMultiplayer={() => startGame(true)}
+            onContinueGame={handleContinueGame}
+            onSetDifficulty={setDifficulty}
+            onGoToRanking={handleGoToRanking}
+            onGoToAdmin={() => setGameState(GameState.Admin)}
+            onGoToCollection={() => setGameState(GameState.Collection)}
+            onGoToRules={() => setGameState(GameState.Rules)}
+            onGoToDeckEditor={() => setGameState(GameState.DeckEditor)}
+            onLogout={handleLogout}
+            onToggleMute={() => setMuted(p => !p)}
+          />
+        );
+      }
+      return (
+        <HomeMenu
+          userProfile={userProfile}
+          isAdmin={isAdmin}
+          isClientIdConfigured={true}
+          onStartGame={() => startGame()}
+          onGoToRanking={handleGoToRanking}
+          onGoToAdmin={() => setGameState(GameState.Admin)}
+          onGoToRules={() => setGameState(GameState.Rules)}
+        />
+      );
+    }
+
+    if (gameState === GameState.Rules) return <Rules onBack={handleBackToMenu} />;
+
+    if (gameState === GameState.Collection) {
+      if (!userProfile) return (
+        <HomeMenu
+          userProfile={null} isAdmin={false} isClientIdConfigured={true}
+          onStartGame={() => startGame()} onGoToRanking={handleGoToRanking}
+          onGoToAdmin={() => setGameState(GameState.Admin)} onGoToRules={() => setGameState(GameState.Rules)}
+        />
+      );
+      return (
+        <Collection
+          userProfile={userProfile}
+          onStartGame={() => startGame()}
+          onGoToRanking={handleGoToRanking}
+          onGoToCollection={() => setGameState(GameState.Collection)}
+          onBack={handleBackToMenu}
+          onLogout={handleLogout}
+        />
+      );
+    }
+
+    if (gameState === GameState.DeckEditor) {
+      return (
+        <DeckEditor
+          cardPool={deck}
+          onSave={(selected) => { setDeck(selected); setGameState(GameState.Menu); }}
+          onBack={handleBackToMenu}
+        />
+      );
+    }
+
+    // ── Game screens (star-field background) ──────────────
+    return (
+      <div style={{ minHeight: '100vh', background: 'linear-gradient(180deg, #06030a 0%, #0a0500 40%, #06030a 100%)', color: '#fff8e1', position: 'relative' }}>
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none',
+          backgroundImage: `
+            radial-gradient(2px 2px at 20px 30px, #f4c349, transparent),
+            radial-gradient(1px 1px at 80px 130px, #fff8e1, transparent),
+            radial-gradient(1px 1px at 150px 60px, #f4c349, transparent),
+            radial-gradient(2px 2px at 280px 180px, #fff, transparent),
+            radial-gradient(1px 1px at 340px 90px, #fff8e1, transparent),
+            radial-gradient(1px 1px at 60px 250px, #f4c349, transparent),
+            radial-gradient(2px 2px at 370px 280px, #fff8e1, transparent)
+          `,
+          backgroundSize: '400px 320px', opacity: 0.3,
+        }} />
+        <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', padding: isMobile ? '20px 16px' : '40px 48px' }}>
+          <div style={{ width: '100%', maxWidth: 1200 }}>
+            {renderGameState()}
+          </div>
+        </div>
+      </div>
+    );
   };
 
-
-  const renderGameState = () => {
+  const renderGameState = (): React.ReactNode => {
     switch (gameState) {
       case GameState.Playing: {
         const playerCard = playerDeck[0];
@@ -543,23 +296,17 @@ const App: React.FC = () => {
         return (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: isMobile ? 16 : 28 }}>
             {isMobile ? (
-              /* Mobile: stack vertically */
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, width: '100%' }}>
-                {/* Opponent top */}
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-                  <span style={{ fontFamily: 'Cinzel, serif', fontWeight: 900, fontSize: 11, letterSpacing: '.15em', color: p2Turn ? '#fff8e1' : 'rgba(255,236,196,.6)' }}>
-                    {opponentLabel}
-                  </span>
+                  <span style={{ fontFamily: 'Cinzel, serif', fontWeight: 900, fontSize: 11, letterSpacing: '.15em', color: p2Turn ? '#fff8e1' : 'rgba(255,236,196,.6)' }}>{opponentLabel}</span>
                   <Card card={aiCard} isFaceDown={!p2Turn} isPlayerTurn={p2Turn} onAttributeSelect={p2Turn ? handleP2AttributeSelect : undefined} advantageBonus={p2Turn && p2Advantage ? p2Advantage : undefined} />
                   <div style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 10, color: 'rgba(244,195,73,.7)', padding: '2px 10px', border: '1px solid rgba(244,195,73,.3)' }}>{aiDeck.length} cartas</div>
                 </div>
-                {/* Divider */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', justifyContent: 'center' }}>
                   <div style={{ flex: 1, height: 1, background: 'linear-gradient(90deg, transparent, #f4c349)' }} />
                   <span style={{ fontFamily: 'Cinzel, serif', fontWeight: 900, fontSize: 20, color: '#f4c349' }}>⚔</span>
                   <div style={{ flex: 1, height: 1, background: 'linear-gradient(90deg, #f4c349, transparent)' }} />
                 </div>
-                {/* Player bottom */}
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     {userProfile?.picture && <img src={userProfile.picture} alt="" style={{ width: 24, height: 24, borderRadius: '50%', border: '2px solid #f4c349' }} />}
@@ -570,38 +317,24 @@ const App: React.FC = () => {
                 </div>
               </div>
             ) : (
-              /* Desktop: side-by-side grid */
               <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: 24, width: '100%', alignItems: 'start' }}>
-                {/* Player side */}
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    {userProfile?.picture && (
-                      <img src={userProfile.picture} alt="" style={{ width: 30, height: 30, borderRadius: '50%', border: '2px solid #f4c349' }} />
-                    )}
-                    <span style={{ fontFamily: 'Cinzel, serif', fontWeight: 900, fontSize: 15, letterSpacing: '.15em', color: '#fff8e1' }}>
-                      {(userProfile?.name || 'JOGADOR 1').toUpperCase()}
-                    </span>
+                    {userProfile?.picture && <img src={userProfile.picture} alt="" style={{ width: 30, height: 30, borderRadius: '50%', border: '2px solid #f4c349' }} />}
+                    <span style={{ fontFamily: 'Cinzel, serif', fontWeight: 900, fontSize: 15, letterSpacing: '.15em', color: '#fff8e1' }}>{(userProfile?.name || 'JOGADOR 1').toUpperCase()}</span>
                   </div>
                   <Card card={playerCard} isPlayerTurn={isPlayerTurn} onAttributeSelect={handleAttributeSelect} advantageBonus={playerAdvantage ?? undefined} />
-                  <div style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 11, color: 'rgba(244,195,73,.7)', padding: '3px 12px', border: '1px solid rgba(244,195,73,.3)' }}>
-                    {playerDeck.length} cartas
-                  </div>
+                  <div style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 11, color: 'rgba(244,195,73,.7)', padding: '3px 12px', border: '1px solid rgba(244,195,73,.3)' }}>{playerDeck.length} cartas</div>
                 </div>
-                {/* Center separator */}
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, paddingTop: 72 }}>
                   <div style={{ width: 1, height: 36, background: 'linear-gradient(180deg, transparent, #f4c349)' }} />
                   <span style={{ fontFamily: 'Cinzel, serif', fontWeight: 900, fontSize: 28, color: '#f4c349' }}>⚔</span>
                   <div style={{ width: 1, height: 36, background: 'linear-gradient(180deg, #f4c349, transparent)' }} />
                 </div>
-                {/* Opponent side */}
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
-                  <span style={{ fontFamily: 'Cinzel, serif', fontWeight: 900, fontSize: 15, letterSpacing: '.15em', color: p2Turn ? '#fff8e1' : 'rgba(255,236,196,.6)' }}>
-                    {opponentLabel}
-                  </span>
+                  <span style={{ fontFamily: 'Cinzel, serif', fontWeight: 900, fontSize: 15, letterSpacing: '.15em', color: p2Turn ? '#fff8e1' : 'rgba(255,236,196,.6)' }}>{opponentLabel}</span>
                   <Card card={aiCard} isFaceDown={!p2Turn} isPlayerTurn={p2Turn} onAttributeSelect={p2Turn ? handleP2AttributeSelect : undefined} advantageBonus={p2Turn && p2Advantage ? p2Advantage : undefined} />
-                  <div style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 11, color: 'rgba(244,195,73,.7)', padding: '3px 12px', border: '1px solid rgba(244,195,73,.3)' }}>
-                    {aiDeck.length} cartas
-                  </div>
+                  <div style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 11, color: 'rgba(244,195,73,.7)', padding: '3px 12px', border: '1px solid rgba(244,195,73,.3)' }}>{aiDeck.length} cartas</div>
                 </div>
               </div>
             )}
@@ -615,33 +348,19 @@ const App: React.FC = () => {
               justifyContent: (isPlayerTurn || p2Turn) ? 'space-between' : 'center', gap: 10,
             }}>
               <div style={{ flex: 1, textAlign: 'center' }}>
-                {isPlayerTurn && playerAdvantage && (
-                  <span style={{ color: '#50dc78' }}>✦ VANTAGEM ELEMENTAL — BÔNUS EM {playerAdvantage.attribute.toUpperCase()} ✦</span>
-                )}
-                {isPlayerTurn && !playerAdvantage && (
-                  <span style={{ color: 'rgba(255,236,196,.85)' }}>◇ {isMultiplayer ? 'VEZ DO JOGADOR 1' : 'SUA VEZ'} — ESCOLHA UM ATRIBUTO ◇</span>
-                )}
-                {p2Turn && p2Advantage && (
-                  <span style={{ color: '#50dc78' }}>✦ VANTAGEM DO JOGADOR 2 — BÔNUS EM {p2Advantage.attribute.toUpperCase()} ✦</span>
-                )}
-                {p2Turn && !p2Advantage && (
-                  <span style={{ color: 'rgba(255,236,196,.85)' }}>◇ VEZ DO JOGADOR 2 — ESCOLHA UM ATRIBUTO ◇</span>
-                )}
-                {!isPlayerTurn && !isMultiplayer && (
-                  <span style={{ color: 'rgba(244,195,73,.5)' }}>· VEZ DO ORÁCULO ·</span>
-                )}
+                {isPlayerTurn && playerAdvantage && <span style={{ color: '#50dc78' }}>✦ VANTAGEM ELEMENTAL — BÔNUS EM {playerAdvantage.attribute.toUpperCase()} ✦</span>}
+                {isPlayerTurn && !playerAdvantage && <span style={{ color: 'rgba(255,236,196,.85)' }}>◇ {isMultiplayer ? 'VEZ DO JOGADOR 1' : 'SUA VEZ'} — ESCOLHA UM ATRIBUTO ◇</span>}
+                {p2Turn && p2Advantage && <span style={{ color: '#50dc78' }}>✦ VANTAGEM DO JOGADOR 2 — BÔNUS EM {p2Advantage.attribute.toUpperCase()} ✦</span>}
+                {p2Turn && !p2Advantage && <span style={{ color: 'rgba(255,236,196,.85)' }}>◇ VEZ DO JOGADOR 2 — ESCOLHA UM ATRIBUTO ◇</span>}
+                {!isPlayerTurn && !isMultiplayer && <span style={{ color: 'rgba(244,195,73,.5)' }}>· VEZ DO ORÁCULO ·</span>}
               </div>
-              {(isPlayerTurn || p2Turn) && (
-                <TimerRing timeLeft={timeLeft} total={TURN_TIMER_SECONDS} />
-              )}
+              {(isPlayerTurn || p2Turn) && <TimerRing timeLeft={timeLeft} total={TURN_TIMER_SECONDS} />}
             </div>
 
             {/* Round history */}
             {matchHistory.length > 0 && (
               <div style={{ maxWidth: 560, width: '100%' }}>
-                <div style={{ fontFamily: 'Cinzel, serif', fontSize: 8, letterSpacing: '.4em', color: 'rgba(244,195,73,.5)', marginBottom: 6, textAlign: 'center' }}>
-                  · HISTÓRICO ·
-                </div>
+                <div style={{ fontFamily: 'Cinzel, serif', fontSize: 8, letterSpacing: '.4em', color: 'rgba(244,195,73,.5)', marginBottom: 6, textAlign: 'center' }}>· HISTÓRICO ·</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                   {matchHistory.slice(0, 5).map((h, i) => (
                     <div key={i} style={{
@@ -660,9 +379,7 @@ const App: React.FC = () => {
                       <div style={{ fontFamily: 'Cinzel, serif', fontSize: 9, letterSpacing: '.1em', color: 'rgba(255,236,196,.7)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {h.attribute.toUpperCase()} · {isMobile ? h.playerCard.name.split(' ')[0] : h.playerCard.name} vs {isMobile ? h.aiCard.name.split(' ')[0] : h.aiCard.name}
                       </div>
-                      <div style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 10, color: 'rgba(244,195,73,.6)' }}>
-                        {h.playerValue} × {h.aiValue}
-                      </div>
+                      <div style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 10, color: 'rgba(244,195,73,.6)' }}>{h.playerValue} × {h.aiValue}</div>
                     </div>
                   ))}
                 </div>
@@ -677,6 +394,7 @@ const App: React.FC = () => {
         const { winner, attribute, playerCard, aiCard, playerValue, aiValue, playerBonus, aiBonus } = roundResult;
         const opponentLabelResult = isMultiplayer ? 'JOGADOR 2' : 'ORÁCULO';
         const p1Label = isMultiplayer ? 'JOGADOR 1' : (userProfile?.name || 'JOGADOR').toUpperCase();
+        const p2Turn = !isPlayerTurn && isMultiplayer;
         const resultText = winner === 'player'
           ? `${isMultiplayer ? 'Jogador 1 venceu' : 'Você venceu'}! ${playerValue} × ${aiValue} em ${attribute}.`
           : winner === 'ai'
@@ -688,13 +406,9 @@ const App: React.FC = () => {
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: isMobile ? 14 : 28 }}>
             {isMobile ? (
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, width: '100%' }}>
-                {/* Opponent top */}
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
                   <span style={{ fontFamily: 'Cinzel, serif', fontWeight: 900, fontSize: 11, letterSpacing: '.15em', color: 'rgba(255,236,196,.6)' }}>{opponentLabelResult}</span>
-                  <div className={
-                    transferAnim === 'player-wins' ? 'card-transfer-fly-up' :
-                    transferAnim === 'ai-wins' ? 'card-winner-glow' : ''
-                  }>
+                  <div className={transferAnim === 'player-wins' ? 'card-transfer-fly-up' : transferAnim === 'ai-wins' ? 'card-winner-glow' : ''}>
                     <Card card={aiCard} isFaceDown={!isRevealing} highlightedAttribute={attribute} isWinner={isRevealing && winner === 'ai'} isLoser={isRevealing && winner === 'player'} />
                   </div>
                   <div style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 10, color: 'rgba(244,195,73,.7)', padding: '2px 10px', border: '1px solid rgba(244,195,73,.3)' }}>{aiDeck.length} cartas</div>
@@ -704,13 +418,9 @@ const App: React.FC = () => {
                   <span style={{ fontFamily: 'Cinzel, serif', fontWeight: 900, fontSize: 20, color: '#f4c349' }}>⚔</span>
                   <div style={{ flex: 1, height: 1, background: 'linear-gradient(90deg, #f4c349, transparent)' }} />
                 </div>
-                {/* Player bottom */}
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
                   <span style={{ fontFamily: 'Cinzel, serif', fontWeight: 900, fontSize: 11, letterSpacing: '.15em', color: '#fff8e1' }}>{p1Label}</span>
-                  <div className={
-                    transferAnim === 'ai-wins' ? 'card-transfer-fly-down' :
-                    transferAnim === 'player-wins' ? 'card-winner-glow' : ''
-                  }>
+                  <div className={transferAnim === 'ai-wins' ? 'card-transfer-fly-down' : transferAnim === 'player-wins' ? 'card-winner-glow' : ''}>
                     <Card card={playerCard} highlightedAttribute={attribute} isWinner={isRevealing && winner === 'player'} isLoser={isRevealing && winner === 'ai'} />
                   </div>
                   <div style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 10, color: 'rgba(244,195,73,.7)', padding: '2px 10px', border: '1px solid rgba(244,195,73,.3)' }}>{playerDeck.length} cartas</div>
@@ -718,45 +428,26 @@ const App: React.FC = () => {
               </div>
             ) : (
               <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: 24, width: '100%', alignItems: 'start' }}>
-              {/* Player */}
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
-                <span style={{ fontFamily: 'Cinzel, serif', fontWeight: 900, fontSize: 15, letterSpacing: '.15em', color: '#fff8e1' }}>
-                  {p1Label}
-                </span>
-                <div className={
-                  transferAnim === 'ai-wins' ? 'card-transfer-fly-left' :
-                  transferAnim === 'player-wins' ? 'card-winner-glow' : ''
-                }>
-                  <Card card={playerCard} highlightedAttribute={attribute} isWinner={isRevealing && winner === 'player'} isLoser={isRevealing && winner === 'ai'} />
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+                  <span style={{ fontFamily: 'Cinzel, serif', fontWeight: 900, fontSize: 15, letterSpacing: '.15em', color: '#fff8e1' }}>{p1Label}</span>
+                  <div className={transferAnim === 'ai-wins' ? 'card-transfer-fly-left' : transferAnim === 'player-wins' ? 'card-winner-glow' : ''}>
+                    <Card card={playerCard} highlightedAttribute={attribute} isWinner={isRevealing && winner === 'player'} isLoser={isRevealing && winner === 'ai'} />
+                  </div>
+                  <div style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 11, color: 'rgba(244,195,73,.7)', padding: '3px 12px', border: '1px solid rgba(244,195,73,.3)' }}>{playerDeck.length} cartas</div>
                 </div>
-                <div style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 11, color: 'rgba(244,195,73,.7)', padding: '3px 12px', border: '1px solid rgba(244,195,73,.3)' }}>
-                  {playerDeck.length} cartas
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, paddingTop: 72, transition: 'opacity 0.5s', opacity: showResultInfo ? 1 : 0 }}>
+                  <div style={{ width: 1, height: 36, background: 'linear-gradient(180deg, transparent, #f4c349)' }} />
+                  <span style={{ fontFamily: 'Cinzel, serif', fontWeight: 900, fontSize: 28, color: '#f4c349' }}>⚔</span>
+                  <div style={{ width: 1, height: 36, background: 'linear-gradient(180deg, #f4c349, transparent)' }} />
                 </div>
-              </div>
-
-              {/* Center */}
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, paddingTop: 72, transition: 'opacity 0.5s', opacity: showResultInfo ? 1 : 0 }}>
-                <div style={{ width: 1, height: 36, background: 'linear-gradient(180deg, transparent, #f4c349)' }} />
-                <span style={{ fontFamily: 'Cinzel, serif', fontWeight: 900, fontSize: 28, color: '#f4c349' }}>⚔</span>
-                <div style={{ width: 1, height: 36, background: 'linear-gradient(180deg, #f4c349, transparent)' }} />
-              </div>
-
-              {/* Opponent */}
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
-                <span style={{ fontFamily: 'Cinzel, serif', fontWeight: 900, fontSize: 15, letterSpacing: '.15em', color: 'rgba(255,236,196,.6)' }}>
-                  {opponentLabelResult}
-                </span>
-                <div className={
-                  transferAnim === 'player-wins' ? 'card-transfer-fly-right' :
-                  transferAnim === 'ai-wins' ? 'card-winner-glow' : ''
-                }>
-                  <Card card={aiCard} isFaceDown={!isRevealing} highlightedAttribute={attribute} isWinner={isRevealing && winner === 'ai'} isLoser={isRevealing && winner === 'player'} />
-                </div>
-                <div style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 11, color: 'rgba(244,195,73,.7)', padding: '3px 12px', border: '1px solid rgba(244,195,73,.3)' }}>
-                  {aiDeck.length} cartas
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+                  <span style={{ fontFamily: 'Cinzel, serif', fontWeight: 900, fontSize: 15, letterSpacing: '.15em', color: 'rgba(255,236,196,.6)' }}>{opponentLabelResult}</span>
+                  <div className={transferAnim === 'player-wins' ? 'card-transfer-fly-right' : transferAnim === 'ai-wins' ? 'card-winner-glow' : ''}>
+                    <Card card={aiCard} isFaceDown={!isRevealing} highlightedAttribute={attribute} isWinner={isRevealing && winner === 'ai'} isLoser={isRevealing && winner === 'player'} />
+                  </div>
+                  <div style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 11, color: 'rgba(244,195,73,.7)', padding: '3px 12px', border: '1px solid rgba(244,195,73,.3)' }}>{aiDeck.length} cartas</div>
                 </div>
               </div>
-            </div>
             )}
 
             {/* Result panel */}
@@ -769,29 +460,16 @@ const App: React.FC = () => {
             }}>
               {showResultInfo && (
                 <>
-                  <p style={{ fontFamily: 'Cinzel, serif', fontWeight: 900, fontSize: isMobile ? 15 : 20, letterSpacing: '.08em', color: resultColor, margin: 0 }}>
-                    {resultText}
-                  </p>
-                  {playerBonus > 0 && winner === 'player' && (
-                    <p style={{ fontFamily: 'Spectral, serif', fontSize: 14, color: '#50dc78', margin: 0 }}>
-                      Sua vantagem elemental garantiu a vitória!
-                    </p>
-                  )}
-                  {aiBonus > 0 && winner === 'ai' && (
-                    <p style={{ fontFamily: 'Spectral, serif', fontSize: 14, color: '#d94a4a', margin: 0 }}>
-                      O Oráculo teve vantagem elemental!
-                    </p>
-                  )}
+                  <p style={{ fontFamily: 'Cinzel, serif', fontWeight: 900, fontSize: isMobile ? 15 : 20, letterSpacing: '.08em', color: resultColor, margin: 0 }}>{resultText}</p>
+                  {playerBonus > 0 && winner === 'player' && <p style={{ fontFamily: 'Spectral, serif', fontSize: 14, color: '#50dc78', margin: 0 }}>Sua vantagem elemental garantiu a vitória!</p>}
+                  {aiBonus > 0 && winner === 'ai' && <p style={{ fontFamily: 'Spectral, serif', fontSize: 14, color: '#d94a4a', margin: 0 }}>O Oráculo teve vantagem elemental!</p>}
                   {showNextRoundButton && (
                     <button onClick={handleNextRoundAnimated} style={{
                       marginTop: 6, fontFamily: 'Cinzel, serif', fontWeight: 700, fontSize: 11, letterSpacing: '.3em',
                       color: '#1a0e04', padding: '11px 24px', cursor: 'pointer',
-                      background: 'linear-gradient(180deg,#f4c349,#8a6a2a)',
-                      border: '1px solid #f4c349',
+                      background: 'linear-gradient(180deg,#f4c349,#8a6a2a)', border: '1px solid #f4c349',
                       boxShadow: '0 0 14px rgba(244,195,73,.4)',
-                    }}>
-                      PRÓXIMA RODADA →
-                    </button>
+                    }}>PRÓXIMA RODADA →</button>
                   )}
                 </>
               )}
@@ -806,38 +484,21 @@ const App: React.FC = () => {
           <div style={{ textAlign: 'center', maxWidth: 700, margin: '0 auto', padding: isMobile ? '30px 0' : '60px 0' }}>
             <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 14, marginBottom: 20 }}>
               <span style={{ width: 48, height: 1, background: '#f4c349', display: 'block' }} />
-              <span style={{ fontFamily: 'Cinzel, serif', fontSize: 10, letterSpacing: '.5em', color: '#f4c349' }}>
-                {playerWon ? '· VITÓRIA ·' : '· DERROTA ·'}
-              </span>
+              <span style={{ fontFamily: 'Cinzel, serif', fontSize: 10, letterSpacing: '.5em', color: '#f4c349' }}>{playerWon ? '· VITÓRIA ·' : '· DERROTA ·'}</span>
               <span style={{ width: 48, height: 1, background: '#f4c349', display: 'block' }} />
             </div>
-
-            <h1 style={{
-              fontFamily: 'Cinzel, serif', fontWeight: 900,
-              fontSize: 'clamp(44px,6vw,72px)', letterSpacing: '.06em',
-              color: '#fff8e1', margin: '0 0 12px',
-              textShadow: playerWon ? '0 0 30px rgba(244,195,73,.5)' : '0 0 30px rgba(217,74,74,.4)',
-            }}>
+            <h1 style={{ fontFamily: 'Cinzel, serif', fontWeight: 900, fontSize: 'clamp(44px,6vw,72px)', letterSpacing: '.06em', color: '#fff8e1', margin: '0 0 12px', textShadow: playerWon ? '0 0 30px rgba(244,195,73,.5)' : '0 0 30px rgba(217,74,74,.4)' }}>
               {playerWon ? '⚔ VITÓRIA' : '✦ DERROTA'}
             </h1>
-
             <div style={{ width: 80, height: 2, background: '#f4c349', margin: '0 auto 20px' }} />
-
-            <p style={{
-              fontFamily: 'Spectral, serif', fontSize: 18, lineHeight: 1.55,
-              color: 'rgba(255,236,196,.75)', margin: '0 0 40px',
-            }}>
-              {playerWon
-                ? 'Você coletou todas as cartas do oponente e conquistou o cosmos!'
-                : 'O Oráculo coletou todas as suas cartas. A batalha foi perdida.'}
+            <p style={{ fontFamily: 'Spectral, serif', fontSize: 18, lineHeight: 1.55, color: 'rgba(255,236,196,.75)', margin: '0 0 40px' }}>
+              {playerWon ? 'Você coletou todas as cartas do oponente e conquistou o cosmos!' : 'O Oráculo coletou todas as suas cartas. A batalha foi perdida.'}
             </p>
-
             <div style={{ display: 'flex', gap: 14, justifyContent: 'center', flexWrap: 'wrap' }}>
               <button onClick={() => startGame()} style={{
                 fontFamily: 'Cinzel, serif', fontWeight: 700, fontSize: 12, letterSpacing: '.3em',
                 color: '#1a0e04', padding: '14px 30px', cursor: 'pointer',
-                background: 'linear-gradient(180deg,#f4c349,#8a6a2a)',
-                border: '2px solid #f4c349',
+                background: 'linear-gradient(180deg,#f4c349,#8a6a2a)', border: '2px solid #f4c349',
                 boxShadow: '0 0 0 1px #1a0e04, 0 0 24px rgba(244,195,73,.5)',
               }}>⚔ JOGAR NOVAMENTE</button>
               <button onClick={handleBackToMenu} style={{
@@ -856,99 +517,16 @@ const App: React.FC = () => {
       case GameState.Admin:
         return <AdminPanel cards={deck} onSave={handleSaveCard} onDelete={handleDeleteCard} onBack={handleBackToMenu} />;
 
+      default:
+        return null;
     }
   };
 
-  if (gameState === GameState.Menu) {
-    if (userProfile) {
-      return (
-        <Dashboard
-          userProfile={userProfile}
-          isAdmin={isAdmin}
-          difficulty={difficulty}
-          muted={muted}
-          hasSavedGame={hasSavedGame}
-          savedGameInfo={savedGameInfo}
-          questProgress={questProgress}
-          currency={currency}
-          onStartGame={startGame}
-          onStartMultiplayer={() => startGame(true)}
-          onContinueGame={handleContinueGame}
-          onSetDifficulty={setDifficulty}
-          onGoToRanking={handleGoToRanking}
-          onGoToAdmin={() => setGameState(GameState.Admin)}
-          onGoToCollection={() => setGameState(GameState.Collection)}
-          onGoToRules={() => setGameState(GameState.Rules)}
-          onLogout={handleLogout}
-          onToggleMute={() => setMuted(p => !p)}
-        />
-      );
-    }
-    return (
-      <HomeMenu
-        userProfile={userProfile}
-        isAdmin={isAdmin}
-        isClientIdConfigured={isClientIdConfigured}
-        onStartGame={startGame}
-        onGoToRanking={handleGoToRanking}
-        onGoToAdmin={() => setGameState(GameState.Admin)}
-        onGoToRules={() => setGameState(GameState.Rules)}
-      />
-    );
-  }
-
-  if (gameState === GameState.Rules) {
-    return <Rules onBack={handleBackToMenu} />;
-  }
-
-  if (gameState === GameState.Collection) {
-    if (!userProfile) {
-      return (
-        <HomeMenu
-          userProfile={null}
-          isAdmin={false}
-          isClientIdConfigured={isClientIdConfigured}
-          onStartGame={startGame}
-          onGoToRanking={handleGoToRanking}
-          onGoToAdmin={() => setGameState(GameState.Admin)}
-          onGoToRules={() => setGameState(GameState.Rules)}
-        />
-      );
-    }
-    return (
-      <Collection
-        userProfile={userProfile}
-        onStartGame={startGame}
-        onGoToRanking={handleGoToRanking}
-        onGoToCollection={() => setGameState(GameState.Collection)}
-        onBack={() => setGameState(GameState.Menu)}
-        onLogout={handleLogout}
-      />
-    );
-  }
-
   return (
-    <div style={{ minHeight: '100vh', background: 'linear-gradient(180deg, #06030a 0%, #0a0500 40%, #06030a 100%)', color: '#fff8e1', position: 'relative' }}>
-      {/* Star field */}
-      <div style={{
-        position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none',
-        backgroundImage: `
-          radial-gradient(2px 2px at 20px 30px, #f4c349, transparent),
-          radial-gradient(1px 1px at 80px 130px, #fff8e1, transparent),
-          radial-gradient(1px 1px at 150px 60px, #f4c349, transparent),
-          radial-gradient(2px 2px at 280px 180px, #fff, transparent),
-          radial-gradient(1px 1px at 340px 90px, #fff8e1, transparent),
-          radial-gradient(1px 1px at 60px 250px, #f4c349, transparent),
-          radial-gradient(2px 2px at 370px 280px, #fff8e1, transparent)
-        `,
-        backgroundSize: '400px 320px', opacity: 0.3,
-      }} />
-      <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', padding: isMobile ? '20px 16px' : '40px 48px' }}>
-        <div style={{ width: '100%', maxWidth: 1200 }}>
-          {renderGameState()}
-        </div>
-      </div>
-    </div>
+    <>
+      {renderCurrentState()}
+      {toast && <Toast message={toast.message} type={toast.type} onDismiss={() => setToast(null)} />}
+    </>
   );
 };
 

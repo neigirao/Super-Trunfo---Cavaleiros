@@ -29,6 +29,15 @@ export interface RankingRow {
 
 export interface PlayerCurrency { cosmo: number; po: number; }
 
+export interface PlayerStats {
+  gamesWon: number;
+  gamesLost: number;
+  totalGames: number;
+  winRate: number;
+  currentStreak: number;
+  totalScore: number;
+}
+
 // ─── Auth ─────────────────────────────────────────────────────
 export async function signInWithGoogleToken(idToken: string) {
   const { data, error } = await supabase.auth.signInWithIdToken({
@@ -97,6 +106,26 @@ export async function fetchPlayerCurrency(): Promise<PlayerCurrency> {
     .single();
 
   return { cosmo: data?.cosmo ?? 0, po: data?.po ?? 0 };
+}
+
+// ─── Player stats ─────────────────────────────────────────────
+export async function fetchPlayerStats(): Promise<PlayerStats | null> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return null;
+  const { data } = await supabase
+    .from('card_game_rankings')
+    .select('games_won,games_lost,total_games,win_rate,current_streak,total_score')
+    .eq('user_id', user.id)
+    .single();
+  if (!data) return null;
+  return {
+    gamesWon: data.games_won ?? 0,
+    gamesLost: data.games_lost ?? 0,
+    totalGames: data.total_games ?? 0,
+    winRate: data.win_rate ?? 0,
+    currentStreak: data.current_streak ?? 0,
+    totalScore: data.total_score ?? 0,
+  };
 }
 
 // ─── Ranking ──────────────────────────────────────────────────

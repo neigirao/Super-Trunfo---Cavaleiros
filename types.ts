@@ -51,6 +51,7 @@ export enum GameState {
   Admin,
   Collection,
   Rules,
+  DeckEditor,
 }
 
 export type RoundResult = {
