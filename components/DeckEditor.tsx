@@ -1,6 +1,10 @@
 import React, { useState } from 'react';
-import { CardData } from '../types';
+import { CardData, ElementType } from '../types';
 import { useIsMobile } from '../utils/mobile';
+
+const DECK_MIN = 10;
+const DECK_MAX = 60;
+const ELEMENT_MAX = 8;
 
 interface DeckEditorProps {
   cardPool: CardData[];
@@ -73,9 +77,9 @@ export const DeckEditor: React.FC<DeckEditorProps> = ({ cardPool, onSave, onBack
     setSelected(prev => {
       const next = new Set(prev);
       if (next.has(id)) {
-        if (next.size > 2) next.delete(id);
+        if (next.size > 1) next.delete(id);
       } else {
-        next.add(id);
+        if (next.size < DECK_MAX) next.add(id);
       }
       return next;
     });
@@ -83,13 +87,25 @@ export const DeckEditor: React.FC<DeckEditorProps> = ({ cardPool, onSave, onBack
 
   const selectedCards = cardPool.filter(c => selected.has(c.id));
   const superTrunfoCount = selectedCards.filter(c => c.isSuperTrunfo).length;
-  const canSave = selected.size >= 2 && superTrunfoCount <= 1;
+
+  // M5: element distribution for validation
+  const elementCounts = selectedCards.reduce<Partial<Record<ElementType, number>>>((acc, c) => {
+    acc[c.element] = (acc[c.element] ?? 0) + 1;
+    return acc;
+  }, {});
+  const overloadedElement = Object.entries(elementCounts).find(([, n]) => n > ELEMENT_MAX) as [ElementType, number] | undefined;
 
   const validationMsg = superTrunfoCount > 1
     ? 'Máximo 1 Super Trunfo por deck'
-    : selected.size < 2
-    ? 'Selecione pelo menos 2 cartas'
+    : selected.size < DECK_MIN
+    ? `Selecione pelo menos ${DECK_MIN} cartas`
+    : selected.size > DECK_MAX
+    ? `Máximo ${DECK_MAX} cartas por deck`
+    : overloadedElement
+    ? `Máx. ${ELEMENT_MAX} cartas do tipo ${overloadedElement[0]} (você tem ${overloadedElement[1]})`
     : null;
+
+  const canSave = !validationMsg;
 
   return (
     <div style={{
@@ -107,7 +123,12 @@ export const DeckEditor: React.FC<DeckEditorProps> = ({ cardPool, onSave, onBack
         <div>
           <div style={{ fontFamily: 'Cinzel, serif', fontSize: 9, letterSpacing: '.4em', color: '#f4c349' }}>· EDITOR DE BARALHO ·</div>
           <div style={{ fontFamily: 'Cinzel, serif', fontWeight: 900, fontSize: isMobile ? 16 : 22, letterSpacing: '.08em', color: '#fff8e1', marginTop: 2 }}>
-            {selected.size} <span style={{ color: 'rgba(255,236,196,.5)', fontWeight: 400, fontSize: 14 }}>de</span> {cardPool.length} CARTAS
+            <span style={{ color: selected.size < DECK_MIN || selected.size > DECK_MAX ? '#d94a4a' : '#50dc78' }}>{selected.size}</span>
+            <span style={{ color: 'rgba(255,236,196,.5)', fontWeight: 400, fontSize: 14 }}> de </span>
+            {cardPool.length} CARTAS
+          </div>
+          <div style={{ fontSize: 9, fontFamily: 'IBM Plex Mono, monospace', color: 'rgba(244,195,73,.5)', marginTop: 2 }}>
+            mín {DECK_MIN} · máx {DECK_MAX} · max {ELEMENT_MAX}/tipo
           </div>
         </div>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>

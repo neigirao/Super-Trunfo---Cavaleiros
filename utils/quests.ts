@@ -25,7 +25,8 @@ interface QuestState {
   date: string;
 }
 
-const STORAGE_KEY = 'dailyQuests';
+import { SK } from './storage';
+const STORAGE_KEY = SK.quests;
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
 
