@@ -8,11 +8,16 @@ export interface Quest {
   rewardPo?: number;
 }
 
-export const QUESTS: Quest[] = [
-  { id: 'win3',   icon: '⚔', name: 'Vença 3 duelos',                total: 3, rwd: '+120 Cosmo', rewardCosmo: 120 },
-  { id: 'grp1',   icon: '◇', name: 'Jogue um Cavaleiro do grupo 1', total: 1, rwd: '+45 Pó',     rewardCosmo: 0, rewardPo: 45 },
-  { id: 'cond5',  icon: '✦', name: 'Aposte em Condutividade 5×',    total: 5, rwd: '+90 Cosmo',  rewardCosmo: 90 },
-  { id: 'legwin', icon: '♛', name: 'Vença com cavaleiro Legendary',  total: 1, rwd: '+150 Cosmo', rewardCosmo: 150 },
+export const QUEST_POOL: Quest[] = [
+  { id: 'win3',   icon: '⚔', name: 'Vença 3 duelos',                  total: 3,  rwd: '+120 Cosmo', rewardCosmo: 120 },
+  { id: 'win5',   icon: '⚔', name: 'Vença 5 duelos',                  total: 5,  rwd: '+200 Cosmo', rewardCosmo: 200 },
+  { id: 'cond5',  icon: '✦', name: 'Aposte em Condutividade 5×',       total: 5,  rwd: '+90 Cosmo',  rewardCosmo: 90  },
+  { id: 'react3', icon: '⚡', name: 'Aposte em Reatividade 3×',         total: 3,  rwd: '+60 Cosmo',  rewardCosmo: 60  },
+  { id: 'mass3',  icon: '⊕', name: 'Aposte em Massa Atômica 3×',       total: 3,  rwd: '+60 Cosmo',  rewardCosmo: 60  },
+  { id: 'play10', icon: '◈', name: 'Jogue 10 rodadas',                  total: 10, rwd: '+80 Cosmo',  rewardCosmo: 80  },
+  { id: 'legwin', icon: '♛', name: 'Vença com cavaleiro Lendário',      total: 1,  rwd: '+150 Cosmo', rewardCosmo: 150 },
+  { id: 'hard1',  icon: '☠', name: 'Vença 1 partida no Difícil',        total: 1,  rwd: '+250 Cosmo', rewardCosmo: 250 },
+  { id: 'grp1',   icon: '◇', name: 'Jogue um Cavaleiro Alcalino',       total: 1,  rwd: '+45 Pó',     rewardCosmo: 0, rewardPo: 45 },
 ];
 
 interface QuestState {
@@ -23,6 +28,36 @@ interface QuestState {
 const STORAGE_KEY = 'dailyQuests';
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
+
+function seededRand(seed: number): () => number {
+  let s = seed | 0;
+  return () => {
+    s = (Math.imul(1664525, s) + 1013904223) | 0;
+    return (s >>> 0) / 4294967296;
+  };
+}
+
+function dateSeed(): number {
+  const d = todayStr();
+  let h = 0;
+  for (let i = 0; i < d.length; i++) {
+    h = (Math.imul(31, h) + d.charCodeAt(i)) | 0;
+  }
+  return h;
+}
+
+export function getDailyQuests(): Quest[] {
+  const rand = seededRand(dateSeed());
+  const shuffled = [...QUEST_POOL];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled.slice(0, 4);
+}
+
+// Daily selection — re-evaluated each day via seeded shuffle
+export const QUESTS: Quest[] = getDailyQuests();
 
 export function loadQuestProgress(): Record<string, number> {
   try {

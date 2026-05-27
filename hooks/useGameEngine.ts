@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { CardData, GameState, Attribute, RoundResult, UserProfile, ElementType, Difficulty } from '../types';
 import { PlayerCurrency } from '../utils/supabase';
 import { incrementQuest, QuestIncrementResult } from '../utils/quests';
@@ -63,6 +63,12 @@ export function useGameEngine({
   const [showNextRoundButton, setShowNextRoundButton] = useState(false);
   const [transferAnim, setTransferAnim] = useState<'none' | 'player-wins' | 'ai-wins'>('none');
 
+  // M6: round stats across the entire match (not limited to matchHistory's 10-item cap)
+  const roundStatsRef = useRef({ won: 0, lost: 0, draw: 0 });
+  const [gameSummary, setGameSummary] = useState<{
+    won: boolean; roundsWon: number; roundsLost: number; roundsDraw: number; cosmoEarned: number;
+  } | null>(null);
+
   const resolveRound = useCallback((attribute: Attribute, pCard: CardData, aCard: CardData) => {
     let pVal = pCard.attributes[attribute];
     let aVal = aCard.attributes[attribute];
@@ -85,6 +91,10 @@ export function useGameEngine({
     else winner = pVal > aVal ? 'player' : aVal > pVal ? 'ai' : 'tie';
 
     const result: RoundResult = { winner, attribute, playerCard: pCard, aiCard: aCard, playerValue: pVal, aiValue: aVal, playerBonus: pBonus, aiBonus: aBonus };
+    // M6: track cumulative round stats
+    if (winner === 'player') roundStatsRef.current.won++;
+    else if (winner === 'ai') roundStatsRef.current.lost++;
+    else roundStatsRef.current.draw++;
     setRoundResult(result);
     setMatchHistory(prev => [result, ...prev].slice(0, 10));
     setGameState(GameState.RoundResult);
@@ -176,6 +186,8 @@ export function useGameEngine({
     }
     setIsMultiplayer(multiplayer);
     setMatchHistory([]);
+    roundStatsRef.current = { won: 0, lost: 0, draw: 0 };
+    setGameSummary(null);
     const shuffled = shuffleDeck(deck);
     const mid = Math.floor(shuffled.length / 2);
     setPlayerDeck(shuffled.slice(0, mid));
@@ -189,6 +201,8 @@ export function useGameEngine({
     if (!isPlayerTurn || playerDeck.length === 0 || aiDeck.length === 0) return;
     playCardFlip();
     if (attribute === Attribute.Condutividade) { applyQuestReward(incrementQuest('cond5')); }
+    if (attribute === Attribute.Reatividade)   { applyQuestReward(incrementQuest('react3')); }
+    if (attribute === Attribute.MassaAtomica)  { applyQuestReward(incrementQuest('mass3')); }
     if (playerDeck[0].element === ElementType.AlkaliMetal) { applyQuestReward(incrementQuest('grp1')); }
     resolveRound(attribute, playerDeck[0], aiDeck[0]);
   }, [isPlayerTurn, playerDeck, aiDeck, applyQuestReward, resolveRound]);
@@ -222,11 +236,28 @@ export function useGameEngine({
     setPlayerDeck(newPlayerDeck);
     setAiDeck(newAiDeck);
 
+    // M7: track round played quest
+    applyQuestReward(incrementQuest('play10'));
+
     if (newPlayerDeck.length === 0 || newAiDeck.length === 0) {
       const playerWon = newPlayerDeck.length > 0;
       if (playerWon) playGameWin(); else playGameLose();
-      if (playerWon) applyQuestReward(incrementQuest('win3'));
+      if (playerWon) { applyQuestReward(incrementQuest('win3')); applyQuestReward(incrementQuest('win5')); }
       if (playerWon && pCard?.isSuperTrunfo) applyQuestReward(incrementQuest('legwin'));
+      if (playerWon && difficulty === Difficulty.Hard) applyQuestReward(incrementQuest('hard1'));
+
+      // M6: compute cosmo earned with same formula as upsertGameResult
+      const diffMultiplier = difficulty === Difficulty.Hard ? 2.0 : difficulty === Difficulty.Normal ? 1.5 : 1.0;
+      const cosmoBase = playerWon ? 100 + Math.max(0, newPlayerDeck.length - Math.floor(deck.length / 2)) * 10 : 10;
+      const cosmoEarned = playerWon ? Math.round(cosmoBase * diffMultiplier) : cosmoBase;
+      setGameSummary({
+        won: playerWon,
+        roundsWon: roundStatsRef.current.won,
+        roundsLost: roundStatsRef.current.lost,
+        roundsDraw: roundStatsRef.current.draw,
+        cosmoEarned,
+      });
+
       if (userProfile) {
         await updateAfterGame({
           playerName: userProfile.name,
@@ -263,6 +294,7 @@ export function useGameEngine({
     timeLeft, TURN_TIMER_SECONDS,
     isRevealing, showResultInfo, showNextRoundButton,
     transferAnim,
+    gameSummary,
     startGame, handleAttributeSelect, handleP2AttributeSelect,
     handleNextRound, handleNextRoundAnimated,
   };

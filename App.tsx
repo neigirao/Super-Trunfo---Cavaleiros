@@ -122,6 +122,7 @@ const App: React.FC = () => {
     timeLeft, TURN_TIMER_SECONDS,
     isRevealing, showResultInfo, showNextRoundButton,
     transferAnim,
+    gameSummary,
     startGame, handleAttributeSelect, handleP2AttributeSelect,
     handleNextRound, handleNextRoundAnimated,
   } = useGameEngine({
@@ -139,7 +140,7 @@ const App: React.FC = () => {
     if (gameState === GameState.Playing || gameState === GameState.RoundResult) {
       const round = Math.abs(playerDeck.length - aiDeck.length) + 1;
       const info = { round, isMultiplayer };
-      localStorage.setItem('savedGame', JSON.stringify({ playerDeck, aiDeck, isPlayerTurn, matchHistory, isMultiplayer, difficulty, roundResult, info }));
+      localStorage.setItem('savedGame', JSON.stringify({ playerDeck, aiDeck, isPlayerTurn, matchHistory, isMultiplayer, difficulty, roundResult, info, masterDeckLen: deck.length }));
       setHasSavedGame(true);
       setSavedGameInfo(info);
     } else if (
@@ -158,17 +159,15 @@ const App: React.FC = () => {
       const raw = localStorage.getItem('savedGame');
       if (!raw) return;
       const saved = JSON.parse(raw);
-      // validateSavedGame before restoring
       if ((saved.playerDeck?.length ?? 0) === 0 || (saved.aiDeck?.length ?? 0) === 0) {
         localStorage.removeItem('savedGame');
         setHasSavedGame(false);
         return;
       }
-      // Re-dispatch to game engine via setGameState — engine reads playerDeck/aiDeck from
-      // its own state so we need a manual restore. We re-use startGame with the saved deck.
-      // Since useGameEngine exposes setters only indirectly, we restore via a fresh start
-      // using existing startGame but with the saved decks restored via effect.
-      // For now, re-trigger the saved-game flow by setting state directly.
+      // M8: warn if master deck changed since save
+      if (saved.masterDeckLen && saved.masterDeckLen !== deck.length) {
+        showToast('O baralho foi alterado desde este salvamento — as cartas em jogo são do baralho anterior', 'info');
+      }
       setGameState(saved.roundResult ? GameState.RoundResult : GameState.Playing);
     } catch { /* corrupted save, ignore */ }
   };
@@ -495,9 +494,10 @@ const App: React.FC = () => {
       }
 
       case GameState.GameOver: {
-        const playerWon = playerDeck.length > 0;
+        const playerWon = gameSummary?.won ?? playerDeck.length > 0;
+        const totalRounds = (gameSummary?.roundsWon ?? 0) + (gameSummary?.roundsLost ?? 0) + (gameSummary?.roundsDraw ?? 0);
         return (
-          <div style={{ textAlign: 'center', maxWidth: 700, margin: '0 auto', padding: isMobile ? '30px 0' : '60px 0' }}>
+          <div style={{ textAlign: 'center', maxWidth: 700, margin: '0 auto', padding: isMobile ? '24px 0' : '48px 0' }}>
             <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 14, marginBottom: 20 }}>
               <span style={{ width: 48, height: 1, background: '#f4c349', display: 'block' }} />
               <span style={{ fontFamily: 'Cinzel, serif', fontSize: 10, letterSpacing: '.5em', color: '#f4c349' }}>{playerWon ? '· VITÓRIA ·' : '· DERROTA ·'}</span>
@@ -507,9 +507,39 @@ const App: React.FC = () => {
               {playerWon ? '⚔ VITÓRIA' : '✦ DERROTA'}
             </h1>
             <div style={{ width: 80, height: 2, background: '#f4c349', margin: '0 auto 20px' }} />
-            <p style={{ fontFamily: 'Spectral, serif', fontSize: 18, lineHeight: 1.55, color: 'rgba(255,236,196,.75)', margin: '0 0 40px' }}>
+            <p style={{ fontFamily: 'Spectral, serif', fontSize: 18, lineHeight: 1.55, color: 'rgba(255,236,196,.75)', margin: '0 0 28px' }}>
               {playerWon ? 'Você coletou todas as cartas do oponente e conquistou o cosmos!' : 'O Oráculo coletou todas as suas cartas. A batalha foi perdida.'}
             </p>
+
+            {/* M6: Match summary panel */}
+            {gameSummary && (
+              <div style={{
+                display: 'grid', gridTemplateColumns: `repeat(${isMobile ? 2 : 4}, 1fr)`,
+                gap: isMobile ? 8 : 12, marginBottom: 28, maxWidth: 560, margin: '0 auto 28px',
+              }}>
+                {[
+                  { label: 'VITÓRIAS', value: gameSummary.roundsWon, color: '#50dc78' },
+                  { label: 'DERROTAS', value: gameSummary.roundsLost, color: '#d94a4a' },
+                  { label: 'EMPATES',  value: gameSummary.roundsDraw,  color: 'rgba(244,195,73,.7)' },
+                  { label: 'COSMO +',  value: gameSummary.cosmoEarned, color: '#f4c349' },
+                ].map(({ label, value, color }) => (
+                  <div key={label} style={{
+                    padding: isMobile ? '10px 8px' : '14px 12px',
+                    background: 'rgba(10,5,0,.55)', border: '1px solid rgba(244,195,73,.18)',
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
+                  }}>
+                    <span style={{ fontFamily: 'IBM Plex Mono, monospace', fontWeight: 700, fontSize: isMobile ? 22 : 28, color }}>{value}</span>
+                    <span style={{ fontFamily: 'Cinzel, serif', fontSize: isMobile ? 7 : 8, letterSpacing: '.25em', color: 'rgba(255,236,196,.5)' }}>{label}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            {gameSummary && totalRounds > 0 && (
+              <p style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 11, color: 'rgba(244,195,73,.45)', marginBottom: 28 }}>
+                {totalRounds} rodadas · {Math.round((gameSummary.roundsWon / totalRounds) * 100)}% de aproveitamento
+              </p>
+            )}
+
             <div style={{ display: 'flex', gap: 14, justifyContent: 'center', flexWrap: 'wrap' }}>
               <button onClick={() => startGame()} style={{
                 fontFamily: 'Cinzel, serif', fontWeight: 700, fontSize: 12, letterSpacing: '.3em',

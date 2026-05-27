@@ -51,6 +51,8 @@ const CardFaceUp: React.FC<Omit<CardProps, 'isFaceDown'>> = ({
     ? '0 0 0 1px #1a0e04, 0 0 0 3px #d94a4a, 0 0 0 4px #1a0e04, 0 0 30px rgba(217,74,74,.5)'
     : isST
     ? '0 0 0 1px #1a0e04, 0 0 0 4px #f4c349, 0 0 0 5px #1a0e04, 0 0 30px rgba(244,195,73,.7)'
+    : advantageBonus
+    ? '0 0 0 1px #1a0e04, 0 0 0 3px rgba(80,220,120,.55), 0 0 0 4px #1a0e04, 0 0 18px rgba(80,220,120,.25)'
     : '0 0 0 1px #1a0e04, 0 0 0 3px #c9a14a, 0 0 0 4px #1a0e04, 0 8px 24px rgba(0,0,0,.6)';
 
   return (
@@ -108,6 +110,19 @@ const CardFaceUp: React.FC<Omit<CardProps, 'isFaceDown'>> = ({
           position: 'absolute', inset: 0, width: '100%', height: '100%',
           objectFit: 'cover', objectPosition: '50% 0%', zIndex: 1,
         }} />
+        {advantageBonus && (
+          <div style={{
+            position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 4,
+            background: 'linear-gradient(0deg, rgba(8,35,18,.92) 0%, transparent 100%)',
+            padding: isMobile ? '10px 4px 3px' : '14px 6px 4px',
+            textAlign: 'center',
+          }}>
+            <span style={{
+              fontFamily: 'Cinzel, serif', fontWeight: 900,
+              fontSize: isMobile ? 6 : 7, letterSpacing: '.25em', color: '#50dc78',
+            }}>⚡ VANTAGEM</span>
+          </div>
+        )}
       </div>
 
       {/* Attribute rows */}
