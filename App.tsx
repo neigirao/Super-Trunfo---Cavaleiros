@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { CardData, GameState, Attribute, RoundResult, RankingEntry } from './types';
 import { Card } from './components/Card';
 import { Ranking } from './components/Ranking';
@@ -13,7 +13,7 @@ import { Toast } from './components/Toast';
 import { initialDeck } from './initialDeck';
 import { setMuted as setMutedFn } from './utils/sounds';
 import { useIsMobile } from './utils/mobile';
-import { fetchRanking, saveDeckToCloud, RankingRow, PlayerCurrency, PlayerStats } from './utils/supabase';
+import { fetchRanking, saveDeckToCloud, loadCardsFromDB, RankingRow, PlayerCurrency, PlayerStats } from './utils/supabase';
 import { useAuth } from './hooks/useAuth';
 import { usePlayerStats } from './hooks/usePlayerStats';
 import { useGameEngine } from './hooks/useGameEngine';
@@ -78,6 +78,13 @@ const App: React.FC = () => {
     setToast({ message, type });
   }, []);
 
+  // Carregar cartas reais do banco na inicialização (imagens do Supabase Storage)
+  useEffect(() => {
+    loadCardsFromDB().then(cards => {
+      if (cards.length > 0) setDeck(cards);
+    });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     setMutedFn(muted);
     localStorage.setItem('muted', muted ? '1' : '0');
@@ -122,15 +129,24 @@ const App: React.FC = () => {
     applyQuestReward, updateAfterGame, showToast,
   });
 
-  // Persist/clear saved game snapshot for Continue Banner
+  // Persist/clear saved game snapshot for Continue Banner.
+  // Only erase savedGame on a real transition FROM a game state (not on first mount/StrictMode double-fire).
+  const prevGameState = useRef<GameState | null>(null);
   useEffect(() => {
+    const prev = prevGameState.current;
+    prevGameState.current = gameState;
+
     if (gameState === GameState.Playing || gameState === GameState.RoundResult) {
       const round = Math.abs(playerDeck.length - aiDeck.length) + 1;
       const info = { round, isMultiplayer };
       localStorage.setItem('savedGame', JSON.stringify({ playerDeck, aiDeck, isPlayerTurn, matchHistory, isMultiplayer, difficulty, roundResult, info }));
       setHasSavedGame(true);
       setSavedGameInfo(info);
-    } else if (gameState === GameState.GameOver || gameState === GameState.Menu) {
+    } else if (
+      (gameState === GameState.GameOver || gameState === GameState.Menu) &&
+      prev !== null && prev !== gameState
+    ) {
+      // Only clear when genuinely transitioning away from a game (not on initial mount).
       localStorage.removeItem('savedGame');
       setHasSavedGame(false);
       setSavedGameInfo(null);
