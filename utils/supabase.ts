@@ -4,7 +4,14 @@ import { CardData, ElementType, Attribute } from '../types';
 const SUPABASE_URL  = import.meta.env.VITE_SUPABASE_URL  as string;
 const SUPABASE_ANON = import.meta.env.VITE_SUPABASE_ANON as string;
 
-export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON);
+export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON, {
+  auth: {
+    flowType: 'pkce',
+    detectSessionInUrl: true,
+    persistSession: true,
+    autoRefreshToken: true,
+  },
+});
 
 // ─── Mapa element_type → ElementType ──────────────────────────
 const ELEMENT_TYPE_MAP: Record<string, ElementType> = {

@@ -32,19 +32,23 @@ export function useAuth(
 
     const { data: sub } = supabase.auth.onAuthStateChange(async (_event, session) => {
       hydrate(session as Parameters<typeof hydrate>[0]);
-      if (_event === 'SIGNED_IN' && session?.user) {
+
+      // INITIAL_SESSION: sessão restaurada do localStorage ou da URL (redirect OAuth)
+      // SIGNED_IN: login explícito (OAuth callback, token, etc.)
+      if (_event === 'INITIAL_SESSION' && session?.user) {
+        setCurrency(await fetchPlayerCurrency());
+        setPlayerStats(await fetchPlayerStats());
+      } else if (_event === 'SIGNED_IN' && session?.user) {
         const cloudDeck = await loadDeckFromCloud();
         if (cloudDeck && cloudDeck.length > 0) setDeck(cloudDeck);
         setCurrency(await fetchPlayerCurrency());
         setPlayerStats(await fetchPlayerStats());
-      }
-    });
-
-    supabase.auth.getSession().then(async ({ data }) => {
-      hydrate(data.session as Parameters<typeof hydrate>[0]);
-      if (data.session?.user) {
-        setCurrency(await fetchPlayerCurrency());
-        setPlayerStats(await fetchPlayerStats());
+        // Limpa o ?code= da URL após troca bem-sucedida para não reprocessar
+        const url = new URL(window.location.href);
+        if (url.searchParams.has('code')) {
+          url.searchParams.delete('code');
+          window.history.replaceState({}, '', url.toString());
+        }
       }
     });
 
