@@ -27,6 +27,7 @@ export interface DashboardProps {
   onGoToCollection: () => void;
   onGoToRules: () => void;
   onGoToDeckEditor: () => void;
+  onGoToShop: () => void;
   onLogout: () => void;
   onToggleMute: () => void;
 }
@@ -320,14 +321,14 @@ const DifficultySelector: React.FC<DifficultySelectorProps> = ({ difficulty, onS
 );
 
 // ─── Quick actions ───────────────────────────────────────────
-interface QuickActionsProps { onStartGame: () => void; onStartMultiplayer: () => void; onGoToCollection: () => void; difficulty: Difficulty; onSetDifficulty: (d: Difficulty) => void; }
-const QuickActions: React.FC<QuickActionsProps> = ({ onStartGame, onStartMultiplayer, onGoToCollection, difficulty, onSetDifficulty }) => {
+interface QuickActionsProps { onStartGame: () => void; onStartMultiplayer: () => void; onGoToCollection: () => void; onGoToShop: () => void; difficulty: Difficulty; onSetDifficulty: (d: Difficulty) => void; }
+const QuickActions: React.FC<QuickActionsProps> = ({ onStartGame, onStartMultiplayer, onGoToCollection, onGoToShop, difficulty, onSetDifficulty }) => {
   const isMobile = useIsMobile();
   const items = [
     { tag: 'I',   name: 'BATALHA vs IA',    sub: 'Solo · vs Oráculo',          icon: '⚔', primary: true,  meta: 'Jogue contra a IA',                 action: onStartGame },
     { tag: 'II',  name: 'TREINO LOCAL',     sub: '2 Jogadores · mesma tela',   icon: '◇', primary: false, meta: 'Multiplayer local sem ranking',      action: onStartMultiplayer },
-    { tag: 'III', name: 'TORNEIO DE SEXTA', sub: 'Bracket · 32 vagas',         icon: '♛', primary: false, meta: 'Abre em 02d 14h', locked: true,       action: undefined },
-    { tag: 'IV',  name: 'EXPLORAR COLEÇÃO', sub: '18 / 87 cavaleiros',         icon: '◈', primary: false, meta: '2 pacotes não abertos',              action: onGoToCollection },
+    { tag: 'III', name: 'FORJA',             sub: 'Melhore seus cavaleiros',    icon: '⚡', primary: false, meta: 'Gasta Cosmo · bônus permanente',     action: onGoToShop },
+    { tag: 'IV',  name: 'EXPLORAR COLEÇÃO', sub: 'Seus cavaleiros',            icon: '◈', primary: false, meta: 'Gerenciar cartas',                    action: onGoToCollection },
   ];
   return (
     <section style={{ marginTop: 24 }}>
@@ -802,7 +803,7 @@ const Dashboard: React.FC<DashboardProps> = ({
   hasSavedGame, savedGameInfo, questProgress, currency,
   matchHistory, activeDeck, playerStats,
   onStartGame, onStartMultiplayer, onContinueGame, onSetDifficulty,
-  onGoToRanking, onGoToAdmin, onGoToCollection, onGoToRules, onGoToDeckEditor,
+  onGoToRanking, onGoToAdmin, onGoToCollection, onGoToRules, onGoToDeckEditor, onGoToShop,
   onLogout, onToggleMute,
 }) => {
   const isMobile = useIsMobile();
@@ -823,7 +824,7 @@ const Dashboard: React.FC<DashboardProps> = ({
         <ContinueBanner userName={userName} hasSavedGame={hasSavedGame} savedGameInfo={savedGameInfo} onContinueGame={onContinueGame} />
         <main style={{ maxWidth: 1400, margin: '0 auto', padding: isMobile ? '16px 16px 40px' : '24px 36px 60px' }}>
           <GreetingHero userName={userName} />
-          <QuickActions onStartGame={onStartGame} onStartMultiplayer={onStartMultiplayer} onGoToCollection={onGoToCollection} difficulty={difficulty} onSetDifficulty={onSetDifficulty} />
+          <QuickActions onStartGame={onStartGame} onStartMultiplayer={onStartMultiplayer} onGoToCollection={onGoToCollection} onGoToShop={onGoToShop} difficulty={difficulty} onSetDifficulty={onSetDifficulty} />
           <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1.4fr 1fr', gap: 24, marginTop: 30 }}>
             <DailyQuests progress={questProgress} />
             <RankProgress playerStats={playerStats} onGoToRanking={onGoToRanking} />

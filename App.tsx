@@ -9,11 +9,13 @@ import HomeMenu from './components/HomeMenu';
 import Dashboard from './components/Dashboard';
 import Collection from './components/Collection';
 import { DeckEditor } from './components/DeckEditor';
+import { Shop } from './components/Shop';
 import { Toast } from './components/Toast';
 import { initialDeck } from './initialDeck';
 import { setMuted as setMutedFn } from './utils/sounds';
 import { useIsMobile } from './utils/mobile';
-import { fetchRanking, saveDeckToCloud, loadCardsFromDB, RankingRow, PlayerCurrency, PlayerStats } from './utils/supabase';
+import { fetchRanking, saveDeckToCloud, loadCardsFromDB, addCurrency, RankingRow, PlayerCurrency, PlayerStats } from './utils/supabase';
+import { SK, migrateStorage } from './utils/storage';
 import { useAuth } from './hooks/useAuth';
 import { usePlayerStats } from './hooks/usePlayerStats';
 import { useGameEngine } from './hooks/useGameEngine';
@@ -50,11 +52,14 @@ const TimerRing: React.FC<{ timeLeft: number; total: number }> = ({ timeLeft, to
 const App: React.FC = () => {
   const isMobile = useIsMobile();
 
+  // A5: migrate legacy localStorage keys on first render
+  migrateStorage();
+
   // ── Core state ─────────────────────────────────────────────
   const [gameState, setGameState] = useState<GameState>(GameState.Menu);
   const [deck, setDeck] = useState<CardData[]>(() => {
     try {
-      const s = localStorage.getItem('superTrunfoDeck');
+      const s = localStorage.getItem(SK.deck);
       if (s) {
         const d = JSON.parse(s);
         if (Array.isArray(d) && d.length > 0) return d;
@@ -65,13 +70,13 @@ const App: React.FC = () => {
   const [difficulty, setDifficulty] = useState<Difficulty>(Difficulty.Normal);
   const [rankingData, setRankingData] = useState<RankingEntry[]>([]);
   const [isLoadingRanking, setIsLoadingRanking] = useState(false);
-  const [muted, setMuted] = useState(() => localStorage.getItem('muted') === '1');
+  const [muted, setMuted] = useState(() => localStorage.getItem(SK.muted) === '1');
   const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' | 'info' } | null>(null);
 
   // Saved game snapshot for Continue Banner
-  const [hasSavedGame, setHasSavedGame] = useState(() => !!localStorage.getItem('savedGame'));
+  const [hasSavedGame, setHasSavedGame] = useState(() => !!localStorage.getItem(SK.savedGame));
   const [savedGameInfo, setSavedGameInfo] = useState<{ round: number; isMultiplayer: boolean } | null>(() => {
-    try { const s = localStorage.getItem('savedGame'); return s ? (JSON.parse(s).info ?? null) : null; } catch { return null; }
+    try { const s = localStorage.getItem(SK.savedGame); return s ? (JSON.parse(s).info ?? null) : null; } catch { return null; }
   });
 
   const showToast = useCallback((message: string, type: 'error' | 'success' | 'info' = 'info') => {
@@ -87,11 +92,11 @@ const App: React.FC = () => {
 
   useEffect(() => {
     setMutedFn(muted);
-    localStorage.setItem('muted', muted ? '1' : '0');
+    localStorage.setItem(SK.muted, muted ? '1' : '0');
   }, [muted]);
 
   useEffect(() => {
-    localStorage.setItem('superTrunfoDeck', JSON.stringify(deck));
+    localStorage.setItem(SK.deck, JSON.stringify(deck));
   }, [deck]);
 
   // ── Player stats (currency, quests) ───────────────────────
@@ -140,7 +145,7 @@ const App: React.FC = () => {
     if (gameState === GameState.Playing || gameState === GameState.RoundResult) {
       const round = Math.abs(playerDeck.length - aiDeck.length) + 1;
       const info = { round, isMultiplayer };
-      localStorage.setItem('savedGame', JSON.stringify({ playerDeck, aiDeck, isPlayerTurn, matchHistory, isMultiplayer, difficulty, roundResult, info, masterDeckLen: deck.length }));
+      localStorage.setItem(SK.savedGame, JSON.stringify({ playerDeck, aiDeck, isPlayerTurn, matchHistory, isMultiplayer, difficulty, roundResult, info, masterDeckLen: deck.length }));
       setHasSavedGame(true);
       setSavedGameInfo(info);
     } else if (
@@ -148,7 +153,7 @@ const App: React.FC = () => {
       prev !== null && prev !== gameState
     ) {
       // Only clear when genuinely transitioning away from a game (not on initial mount).
-      localStorage.removeItem('savedGame');
+      localStorage.removeItem(SK.savedGame);
       setHasSavedGame(false);
       setSavedGameInfo(null);
     }
@@ -156,11 +161,11 @@ const App: React.FC = () => {
 
   const handleContinueGame = () => {
     try {
-      const raw = localStorage.getItem('savedGame');
+      const raw = localStorage.getItem(SK.savedGame);
       if (!raw) return;
       const saved = JSON.parse(raw);
       if ((saved.playerDeck?.length ?? 0) === 0 || (saved.aiDeck?.length ?? 0) === 0) {
-        localStorage.removeItem('savedGame');
+        localStorage.removeItem(SK.savedGame);
         setHasSavedGame(false);
         return;
       }
@@ -199,6 +204,21 @@ const App: React.FC = () => {
 
   const handleDeleteCard = (cardId: string) => setDeck(prev => prev.filter(c => c.id !== cardId));
 
+  // M4: forge a card attribute — deducts Cosmo, bumps the attribute +8, increments forgeLevel
+  const FORGE_COSTS = [100, 250, 500] as const;
+  const handleForge = useCallback((cardId: string, attr: Attribute) => {
+    setDeck(prev => prev.map(c => {
+      if (c.id !== cardId) return c;
+      const level = c.forgeLevel ?? 0;
+      if (level >= 3) return c;
+      const cost = FORGE_COSTS[level];
+      if (currency.cosmo < cost) return c;
+      setCurrency(p => ({ ...p, cosmo: p.cosmo - cost }));
+      addCurrency(-cost).catch(() => {});
+      return { ...c, forgeLevel: level + 1, attributes: { ...c.attributes, [attr]: c.attributes[attr] + 8 } };
+    }));
+  }, [currency.cosmo, setCurrency]);
+
   // ── Routing ────────────────────────────────────────────────
   const renderCurrentState = (): React.ReactNode => {
     // ── Menu screens (full-page, own backgrounds) ──────────
@@ -226,6 +246,7 @@ const App: React.FC = () => {
             onGoToCollection={() => setGameState(GameState.Collection)}
             onGoToRules={() => setGameState(GameState.Rules)}
             onGoToDeckEditor={() => setGameState(GameState.DeckEditor)}
+            onGoToShop={() => setGameState(GameState.Shop)}
             onLogout={handleLogout}
             onToggleMute={() => setMuted(p => !p)}
           />
@@ -271,6 +292,17 @@ const App: React.FC = () => {
         <DeckEditor
           cardPool={deck}
           onSave={(selected) => { setDeck(selected); setGameState(GameState.Menu); }}
+          onBack={handleBackToMenu}
+        />
+      );
+    }
+
+    if (gameState === GameState.Shop) {
+      return (
+        <Shop
+          deck={deck}
+          currency={currency}
+          onForge={handleForge}
           onBack={handleBackToMenu}
         />
       );

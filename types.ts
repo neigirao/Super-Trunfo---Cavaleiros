@@ -40,6 +40,8 @@ export interface CardData {
     [Attribute.Dureza]: number;
   };
   isSuperTrunfo?: boolean;
+  // M4: tracks how many times this card was forged (max 3); value baked into attributes
+  forgeLevel?: number;
 }
 
 export enum GameState {
@@ -52,6 +54,7 @@ export enum GameState {
   Collection,
   Rules,
   DeckEditor,
+  Shop,
 }
 
 export type RoundResult = {
