@@ -13,7 +13,7 @@ import { Toast } from './components/Toast';
 import { initialDeck } from './initialDeck';
 import { setMuted as setMutedFn } from './utils/sounds';
 import { useIsMobile } from './utils/mobile';
-import { fetchRanking, saveDeckToCloud, RankingRow, PlayerCurrency, PlayerStats } from './utils/supabase';
+import { fetchRanking, saveDeckToCloud, loadCardsFromDB, RankingRow, PlayerCurrency, PlayerStats } from './utils/supabase';
 import { useAuth } from './hooks/useAuth';
 import { usePlayerStats } from './hooks/usePlayerStats';
 import { useGameEngine } from './hooks/useGameEngine';
@@ -77,6 +77,13 @@ const App: React.FC = () => {
   const showToast = useCallback((message: string, type: 'error' | 'success' | 'info' = 'info') => {
     setToast({ message, type });
   }, []);
+
+  // Carregar cartas reais do banco na inicialização (imagens do Supabase Storage)
+  useEffect(() => {
+    loadCardsFromDB().then(cards => {
+      if (cards.length > 0) setDeck(cards);
+    });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     setMutedFn(muted);

@@ -1,10 +1,55 @@
 import { createClient } from '@supabase/supabase-js';
-import { CardData } from '../types';
+import { CardData, ElementType, Attribute } from '../types';
 
 const SUPABASE_URL  = import.meta.env.VITE_SUPABASE_URL  as string;
 const SUPABASE_ANON = import.meta.env.VITE_SUPABASE_ANON as string;
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON);
+
+// ─── Mapa element_type → ElementType ──────────────────────────
+const ELEMENT_TYPE_MAP: Record<string, ElementType> = {
+  actinide:         ElementType.Actinide,
+  alkali:           ElementType.AlkaliMetal,
+  alkaline_earth:   ElementType.AlkalineEarthMetal,
+  halogen:          ElementType.Halogen,
+  lanthanide:       ElementType.Lanthanide,
+  metal:            ElementType.TransitionMetal,
+  metalloid:        ElementType.Metalloid,
+  'noble-gas':      ElementType.NobleGas,
+  noble_gas:        ElementType.NobleGas,
+  'non-metal':      ElementType.ReactiveNonmetal,
+  non_metal:        ElementType.ReactiveNonmetal,
+  transition_metal: ElementType.TransitionMetal,
+  post_transition:  ElementType.PostTransitionMetal,
+};
+
+export async function loadCardsFromDB(): Promise<CardData[]> {
+  const { data, error } = await supabase
+    .from('element_cards')
+    .select('id, name, knight_name, image_url, element_type, is_super_trump, reactivity, radioactivity, atomic_mass, density, melting_point')
+    .order('atomic_mass');
+  if (error || !data || data.length === 0) return [];
+  const rows = data as Array<Record<string, unknown>>;
+  return rows.map(row => {
+    const meltingPt = parseFloat(String(row.melting_point ?? '500'));
+    const normalizedMelt = Math.round(Math.max(0, Math.min(100, ((meltingPt + 272) / (3422 + 272)) * 100)));
+    const imgUrl = String(row.image_url ?? '');
+    return {
+      id: String(row.id),
+      name: String(row.knight_name || row.name),
+      imageUrl: imgUrl !== '' ? imgUrl : `https://picsum.photos/seed/${row.id}/400/600`,
+      element: ELEMENT_TYPE_MAP[String(row.element_type)] ?? ElementType.TransitionMetal,
+      attributes: {
+        [Attribute.Reatividade]:    Number(row.reactivity    ?? 50),
+        [Attribute.MassaAtomica]:   Math.min(999, Math.round(parseFloat(String(row.atomic_mass ?? '100')))),
+        [Attribute.Radioatividade]: Number(row.radioactivity ?? 0),
+        [Attribute.Condutividade]:  Math.round(parseFloat(String(row.density ?? '5')) * 10),
+        [Attribute.Dureza]:         normalizedMelt,
+      },
+      isSuperTrunfo: Boolean(row.is_super_trump ?? false),
+    };
+  });
+}
 
 // ─── Tipos ────────────────────────────────────────────────────
 export interface RankingRow {
