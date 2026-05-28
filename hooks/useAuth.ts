@@ -33,22 +33,26 @@ export function useAuth(
     const { data: sub } = supabase.auth.onAuthStateChange(async (_event, session) => {
       hydrate(session as Parameters<typeof hydrate>[0]);
 
-      // INITIAL_SESSION: sessão restaurada do localStorage ou da URL (redirect OAuth)
-      // SIGNED_IN: login explícito (OAuth callback, token, etc.)
-      if (_event === 'INITIAL_SESSION' && session?.user) {
-        setCurrency(await fetchPlayerCurrency());
-        setPlayerStats(await fetchPlayerStats());
-      } else if (_event === 'SIGNED_IN' && session?.user) {
+      if (_event === 'SIGNED_IN' && session?.user) {
         const cloudDeck = await loadDeckFromCloud();
         if (cloudDeck && cloudDeck.length > 0) setDeck(cloudDeck);
         setCurrency(await fetchPlayerCurrency());
         setPlayerStats(await fetchPlayerStats());
-        // Limpa o ?code= da URL após troca bem-sucedida para não reprocessar
+        // Limpa parâmetros de auth da URL após login bem-sucedido
         const url = new URL(window.location.href);
-        if (url.searchParams.has('code')) {
+        if (url.searchParams.has('code') || url.hash.includes('access_token')) {
           url.searchParams.delete('code');
-          window.history.replaceState({}, '', url.toString());
+          window.history.replaceState({}, '', url.pathname + url.search);
         }
+      }
+    });
+
+    // Captura sessão já existente (ex: #access_token na URL após redirect OAuth)
+    supabase.auth.getSession().then(async ({ data }) => {
+      if (data.session?.user) {
+        hydrate(data.session as Parameters<typeof hydrate>[0]);
+        setCurrency(await fetchPlayerCurrency());
+        setPlayerStats(await fetchPlayerStats());
       }
     });
 

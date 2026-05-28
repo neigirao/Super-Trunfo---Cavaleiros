@@ -6,7 +6,6 @@ const SUPABASE_ANON = import.meta.env.VITE_SUPABASE_ANON as string;
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON, {
   auth: {
-    flowType: 'pkce',
     detectSessionInUrl: true,
     persistSession: true,
     autoRefreshToken: true,
