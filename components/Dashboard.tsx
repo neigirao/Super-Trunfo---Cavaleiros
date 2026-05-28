@@ -66,14 +66,16 @@ export interface LoggedHeaderProps {
   muted?: boolean;
   currency?: PlayerCurrency;
   playerStats?: PlayerStats | null;
+  isAdmin?: boolean;
   onStartGame: () => void;
   onGoToRanking: () => void;
   onGoToCollection?: () => void;
   onGoToRules?: () => void;
+  onGoToAdmin?: () => void;
   onLogout?: () => void;
   onToggleMute?: () => void;
 }
-export const LoggedHeader: React.FC<LoggedHeaderProps> = ({ userProfile, muted, currency, playerStats, onStartGame, onGoToRanking, onGoToCollection, onGoToRules, onLogout, onToggleMute }) => {
+export const LoggedHeader: React.FC<LoggedHeaderProps> = ({ userProfile, muted, currency, playerStats, isAdmin, onStartGame, onGoToRanking, onGoToCollection, onGoToRules, onGoToAdmin, onLogout, onToggleMute }) => {
   const isMobile = useIsMobile();
   const initials = userProfile.name.slice(0, 2).toUpperCase();
   const displayName = userProfile.name.toUpperCase();
@@ -113,7 +115,7 @@ export const LoggedHeader: React.FC<LoggedHeaderProps> = ({ userProfile, muted, 
           ['◈', 'COLEÇÃO', false, onGoToCollection],
           ['♛', 'RANKING', false, onGoToRanking],
           ['?', 'REGRAS',  false, onGoToRules],
-          ['✦', 'CONFIG',  false, undefined],
+          ...(isAdmin ? [['✦', 'CONFIG', false, onGoToAdmin] as [string, string, boolean, (() => void) | undefined]] : []),
         ] as [string, string, boolean, (() => void) | undefined][]).map(([g, n, active, action]) => (
           <a key={n} href="#" onClick={(e) => { e.preventDefault(); action?.(); }} style={{
             display: 'flex', alignItems: 'center', gap: 8, textDecoration: 'none',
@@ -818,6 +820,7 @@ const Dashboard: React.FC<DashboardProps> = ({
       <div style={{ position: 'relative', zIndex: 1 }}>
         <LoggedHeader
           userProfile={userProfile} muted={muted} currency={currency} playerStats={playerStats}
+          isAdmin={isAdmin} onGoToAdmin={onGoToAdmin}
           onStartGame={onStartGame} onGoToRanking={onGoToRanking} onGoToCollection={onGoToCollection}
           onGoToRules={onGoToRules} onLogout={onLogout} onToggleMute={onToggleMute}
         />
