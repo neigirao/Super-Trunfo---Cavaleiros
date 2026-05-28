@@ -8,11 +8,15 @@ import { useIsMobile } from '../utils/mobile';
 const el2num = (el: ElementData, key: string): number =>
   (el as unknown as Record<string, number>)[key] ?? 0;
 
+const BUILD_TAG = 'v28mai-auth';
+
 const triggerGoogleSignIn = async () => {
+  const redirectTo = `${window.location.origin}/`;
+  console.log(`[auth ${BUILD_TAG}] iniciando OAuth → redirectTo:`, redirectTo);
   try {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: `${window.location.origin}/` },
+      options: { redirectTo },
     });
     if (error) console.error('[auth] signInWithOAuth falhou', error);
   } catch (err) {
@@ -1083,6 +1087,9 @@ const HomeMenu: React.FC<HomeMenuProps> = ({
       <HomeModes />
       <HomeCTA userProfile={userProfile} onStartGame={onStartGame} />
       <HomeFooter />
+      <div style={{ textAlign: 'center', padding: '4px 0 8px', fontFamily: 'IBM Plex Mono, monospace', fontSize: 10, color: 'rgba(244,195,73,.3)' }}>
+        build {BUILD_TAG}
+      </div>
     </div>
   </div>
 );

@@ -31,6 +31,7 @@ export function useAuth(
     };
 
     const { data: sub } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      console.log('[auth] onAuthStateChange:', _event, session?.user?.email ?? 'no user');
       hydrate(session as Parameters<typeof hydrate>[0]);
 
       if (_event === 'SIGNED_IN' && session?.user) {
@@ -48,7 +49,8 @@ export function useAuth(
     });
 
     // Captura sessão já existente (ex: #access_token na URL após redirect OAuth)
-    supabase.auth.getSession().then(async ({ data }) => {
+    supabase.auth.getSession().then(async ({ data, error }) => {
+      console.log('[auth] getSession:', data.session?.user?.email ?? 'no session', error?.message ?? '');
       if (data.session?.user) {
         hydrate(data.session as Parameters<typeof hydrate>[0]);
         setCurrency(await fetchPlayerCurrency());
