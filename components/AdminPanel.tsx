@@ -1,6 +1,7 @@
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { CardData, Attribute, ElementType } from '../types';
+import { uploadCardImage } from '../utils/supabase';
 import { useIsMobile } from '../utils/mobile';
 
 interface AdminPanelProps {
@@ -75,6 +76,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ cards, onSave, onDelete,
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCard, setEditingCard] = useState<CardData | Omit<CardData, 'id'>>({ ...emptyCard });
   const [isNew, setIsNew] = useState(true);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleOpenModal = (card?: CardData) => {
     if (card) {
@@ -87,7 +90,18 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ cards, onSave, onDelete,
     setIsModalOpen(true);
   };
 
-  const handleCloseModal = () => setIsModalOpen(false);
+  const handleCloseModal = () => { setIsModalOpen(false); setIsUploading(false); };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsUploading(true);
+    const url = await uploadCardImage(file, editingCard.name || 'card');
+    setIsUploading(false);
+    if (url) setEditingCard(prev => ({ ...prev, imageUrl: url }));
+    else alert('Falha no upload. Verifique o bucket card-images no Supabase.');
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
@@ -206,8 +220,21 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ cards, onSave, onDelete,
                 <input type="text" name="name" value={editingCard.name} onChange={handleChange} required style={inputStyle} />
               </div>
               <div>
-                <label style={labelStyle}>URL DA IMAGEM</label>
-                <input type="text" name="imageUrl" value={editingCard.imageUrl} onChange={handleChange} required style={inputStyle} />
+                <label style={labelStyle}>IMAGEM DO CAVALEIRO</label>
+                {editingCard.imageUrl && (
+                  <div style={{ marginBottom: 8, position: 'relative', height: 120, border: '1px solid rgba(244,195,73,.25)', overflow: 'hidden' }}>
+                    <img src={editingCard.imageUrl} alt="preview" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: '50% 0%' }} onError={e => { (e.target as HTMLImageElement).style.opacity = '0'; }} />
+                    <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(0deg,rgba(10,5,0,.6),transparent)' }} />
+                  </div>
+                )}
+                <div style={{ display: 'flex', gap: 8, marginBottom: 6 }}>
+                  <button type="button" onClick={() => fileInputRef.current?.click()} disabled={isUploading} style={{ ...btnPrimary, padding: '8px 14px', fontSize: 9, opacity: isUploading ? 0.6 : 1 }}>
+                    {isUploading ? '⏳ ENVIANDO…' : '⬆ UPLOAD'}
+                  </button>
+                  <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileUpload} style={{ display: 'none' }} />
+                  <span style={{ fontFamily: 'Spectral, serif', fontSize: 12, color: 'rgba(255,236,196,.45)', alignSelf: 'center' }}>ou cole a URL abaixo</span>
+                </div>
+                <input type="text" name="imageUrl" value={editingCard.imageUrl} onChange={handleChange} placeholder="https://..." style={inputStyle} />
               </div>
               <div>
                 <label style={labelStyle}>GRUPO QUÍMICO</label>

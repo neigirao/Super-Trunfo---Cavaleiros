@@ -89,6 +89,19 @@ export interface PlayerStats {
   totalScore: number;
 }
 
+// ─── Storage ──────────────────────────────────────────────────
+export async function uploadCardImage(file: File, cardName: string): Promise<string | null> {
+  const ext = file.name.split('.').pop()?.toLowerCase() ?? 'jpg';
+  const slug = cardName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '').slice(0, 40) || 'card';
+  const path = `cards/${slug}-${Date.now()}.${ext}`;
+  const { error } = await supabase.storage
+    .from('card-images')
+    .upload(path, file, { upsert: true, contentType: file.type });
+  if (error) { console.error('[supabase] uploadCardImage:', error.message); return null; }
+  const { data } = supabase.storage.from('card-images').getPublicUrl(path);
+  return data.publicUrl ?? null;
+}
+
 // ─── Auth ─────────────────────────────────────────────────────
 export async function signInWithGoogleToken(idToken: string) {
   const { data, error } = await supabase.auth.signInWithIdToken({
