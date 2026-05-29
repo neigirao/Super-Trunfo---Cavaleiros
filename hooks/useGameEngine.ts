@@ -41,11 +41,15 @@ interface GameEngineParams {
     totalCards: number; difficulty: string;
   }) => Promise<PlayerCurrency>;
   showToast: (message: string, type?: 'error' | 'success' | 'info') => void;
+  timerSeconds?: number;
+  advantagePct?: number;
 }
 
 export function useGameEngine({
   deck, difficulty, userProfile, setGameState,
   applyQuestReward, updateAfterGame, showToast,
+  timerSeconds = TURN_TIMER_SECONDS,
+  advantagePct = ADVANTAGE_BONUS_PERCENTAGE,
 }: GameEngineParams) {
   const [playerDeck, setPlayerDeck] = useState<CardData[]>([]);
   const [aiDeck, setAiDeck] = useState<CardData[]>([]);
@@ -56,7 +60,7 @@ export function useGameEngine({
 
   const [playerAdvantage, setPlayerAdvantage] = useState<{ attribute: Attribute; bonus: number } | null>(null);
   const [p2Advantage, setP2Advantage] = useState<{ attribute: Attribute; bonus: number } | null>(null);
-  const [timeLeft, setTimeLeft] = useState(TURN_TIMER_SECONDS);
+  const [timeLeft, setTimeLeft] = useState(timerSeconds);
 
   const [isRevealing, setIsRevealing] = useState(false);
   const [showResultInfo, setShowResultInfo] = useState(false);
@@ -76,12 +80,12 @@ export function useGameEngine({
 
     const pAdv = getAdvantage(pCard, aCard);
     if (pAdv && pAdv.attribute === attribute) {
-      pBonus = Math.round(pVal * ADVANTAGE_BONUS_PERCENTAGE);
+      pBonus = Math.round(pVal * advantagePct);
       pVal += pBonus;
     }
     const aAdv = getAdvantage(aCard, pCard);
     if (aAdv && aAdv.attribute === attribute) {
-      aBonus = Math.round(aVal * ADVANTAGE_BONUS_PERCENTAGE);
+      aBonus = Math.round(aVal * advantagePct);
       aVal += aBonus;
     }
 
@@ -98,20 +102,20 @@ export function useGameEngine({
     setRoundResult(result);
     setMatchHistory(prev => [result, ...prev].slice(0, 10));
     setGameState(GameState.RoundResult);
-  }, [setGameState]);
+  }, [setGameState, advantagePct]);
 
   // ── Advantage calculation ──────────────────────────────────
   useEffect(() => {
     if (playerDeck.length > 0 && aiDeck.length > 0) {
       const adv1 = getAdvantage(playerDeck[0], aiDeck[0]);
-      setPlayerAdvantage(adv1 ? { attribute: adv1.attribute, bonus: Math.round(playerDeck[0].attributes[adv1.attribute] * ADVANTAGE_BONUS_PERCENTAGE) } : null);
+      setPlayerAdvantage(adv1 ? { attribute: adv1.attribute, bonus: Math.round(playerDeck[0].attributes[adv1.attribute] * advantagePct) } : null);
       const adv2 = getAdvantage(aiDeck[0], playerDeck[0]);
-      setP2Advantage(adv2 ? { attribute: adv2.attribute, bonus: Math.round(aiDeck[0].attributes[adv2.attribute] * ADVANTAGE_BONUS_PERCENTAGE) } : null);
+      setP2Advantage(adv2 ? { attribute: adv2.attribute, bonus: Math.round(aiDeck[0].attributes[adv2.attribute] * advantagePct) } : null);
     } else {
       setPlayerAdvantage(null);
       setP2Advantage(null);
     }
-  }, [playerDeck, aiDeck]);
+  }, [playerDeck, aiDeck, advantagePct]);
 
   // ── Round result animation orchestration ──────────────────
   useEffect(() => {
@@ -133,8 +137,8 @@ export function useGameEngine({
 
   // ── Timer reset ────────────────────────────────────────────
   useEffect(() => {
-    if (isPlayerTurn || isMultiplayer) setTimeLeft(TURN_TIMER_SECONDS);
-  }, [isPlayerTurn, isMultiplayer]);
+    if (isPlayerTurn || isMultiplayer) setTimeLeft(timerSeconds);
+  }, [isPlayerTurn, isMultiplayer, timerSeconds]);
 
   // ── Timer countdown + auto-select ──────────────────────────
   useEffect(() => {
@@ -169,14 +173,14 @@ export function useGameEngine({
         bestAttr = Object.keys(aiCard.attributes)[0] as Attribute;
         let bestVal = -1;
         (Object.entries(aiCard.attributes) as [Attribute, number][]).forEach(([attr, val]) => {
-          const eff = aiAdv && aiAdv.attribute === attr ? val + Math.round(val * ADVANTAGE_BONUS_PERCENTAGE) : val;
+          const eff = aiAdv && aiAdv.attribute === attr ? val + Math.round(val * advantagePct) : val;
           if (eff > bestVal) { bestVal = eff; bestAttr = attr; }
         });
       }
       resolveRound(bestAttr, playerCard, aiCard);
     }, 1400);
     return () => clearTimeout(timer);
-  }, [isPlayerTurn, isMultiplayer, playerDeck, aiDeck, difficulty, resolveRound]);
+  }, [isPlayerTurn, isMultiplayer, playerDeck, aiDeck, difficulty, resolveRound, advantagePct]);
 
   const startGame = useCallback((multiplayer = false) => {
     if (!userProfile) return;
@@ -291,7 +295,7 @@ export function useGameEngine({
     matchHistory,
     isMultiplayer,
     playerAdvantage, p2Advantage,
-    timeLeft, TURN_TIMER_SECONDS,
+    timeLeft, TURN_TIMER_SECONDS: timerSeconds,
     isRevealing, showResultInfo, showNextRoundButton,
     transferAnim,
     gameSummary,

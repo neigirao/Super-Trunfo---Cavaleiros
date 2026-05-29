@@ -16,6 +16,7 @@ import { setMuted as setMutedFn } from './utils/sounds';
 import { useIsMobile } from './utils/mobile';
 import { fetchRanking, saveDeckToCloud, loadCardsFromDB, addCurrency, RankingRow, PlayerCurrency, PlayerStats } from './utils/supabase';
 import { SK, migrateStorage } from './utils/storage';
+import { GameSettings, loadGameSettings, saveGameSettings } from './utils/gameSettings';
 import { useAuth } from './hooks/useAuth';
 import { usePlayerStats } from './hooks/usePlayerStats';
 import { useGameEngine } from './hooks/useGameEngine';
@@ -49,6 +50,105 @@ const TimerRing: React.FC<{ timeLeft: number; total: number }> = ({ timeLeft, to
   );
 };
 
+// ─── Battle screen components ───────────────────────────────
+const FRIEZE_SYMS = ['H','He','Li','Be','B','C','N','O','F','Ne','Na','Mg','Al','Si','P','S','Cl','Ar','K','Ca','Sc','Ti','V','Cr','Mn','Fe','Co','Ni','Cu','Zn','Ga','Ge','As','Se','Br','Kr'];
+const PeriodicFrieze: React.FC = () => (
+  <div style={{ position:'relative', zIndex:5, display:'flex', gap:1, justifyContent:'center', padding:'3px 0', background:'rgba(6,3,10,.92)', borderBottom:'1px solid rgba(244,195,73,.18)', overflow:'hidden' }}>
+    {FRIEZE_SYMS.map(s => (
+      <div key={s} style={{ width:23, height:21, border:'1px solid rgba(244,195,73,.16)', display:'flex', alignItems:'center', justifyContent:'center', fontFamily:'Cinzel, serif', fontSize:8, color:'rgba(244,195,73,.4)', fontWeight:700, flexShrink:0 }}>{s}</div>
+    ))}
+  </div>
+);
+
+interface GameSubbarProps { round:number; isPlayerTurn:boolean; timeLeft:number; onSurrender:()=>void; }
+const GameSubbar: React.FC<GameSubbarProps> = ({ round, isPlayerTurn, timeLeft, onSurrender }) => (
+  <div style={{ position:'relative', zIndex:5, display:'flex', justifyContent:'space-between', alignItems:'center', padding:'9px 40px', background:'rgba(10,5,0,.78)', borderBottom:'1px solid rgba(244,195,73,.1)' }}>
+    <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
+      <span style={{ fontFamily:'Cinzel, serif', fontSize:8, letterSpacing:'.4em', color:'rgba(244,195,73,.6)' }}>· DUELO ·</span>
+      <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+        <span style={{ fontFamily:'Cinzel, serif', fontSize:9, letterSpacing:'.28em', color:'rgba(255,236,196,.6)' }}>ROUND</span>
+        {[0,1,2,3,4].map(i => (
+          <div key={i} style={{ width:i===round-1?10:6, height:i===round-1?10:6, background:i<round?'#f4c349':'transparent', border:`1.5px solid ${i<round?'#f4c349':'rgba(244,195,73,.26)'}`, transform:'rotate(45deg)', flexShrink:0, boxShadow:i===round-1?'0 0 9px #f4c349':'none', transition:'all .3s' }} />
+        ))}
+        <span style={{ fontFamily:'IBM Plex Mono, monospace', fontSize:9, color:'rgba(244,195,73,.4)' }}>{round}</span>
+      </div>
+    </div>
+    <div style={{ textAlign:'center' }}>
+      <div style={{ fontFamily:'Cinzel, serif', fontSize:8, letterSpacing:'.4em', color:'rgba(244,195,73,.55)' }}>COSMO RESTANTE</div>
+      <div style={{ fontFamily:'IBM Plex Mono, monospace', fontWeight:700, fontSize:20, color:'#fff8e1' }}>
+        {isPlayerTurn ? `00:${String(timeLeft).padStart(2,'0')}` : '— —'}
+      </div>
+    </div>
+    <div style={{ display:'flex', gap:8 }}>
+      <button style={{ padding:'6px 13px', background:'transparent', border:'1px solid rgba(244,195,73,.28)', color:'rgba(255,236,196,.45)', fontFamily:'Cinzel, serif', fontSize:9, letterSpacing:'.26em', cursor:'default', opacity:.5 }}>❘❘ PAUSAR</button>
+      <button onClick={onSurrender} style={{ padding:'6px 13px', background:'rgba(120,24,24,.5)', border:'1px solid #d94a4a', color:'#ff9a9a', fontFamily:'Cinzel, serif', fontSize:9, letterSpacing:'.26em', cursor:'pointer', boxShadow:'0 0 10px rgba(217,74,74,.22)' }}>⚑ DESISTIR</button>
+    </div>
+  </div>
+);
+
+interface PlayerPodProps { name:string; cardsLeft:number; wins:number; losses:number; side:'player'|'ai'; picture?:string; }
+const PlayerPod: React.FC<PlayerPodProps> = ({ name, cardsLeft, wins, losses, side, picture }) => {
+  const isP = side==='player';
+  const border = isP?'#f4c349':'#d94a4a';
+  const aura  = isP?'rgba(244,195,73,.26)':'rgba(217,74,74,.2)';
+  const num   = isP?'#f4c349':'#ff7a7a';
+  const init  = name.trim().split(' ').map(w=>w[0]).filter(Boolean).join('').slice(0,2).toUpperCase()||'??';
+  return (
+    <div style={{ width:124, flexShrink:0, display:'flex', flexDirection:'column', alignItems:'center', gap:9, position:'relative', zIndex:3 }}>
+      <div style={{ position:'absolute', top:-6, left:'50%', transform:'translateX(-50%)', width:96, height:96, borderRadius:'50%', background:`radial-gradient(circle, ${aura} 0%, transparent 70%)`, pointerEvents:'none' }} />
+      <div style={{ width:72, height:72, position:'relative', zIndex:2, background:'linear-gradient(180deg,#3a2410,#1a0e04)', border:`2px solid ${border}`, boxShadow:`0 0 0 1px #1a0e04, 0 0 0 3px ${aura}`, clipPath:'polygon(20% 0,80% 0,100% 50%,80% 100%,20% 100%,0 50%)', display:'flex', alignItems:'center', justifyContent:'center', overflow:'hidden' }}>
+        {picture ? <img src={picture} alt={name} style={{ width:'100%', height:'100%', objectFit:'cover' }} /> : <div style={{ fontFamily:'Cinzel, serif', fontWeight:900, fontSize:18, color:'#fff8e1' }}>{init}</div>}
+      </div>
+      <div style={{ fontFamily:'Cinzel, serif', fontWeight:700, fontSize:10, letterSpacing:'.16em', color:'#fff8e1', textAlign:'center', maxWidth:116, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{name.split(' ')[0].toUpperCase()}</div>
+      <div style={{ width:76, height:1, background:'rgba(244,195,73,.2)' }} />
+      <div style={{ textAlign:'center' }}>
+        <div style={{ fontFamily:'Cinzel, serif', fontSize:7, letterSpacing:'.4em', color:'rgba(244,195,73,.5)', marginBottom:2 }}>CARTAS</div>
+        <div style={{ fontFamily:'IBM Plex Mono, monospace', fontWeight:700, fontSize:28, color:num }}>{cardsLeft}</div>
+      </div>
+      <div style={{ width:76, height:1, background:'rgba(244,195,73,.2)' }} />
+      <div style={{ display:'flex', gap:12 }}>
+        {([['VITÓRIAS',wins],['BAIXAS',losses]] as [string,number][]).map(([k,v])=>(
+          <div key={k} style={{ textAlign:'center' }}>
+            <div style={{ fontFamily:'Cinzel, serif', fontSize:7, letterSpacing:'.26em', color:'rgba(244,195,73,.46)' }}>{k}</div>
+            <div style={{ fontFamily:'Cinzel, serif', fontWeight:900, fontSize:13, color:'#fff8e1', marginTop:2 }}>{String(v).padStart(2,'0')}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+interface CardHandProps { deck: CardData[]; }
+const CardHand: React.FC<CardHandProps> = ({ deck }) => {
+  if (deck.length===0) return null;
+  const show = deck.slice(0,5); const extra = deck.length-show.length;
+  return (
+    <div style={{ display:'flex', gap:4, justifyContent:'center', alignItems:'flex-end', marginTop:16 }}>
+      <div style={{ display:'flex', flexDirection:'column', justifyContent:'center', alignItems:'flex-end', paddingRight:9, marginRight:3, borderRight:'1px solid rgba(244,195,73,.2)', height:88, fontFamily:'Cinzel, serif' }}>
+        <div style={{ fontSize:7, letterSpacing:'.35em', color:'rgba(244,195,73,.5)' }}>SUA</div>
+        <div style={{ fontSize:10, letterSpacing:'.25em', fontWeight:700, color:'#f4c349' }}>MÃO</div>
+        <div style={{ fontFamily:'IBM Plex Mono, monospace', fontSize:8, color:'rgba(244,195,73,.38)', marginTop:2 }}>{String(deck.length).padStart(2,'0')}</div>
+      </div>
+      {show.map((card,i)=>{
+        const active = i===0;
+        return (
+          <div key={card.id} style={{ width:60, height:88, position:'relative', flexShrink:0, background:active?'linear-gradient(180deg,#fff8e1,#e8dab8)':'linear-gradient(180deg,#f5ecd4,#d8c89a)', border:`1.5px solid ${active?'#f4c349':'rgba(138,107,42,.4)'}`, boxShadow:active?'0 0 0 2px #1a0e04, 0 0 0 3px #f4c349, 0 -8px 20px rgba(244,195,73,.45)':'0 2px 6px rgba(0,0,0,.5)', transform:active?'translateY(-10px)':'none', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'space-between', padding:'4px', overflow:'hidden' }}>
+            <div style={{ position:'absolute', inset:0 }}><img src={card.imageUrl} alt="" style={{ width:'100%', height:'100%', objectFit:'cover', objectPosition:'50% 0%', opacity:.28 }} onError={e=>{(e.target as HTMLImageElement).style.display='none';}} /></div>
+            <div style={{ position:'relative', zIndex:1, fontFamily:'Cinzel, serif', fontWeight:700, fontSize:6, color:'#8a6a2a', alignSelf:'flex-start' }}>{card.isSuperTrunfo?'★':'·'}</div>
+            <div style={{ position:'relative', zIndex:1, fontFamily:'Cinzel, serif', fontWeight:900, fontSize:7, color:'#1a0e04', textAlign:'center', lineHeight:1.1 }}>{card.name.split(' ')[0].slice(0,7).toUpperCase()}</div>
+          </div>
+        );
+      })}
+      {extra>0 && (
+        <div style={{ width:60, height:88, border:'1px dashed rgba(244,195,73,.3)', background:'rgba(26,14,4,.5)', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', color:'#f4c349' }}>
+          <div style={{ fontFamily:'Cinzel, serif', fontSize:16, fontWeight:900 }}>+</div>
+          <div style={{ fontFamily:'IBM Plex Mono, monospace', fontSize:9, marginTop:1 }}>{extra}</div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 const App: React.FC = () => {
   const isMobile = useIsMobile();
 
@@ -71,6 +171,7 @@ const App: React.FC = () => {
   const [rankingData, setRankingData] = useState<RankingEntry[]>([]);
   const [isLoadingRanking, setIsLoadingRanking] = useState(false);
   const [muted, setMuted] = useState(() => localStorage.getItem(SK.muted) === '1');
+  const [gameSettings, setGameSettings] = useState<GameSettings>(() => loadGameSettings());
   const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' | 'info' } | null>(null);
 
   // Saved game snapshot for Continue Banner
@@ -94,6 +195,8 @@ const App: React.FC = () => {
     setMutedFn(muted);
     localStorage.setItem(SK.muted, muted ? '1' : '0');
   }, [muted]);
+
+  useEffect(() => { saveGameSettings(gameSettings); }, [gameSettings]);
 
   useEffect(() => {
     localStorage.setItem(SK.deck, JSON.stringify(deck));
@@ -133,6 +236,8 @@ const App: React.FC = () => {
   } = useGameEngine({
     deck, difficulty, userProfile, setGameState,
     applyQuestReward, updateAfterGame, showToast,
+    timerSeconds: gameSettings.timerSeconds,
+    advantagePct: gameSettings.enableAdvantage ? gameSettings.advantagePct : 0,
   });
 
   // Persist/clear saved game snapshot for Continue Banner.
@@ -203,6 +308,16 @@ const App: React.FC = () => {
   };
 
   const handleDeleteCard = (cardId: string) => setDeck(prev => prev.filter(c => c.id !== cardId));
+
+  const handleSyncFromDB = useCallback(async () => {
+    const dbCards = await loadCardsFromDB();
+    if (dbCards.length > 0) {
+      setDeck(dbCards);
+      showToast(`${dbCards.length} cartas sincronizadas do Supabase!`, 'success');
+    } else {
+      showToast('Nenhuma carta encontrada no banco.', 'error');
+    }
+  }, [showToast]);
 
   // M4: forge a card attribute — deducts Cosmo, bumps the attribute +8, increments forgeLevel
   const FORGE_COSTS = [100, 250, 500] as const;
@@ -309,8 +424,10 @@ const App: React.FC = () => {
     }
 
     // ── Game screens (star-field background) ──────────────
+    const isGamePlay = gameState === GameState.Playing || gameState === GameState.RoundResult;
+    const roundNum = matchHistory.length + 1;
     return (
-      <div style={{ minHeight: '100vh', background: 'linear-gradient(180deg, #06030a 0%, #0a0500 40%, #06030a 100%)', color: '#fff8e1', position: 'relative' }}>
+      <div style={{ minHeight: '100vh', background: 'linear-gradient(180deg, #06030a 0%, #0a0500 40%, #06030a 100%)', color: '#fff8e1', position: 'relative', display: 'flex', flexDirection: 'column' }}>
         <div style={{
           position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none',
           backgroundImage: `
@@ -324,8 +441,12 @@ const App: React.FC = () => {
           `,
           backgroundSize: '400px 320px', opacity: 0.3,
         }} />
-        <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', padding: isMobile ? '20px 16px' : '40px 48px' }}>
-          <div style={{ width: '100%', maxWidth: 1200 }}>
+        {!isMobile && <PeriodicFrieze />}
+        {!isMobile && isGamePlay && (
+          <GameSubbar round={roundNum} isPlayerTurn={isPlayerTurn} timeLeft={timeLeft} onSurrender={handleBackToMenu} />
+        )}
+        <div style={{ position: 'relative', zIndex: 1, flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: isMobile ? '20px 16px' : '28px 36px' }}>
+          <div style={{ width: '100%', maxWidth: 1440 }}>
             {renderGameState()}
           </div>
         </div>
@@ -364,25 +485,22 @@ const App: React.FC = () => {
                 </div>
               </div>
             ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: 24, width: '100%', alignItems: 'start' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    {userProfile?.picture && <img src={userProfile.picture} alt="" style={{ width: 30, height: 30, borderRadius: '50%', border: '2px solid #f4c349' }} />}
-                    <span style={{ fontFamily: 'Cinzel, serif', fontWeight: 900, fontSize: 15, letterSpacing: '.15em', color: '#fff8e1' }}>{(userProfile?.name || 'JOGADOR 1').toUpperCase()}</span>
+              <div style={{ display: 'flex', gap: 12, width: '100%', alignItems: 'flex-start' }}>
+                <PlayerPod side="player" name={userProfile?.name || 'JOGADOR 1'} cardsLeft={playerDeck.length} wins={matchHistory.filter(h=>h.winner==='player').length} losses={matchHistory.filter(h=>h.winner==='ai').length} picture={userProfile?.picture} />
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: 20, flex: 1, alignItems: 'start' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
+                    <Card card={playerCard} isPlayerTurn={isPlayerTurn} onAttributeSelect={handleAttributeSelect} advantageBonus={playerAdvantage ?? undefined} />
                   </div>
-                  <Card card={playerCard} isPlayerTurn={isPlayerTurn} onAttributeSelect={handleAttributeSelect} advantageBonus={playerAdvantage ?? undefined} />
-                  <div style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 11, color: 'rgba(244,195,73,.7)', padding: '3px 12px', border: '1px solid rgba(244,195,73,.3)' }}>{playerDeck.length} cartas</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, paddingTop: 72 }}>
+                    <div style={{ width: 1, height: 36, background: 'linear-gradient(180deg, transparent, #f4c349)' }} />
+                    <span style={{ fontFamily: 'Cinzel, serif', fontWeight: 900, fontSize: 28, color: '#f4c349' }}>⚔</span>
+                    <div style={{ width: 1, height: 36, background: 'linear-gradient(180deg, #f4c349, transparent)' }} />
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
+                    <Card card={aiCard} isFaceDown={!p2Turn} isPlayerTurn={p2Turn} onAttributeSelect={p2Turn ? handleP2AttributeSelect : undefined} advantageBonus={p2Turn && p2Advantage ? p2Advantage : undefined} />
+                  </div>
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, paddingTop: 72 }}>
-                  <div style={{ width: 1, height: 36, background: 'linear-gradient(180deg, transparent, #f4c349)' }} />
-                  <span style={{ fontFamily: 'Cinzel, serif', fontWeight: 900, fontSize: 28, color: '#f4c349' }}>⚔</span>
-                  <div style={{ width: 1, height: 36, background: 'linear-gradient(180deg, #f4c349, transparent)' }} />
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
-                  <span style={{ fontFamily: 'Cinzel, serif', fontWeight: 900, fontSize: 15, letterSpacing: '.15em', color: p2Turn ? '#fff8e1' : 'rgba(255,236,196,.6)' }}>{opponentLabel}</span>
-                  <Card card={aiCard} isFaceDown={!p2Turn} isPlayerTurn={p2Turn} onAttributeSelect={p2Turn ? handleP2AttributeSelect : undefined} advantageBonus={p2Turn && p2Advantage ? p2Advantage : undefined} />
-                  <div style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 11, color: 'rgba(244,195,73,.7)', padding: '3px 12px', border: '1px solid rgba(244,195,73,.3)' }}>{aiDeck.length} cartas</div>
-                </div>
+                <PlayerPod side="ai" name={opponentLabel} cardsLeft={aiDeck.length} wins={matchHistory.filter(h=>h.winner==='ai').length} losses={matchHistory.filter(h=>h.winner==='player').length} />
               </div>
             )}
 
@@ -432,6 +550,7 @@ const App: React.FC = () => {
                 </div>
               </div>
             )}
+            {!isMobile && <CardHand deck={playerDeck} />}
           </div>
         );
       }
@@ -474,26 +593,26 @@ const App: React.FC = () => {
                 </div>
               </div>
             ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: 24, width: '100%', alignItems: 'start' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
-                  <span style={{ fontFamily: 'Cinzel, serif', fontWeight: 900, fontSize: 15, letterSpacing: '.15em', color: '#fff8e1' }}>{p1Label}</span>
-                  <div className={transferAnim === 'ai-wins' ? 'card-transfer-fly-left' : transferAnim === 'player-wins' ? 'card-winner-glow' : ''}>
-                    <Card card={playerCard} highlightedAttribute={attribute} isWinner={isRevealing && winner === 'player'} isLoser={isRevealing && winner === 'ai'} />
+              <div style={{ display: 'flex', gap: 12, width: '100%', alignItems: 'flex-start' }}>
+                <PlayerPod side="player" name={p1Label} cardsLeft={playerDeck.length} wins={matchHistory.filter(h=>h.winner==='player').length} losses={matchHistory.filter(h=>h.winner==='ai').length} picture={userProfile?.picture} />
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: 20, flex: 1, alignItems: 'start' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
+                    <div className={transferAnim === 'ai-wins' ? 'card-transfer-fly-left' : transferAnim === 'player-wins' ? 'card-winner-glow' : ''}>
+                      <Card card={playerCard} highlightedAttribute={attribute} isWinner={isRevealing && winner === 'player'} isLoser={isRevealing && winner === 'ai'} />
+                    </div>
                   </div>
-                  <div style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 11, color: 'rgba(244,195,73,.7)', padding: '3px 12px', border: '1px solid rgba(244,195,73,.3)' }}>{playerDeck.length} cartas</div>
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, paddingTop: 72, transition: 'opacity 0.5s', opacity: showResultInfo ? 1 : 0 }}>
-                  <div style={{ width: 1, height: 36, background: 'linear-gradient(180deg, transparent, #f4c349)' }} />
-                  <span style={{ fontFamily: 'Cinzel, serif', fontWeight: 900, fontSize: 28, color: '#f4c349' }}>⚔</span>
-                  <div style={{ width: 1, height: 36, background: 'linear-gradient(180deg, #f4c349, transparent)' }} />
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
-                  <span style={{ fontFamily: 'Cinzel, serif', fontWeight: 900, fontSize: 15, letterSpacing: '.15em', color: 'rgba(255,236,196,.6)' }}>{opponentLabelResult}</span>
-                  <div className={transferAnim === 'player-wins' ? 'card-transfer-fly-right' : transferAnim === 'ai-wins' ? 'card-winner-glow' : ''}>
-                    <Card card={aiCard} isFaceDown={!isRevealing} highlightedAttribute={attribute} isWinner={isRevealing && winner === 'ai'} isLoser={isRevealing && winner === 'player'} />
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, paddingTop: 72, transition: 'opacity 0.5s', opacity: showResultInfo ? 1 : 0 }}>
+                    <div style={{ width: 1, height: 36, background: 'linear-gradient(180deg, transparent, #f4c349)' }} />
+                    <span style={{ fontFamily: 'Cinzel, serif', fontWeight: 900, fontSize: 28, color: '#f4c349' }}>⚔</span>
+                    <div style={{ width: 1, height: 36, background: 'linear-gradient(180deg, #f4c349, transparent)' }} />
                   </div>
-                  <div style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 11, color: 'rgba(244,195,73,.7)', padding: '3px 12px', border: '1px solid rgba(244,195,73,.3)' }}>{aiDeck.length} cartas</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
+                    <div className={transferAnim === 'player-wins' ? 'card-transfer-fly-right' : transferAnim === 'ai-wins' ? 'card-winner-glow' : ''}>
+                      <Card card={aiCard} isFaceDown={!isRevealing} highlightedAttribute={attribute} isWinner={isRevealing && winner === 'ai'} isLoser={isRevealing && winner === 'player'} />
+                    </div>
+                  </div>
                 </div>
+                <PlayerPod side="ai" name={opponentLabelResult} cardsLeft={aiDeck.length} wins={matchHistory.filter(h=>h.winner==='ai').length} losses={matchHistory.filter(h=>h.winner==='player').length} />
               </div>
             )}
 
@@ -593,7 +712,15 @@ const App: React.FC = () => {
         return <Ranking rankingData={rankingData} onBack={handleBackToMenu} isLoading={isLoadingRanking} />;
 
       case GameState.Admin:
-        return <AdminPanel cards={deck} onSave={handleSaveCard} onDelete={handleDeleteCard} onBack={handleBackToMenu} />;
+        return <AdminPanel
+          cards={deck}
+          onSave={handleSaveCard}
+          onDelete={handleDeleteCard}
+          onBack={handleBackToMenu}
+          gameSettings={gameSettings}
+          onSaveSettings={setGameSettings}
+          onSyncFromDB={handleSyncFromDB}
+        />;
 
       default:
         return null;
