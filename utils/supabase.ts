@@ -89,6 +89,70 @@ export interface PlayerStats {
   totalScore: number;
 }
 
+// ─── Reverse element type map ─────────────────────────────────
+const REVERSE_ELEMENT_MAP: Partial<Record<ElementType, string>> = {
+  [ElementType.Actinide]:           'actinide',
+  [ElementType.AlkaliMetal]:        'alkali',
+  [ElementType.AlkalineEarthMetal]: 'alkaline_earth',
+  [ElementType.Halogen]:            'halogen',
+  [ElementType.Lanthanide]:         'lanthanide',
+  [ElementType.TransitionMetal]:    'transition_metal',
+  [ElementType.Metalloid]:          'metalloid',
+  [ElementType.NobleGas]:           'noble_gas',
+  [ElementType.ReactiveNonmetal]:   'non_metal',
+  [ElementType.PostTransitionMetal]:'post_transition',
+};
+
+export async function upsertCardToDB(card: CardData): Promise<boolean> {
+  const numId = parseInt(card.id, 10);
+  if (isNaN(numId)) { console.warn('[supabase] upsertCardToDB: non-numeric id skipped'); return false; }
+  const melting = Math.round((card.attributes[Attribute.Dureza] / 100) * (3694) - 272);
+  const { error } = await supabase.from('element_cards').upsert({
+    id: numId,
+    knight_name: card.name,
+    image_url: card.imageUrl,
+    element_type: REVERSE_ELEMENT_MAP[card.element] ?? 'transition_metal',
+    is_super_trump: card.isSuperTrunfo ?? false,
+    reactivity:    card.attributes[Attribute.Reatividade],
+    radioactivity: card.attributes[Attribute.Radioatividade],
+    atomic_mass:   card.attributes[Attribute.MassaAtomica],
+    density:       card.attributes[Attribute.Condutividade] / 10,
+    melting_point: melting,
+  }, { onConflict: 'id' });
+  if (error) { console.error('[supabase] upsertCardToDB:', error.message); return false; }
+  return true;
+}
+
+export async function listCardImages(): Promise<Array<{ name: string; url: string; path: string }>> {
+  const { data, error } = await supabase.storage
+    .from('card-images')
+    .list('cards', { limit: 200, sortBy: { column: 'created_at', order: 'desc' } });
+  if (error || !data) { console.error('[supabase] listCardImages:', error?.message); return []; }
+  return data
+    .filter(f => f.name !== '.emptyFolderPlaceholder')
+    .map(f => {
+      const path = `cards/${f.name}`;
+      const { data: urlData } = supabase.storage.from('card-images').getPublicUrl(path);
+      return { name: f.name, url: urlData.publicUrl, path };
+    });
+}
+
+export async function deleteCardImage(path: string): Promise<boolean> {
+  const { error } = await supabase.storage.from('card-images').remove([path]);
+  if (error) { console.error('[supabase] deleteCardImage:', error.message); return false; }
+  return true;
+}
+
+export async function resetPlayerScore(userId: string): Promise<boolean> {
+  const { error } = await supabase.from('card_game_rankings').update({
+    total_score: 0, games_won: 0, games_lost: 0, total_games: 0,
+    current_streak: 0, longest_streak: 0, win_rate: 0,
+    highest_score: 0, total_cards_played: 0, cosmo: 0, po: 0,
+  }).eq('user_id', userId);
+  if (error) { console.error('[supabase] resetPlayerScore:', error.message); return false; }
+  return true;
+}
+
 // ─── Storage ──────────────────────────────────────────────────
 export async function uploadCardImage(file: File, cardName: string): Promise<string | null> {
   const ext = file.name.split('.').pop()?.toLowerCase() ?? 'jpg';

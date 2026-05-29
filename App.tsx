@@ -16,6 +16,7 @@ import { setMuted as setMutedFn } from './utils/sounds';
 import { useIsMobile } from './utils/mobile';
 import { fetchRanking, saveDeckToCloud, loadCardsFromDB, addCurrency, RankingRow, PlayerCurrency, PlayerStats } from './utils/supabase';
 import { SK, migrateStorage } from './utils/storage';
+import { GameSettings, loadGameSettings, saveGameSettings } from './utils/gameSettings';
 import { useAuth } from './hooks/useAuth';
 import { usePlayerStats } from './hooks/usePlayerStats';
 import { useGameEngine } from './hooks/useGameEngine';
@@ -170,6 +171,7 @@ const App: React.FC = () => {
   const [rankingData, setRankingData] = useState<RankingEntry[]>([]);
   const [isLoadingRanking, setIsLoadingRanking] = useState(false);
   const [muted, setMuted] = useState(() => localStorage.getItem(SK.muted) === '1');
+  const [gameSettings, setGameSettings] = useState<GameSettings>(() => loadGameSettings());
   const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' | 'info' } | null>(null);
 
   // Saved game snapshot for Continue Banner
@@ -193,6 +195,8 @@ const App: React.FC = () => {
     setMutedFn(muted);
     localStorage.setItem(SK.muted, muted ? '1' : '0');
   }, [muted]);
+
+  useEffect(() => { saveGameSettings(gameSettings); }, [gameSettings]);
 
   useEffect(() => {
     localStorage.setItem(SK.deck, JSON.stringify(deck));
@@ -232,6 +236,8 @@ const App: React.FC = () => {
   } = useGameEngine({
     deck, difficulty, userProfile, setGameState,
     applyQuestReward, updateAfterGame, showToast,
+    timerSeconds: gameSettings.timerSeconds,
+    advantagePct: gameSettings.enableAdvantage ? gameSettings.advantagePct : 0,
   });
 
   // Persist/clear saved game snapshot for Continue Banner.
@@ -302,6 +308,16 @@ const App: React.FC = () => {
   };
 
   const handleDeleteCard = (cardId: string) => setDeck(prev => prev.filter(c => c.id !== cardId));
+
+  const handleSyncFromDB = useCallback(async () => {
+    const dbCards = await loadCardsFromDB();
+    if (dbCards.length > 0) {
+      setDeck(dbCards);
+      showToast(`${dbCards.length} cartas sincronizadas do Supabase!`, 'success');
+    } else {
+      showToast('Nenhuma carta encontrada no banco.', 'error');
+    }
+  }, [showToast]);
 
   // M4: forge a card attribute — deducts Cosmo, bumps the attribute +8, increments forgeLevel
   const FORGE_COSTS = [100, 250, 500] as const;
@@ -696,7 +712,15 @@ const App: React.FC = () => {
         return <Ranking rankingData={rankingData} onBack={handleBackToMenu} isLoading={isLoadingRanking} />;
 
       case GameState.Admin:
-        return <AdminPanel cards={deck} onSave={handleSaveCard} onDelete={handleDeleteCard} onBack={handleBackToMenu} />;
+        return <AdminPanel
+          cards={deck}
+          onSave={handleSaveCard}
+          onDelete={handleDeleteCard}
+          onBack={handleBackToMenu}
+          gameSettings={gameSettings}
+          onSaveSettings={setGameSettings}
+          onSyncFromDB={handleSyncFromDB}
+        />;
 
       default:
         return null;
